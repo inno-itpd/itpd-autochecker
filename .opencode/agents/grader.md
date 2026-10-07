@@ -1,5 +1,5 @@
 ---
-description: "Reviews one ITPD assignment team submission. Launch one per team. Reads the PDF and snapshot ZIP, checks GitHub, writes feedback.md."
+description: "Reviews one ITPD assignment team submission. Launch one per team. Reads the PDF, fetches the snapshot from GitHub, checks GitHub evidence, writes feedback.md."
 mode: subagent
 ---
 

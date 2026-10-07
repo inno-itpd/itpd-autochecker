@@ -30,8 +30,8 @@ Files under `A1/itpd/` override the current course repository, even where the cu
 - Soft deadline: Thursday 1 October 2026, 23:59.
 - Hard deadline: Friday 2 October 2026, 23:59.
 - Week 1 runs 25 September to 1 October 2026, and Week 2 runs 2 to 8 October 2026 (`A1/itpd/course/syllabus.md`).
-- Submissions: `itpd-assignments-feedback/A1/submissions/<team_dir>/` holds one Moodle PDF and one snapshot ZIP per team.
-- Working copy: unzip the snapshot into `itpd-assignments-feedback/A1/work/<team_dir>/`.
+- Submissions: `itpd-assignments-feedback/A1/submissions/<team_dir>/` holds the Moodle PDF; there is no ZIP.
+- Working copy: fetch the snapshot from GitHub at the permalink SHA into `itpd-assignments-feedback/A1/work/<team_dir>/`.
 
 Segments, in report order:
 
@@ -352,7 +352,7 @@ Guardrails:
 Check:
 
 - PDF: page count, project name, team number, member table, permalink, recording link, refused transcript if any, privacy line, and anything else it contains.
-- The ZIP's top-level directory name, and `gh api repos/<org>/<repo>/compare/<snapshot-sha>...main --jq .status` to confirm the snapshot is on `main`.
+- `gh api repos/<org>/<repo>/compare/<snapshot-sha>...main --jq .status`, to confirm the snapshot is on `main`.
 - `gh api repos/<org>/<repo>/commits/<snapshot-sha> --jq .commit.committer.date`, for the snapshot commit date.
 - Snapshot file: `reports/week-01/README.md`, and every link in it.
 - `A1/itpd/course/teams-and-projects.md`, for the team number and project pair.
@@ -362,7 +362,7 @@ Check:
 
 - The PDF is at most two pages and contains only the six required items: project name and team number; a table of members with GitHub username, real name, and university email; a permalink to `reports/week-01/README.md` at a full 40-character SHA; the recording link; the transcript, only if the Customer refused publication; and one line confirming no private-only material was committed.
 - The member table lists 3 or 4 members, and the team number and project match `A1/itpd/course/teams-and-projects.md`.
-- The snapshot ZIP is present, matches the permalink SHA, and that commit is on `main`.
+- The permalink commit is on `main`.
 - `reports/week-01/README.md` opens with the project name, the team number, and the problem-space sentence, which matches the one in `docs/research/alternatives.md`.
 - It contains a short summary of what the team found and what it proposes.
 - It contains a coverage table with one row per deliverable (candidate list, alternatives search, comparison, gap analysis, value proposition, research board, meeting script, Customer kickoff, AI usage), each linking the artifact that satisfies it, and no second list of the same links after it.
@@ -378,7 +378,7 @@ Check:
 `partial`:
 
 - `reports/week-01/README.md` exists and the PDF carries a usable permalink, but at least one `met` item is a verified shortfall.
-  Typical cases: a missing coverage row, a missing evidence link, a linked pull request that was not approved by another member, a contribution table missing a member, no `LICENSE` link, no deviations section, no privacy line, a PDF over two pages or carrying copied report content, a missing ZIP, or committed private-only material.
+  Typical cases: a missing coverage row, a missing evidence link, a linked pull request that was not approved by another member, a contribution table missing a member, no `LICENSE` link, no deviations section, no privacy line, a PDF over two pages or carrying copied report content, or committed private-only material.
 
 `missing`:
 
@@ -392,7 +392,8 @@ Guardrails:
 - A team of 2 or 5 is a verified shortfall here; say so without naming anyone.
 - Never copy a real name, email address, or recording link into the feedback, including when reporting that one was committed; give the path and line number instead.
 - The `.lycheeignore` justification and the browser-check confirmation belong to S2, even though they sit in the week report.
-- The snapshot-resolution rules, including ZIP and permalink mismatches, are in `docs/grader-policy.md`; record the effect on this segment here.
+- The snapshot-resolution rules are in `docs/grader-policy.md`; record the effect on this segment here.
+- Teams submit no ZIP; do not require or report on one.
 
 ### S9 — AI usage and research honesty
 
@@ -436,7 +437,7 @@ Guardrails:
    If a team directory holds more than one PDF, use the one that carries the permalink.
 3. From the PDF, extract: the project name, the team number, the member table as GitHub usernames only, the permalink and its SHA, the recording link, whether a transcript is included, the privacy confirmation line, and the page count.
    Keep real names and emails out of notes and feedback.
-4. Resolve the snapshot under `docs/grader-policy.md`, and unzip the ZIP into `itpd-assignments-feedback/A1/work/<team_dir>/`.
+4. Resolve the snapshot under `docs/grader-policy.md`, and fetch it from GitHub into `itpd-assignments-feedback/A1/work/<team_dir>/`.
 5. Record the snapshot commit date and confirm the snapshot is on `main`:
 
    ```bash

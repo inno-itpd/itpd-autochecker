@@ -60,7 +60,7 @@ If the primary index is `none`, add one more bullet immediately below:
 - `- Notes about the snapshot: <prose explanation>`
 
 The `Notes about the snapshot` bullet is not allowed when a primary index was reviewed.
-Mismatches between the PDF permalink and the snapshot ZIP belong in `## Unresolved evidence gaps`, not in the metadata.
+Problems resolving the PDF permalink belong in `## Unresolved evidence gaps`, not in the metadata.
 
 ## Overall assessment
 

@@ -39,21 +39,19 @@ It applies to every assignment unless the assignment's `A<N>/grading_prompt.md` 
 ## Evidence-state definitions
 
 - `missing`: the required artifact or information is absent.
-- `inaccessible`: the artifact may exist, but the grader cannot verify it through the snapshot ZIP, the public GitHub repository, the GitHub API with `GITHUB_TOKEN`, or the Moodle PDF where the assignment allows PDF evidence.
-- `conflicting`: the PDF, the ZIP, the repository, GitHub metadata, or the linked artifacts disagree materially.
+- `inaccessible`: the artifact may exist, but the grader cannot verify it through the snapshot, the public GitHub repository, the GitHub API with `GITHUB_TOKEN`, or the Moodle PDF where the assignment allows PDF evidence.
+- `conflicting`: the PDF, the repository, GitHub metadata, or the linked artifacts disagree materially.
 
 ## Submission and snapshot rules
 
-ITPD submissions are uploaded to Moodle as one PDF plus a ZIP of the repository at one commit.
+ITPD submissions are uploaded to Moodle as a PDF report that carries a permalink to the week report.
+There is no ZIP.
 
 - The PDF must carry a permalink to `reports/week-NN/README.md` at a full 40-character commit SHA.
   A 7-character abbreviation is not a permalink.
 - The authoritative snapshot is that full SHA.
-- The ZIP is the primary offline evidence.
-  GitHub's archive ZIP contains one top-level directory named `<repo>-<sha>`.
-  Check that the directory name's SHA matches the permalink SHA.
-- If the ZIP is missing or its SHA disagrees with the permalink, review the repository at the permalink SHA through GitHub instead.
-  Record the mismatch as conflicting evidence in the affected segment and in `## Unresolved evidence gaps`.
+- Fetch the snapshot from GitHub at that SHA (`gh api repos/<org>/<repo>/tarball/<sha>`) and use it as the offline evidence.
+- Do not require or report on a ZIP.
 - If no full SHA can be found, or the commit does not exist in the repository, stop repository-dependent checks.
   Write `Snapshot reviewed: none` and `Primary index reviewed: none` with a `Notes about the snapshot` bullet, and mark the repository-dependent segments `unverified` with `Evidence gaps: yes`.
 - Use only the snapshot for file evidence.
@@ -61,7 +59,7 @@ ITPD submissions are uploaded to Moodle as one PDF plus a ZIP of the repository 
 
 ## Live GitHub evidence
 
-Process evidence lives on GitHub, not in the ZIP: branch protection, pull requests, reviews, issues, labels, and Actions runs.
+Process evidence lives on GitHub, not in the snapshot files: branch protection, pull requests, reviews, issues, labels, and Actions runs.
 
 - Use the `gh` CLI (`gh api`, `gh pr list`, `gh issue list`, `gh run list`) with `--repo <org>/<repo>`.
 - Judge live state as of the snapshot where possible.
@@ -113,9 +111,9 @@ Process evidence lives on GitHub, not in the ZIP: branch protection, pull reques
 
 1. Read the PDF first.
    Extract the team number, the repository URL, the permalink and its SHA, and the declared links.
-2. Unpack the ZIP and check it against the permalink.
-3. Resolve the authoritative snapshot under the rules above.
-4. Review the files offline from the unpacked snapshot.
+2. Resolve the authoritative snapshot under the rules above.
+3. Fetch the snapshot from GitHub at the permalink SHA.
+4. Review the files offline from the fetched snapshot.
 5. Collect the live GitHub evidence the assignment requires.
 6. Judge each segment independently with the assignment's status guide.
 7. Write the report in the canonical format and validate it with `scripts/validate_feedback_report.py`.
@@ -144,6 +142,8 @@ Process evidence lives on GitHub, not in the ZIP: branch protection, pull reques
 
 ## Authenticated access and token handling
 
+<!-- TODO can we get it from gh? -->
+<!-- TODO which scopes should it have? -->
 - `GITHUB_TOKEN` is loaded into the shell environment by direnv; `gh` picks it up automatically.
 - Do not read `.env`, echo token values, or include them in reports.
   Reference tokens only by variable name.

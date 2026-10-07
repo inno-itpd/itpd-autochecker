@@ -3,6 +3,9 @@
 AI-agent tooling that reviews team submissions for the ITPD course ([`inno-itpd/itpd`](https://github.com/inno-itpd/itpd)).
 The agent writes structured feedback for each segment, and the instructor decides the grade.
 
+<!-- TODO how to ask an agent to grade? Maybe need a skill and need to document it somewhere here -->
+<!-- TODO where to store submissions -->
+
 ## Setup
 
 ```console
@@ -21,7 +24,7 @@ uv run pytest
 - `agents/grader.md`: the one-team grader prompt, used through `.claude/agents/` and `.opencode/agents/`.
 - `docs/`: the grading policy and the feedback report format.
 - `scripts/`: validate, inspect, patch, and regrade feedback reports.
-- `itpd-assignments-feedback/`: the submodule holding submissions (gitignored), feedback, and exports.
+- `itpd-assignments-feedback/`: the submodule holding submission PDFs, feedback, and exports.
 - `backlog/`: Backlog.md tasks for this repo.
 
 See `AGENTS.md` for the full workflow.

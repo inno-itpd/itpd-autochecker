@@ -25,8 +25,8 @@
 ├── backlog/                   # Backlog.md tasks for this repo
 └── itpd-assignments-feedback/ # Submodule: assignment data and feedback
     └── A<N>/
-        ├── submissions/       # (gitignored) Moodle export: <team_dir>/{*.pdf,*.zip}
-        ├── work/              # (gitignored) unpacked snapshot ZIPs
+        ├── submissions/       # Moodle export, committed: <team_dir>/*.pdf
+        ├── work/              # (gitignored) snapshots fetched from GitHub at the permalink SHA
         ├── feedback/markdown/<team_dir>/feedback.md
         ├── dev.md             # Instructor triage table
         └── feedback_release.csv
@@ -45,8 +45,8 @@
 - ITPD assignments are not scored with points.
   Each segment gets a status: `met`, `partial`, `missing`, or `unverified`.
   The instructor decides the grade.
-- Each submission is a Moodle PDF plus a ZIP of the repository at one commit.
-  The PDF carries a permalink to `reports/week-NN/README.md` at the full SHA.
+- The grader gets only the Moodle PDF; there is no ZIP.
+  The PDF carries a permalink to `reports/week-NN/README.md` at the full SHA, and the grader fetches the snapshot from GitHub at that SHA.
 - `A<N>/itpd` pins the course repository (`inno-itpd/itpd`) at the commit the assignment is reviewed against.
   A1 is pinned to `fe58ba7`, the version published at the Week 1 deadline.
 
@@ -139,6 +139,8 @@ Run `backlog` inside the dev shell so `BACKLOG_CWD` points at this repo.
 - `markdownlint-cli2 "**/*.md"`
 
 ## Git conventions
+
+<!-- TODO use commit-itpd skill from the itpd repo -->
 
 - Use Conventional Commits with a path scope, for example `feat(A1/prompt): ...`, `fix(tools): ...`, `docs(agents): ...`, `chore(deps): ...`.
 - Every commit has a body of 2-4 short bullets explaining what changed and why.

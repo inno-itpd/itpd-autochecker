@@ -26,8 +26,8 @@ Follow the operator request to choose one of these modes:
 
 ## Paths
 
-- Submission: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/submissions/{TEAM_DIR}/` (one PDF and one ZIP)
-- Unpacked snapshot: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/`
+- Submission: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/submissions/{TEAM_DIR}/` (the Moodle PDF report)
+- Snapshot working copy, fetched from GitHub at the permalink SHA: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/`
 - Report: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/feedback.md`
 
 ## Steps
@@ -55,18 +55,17 @@ Follow the operator request to choose one of these modes:
    - the privacy confirmation;
    - anything else the assignment prompt asks for.
    Do not copy real names or emails into any output.
-7. Unpack the ZIP:
+7. Resolve the authoritative snapshot with `docs/grader-policy.md#submission-and-snapshot-rules`.
+   - Confirm that the commit exists with `gh api repos/<org>/<repo>/commits/<sha> --jq .sha`.
+   - If no full SHA can be found, or the commit does not exist, stop repository-dependent checks.
+8. Fetch the snapshot at the permalink SHA:
 
    ```console
    mkdir -p "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
-   unzip -q -o itpd-assignments-feedback/{ASSIGNMENT_DIR}/submissions/{TEAM_DIR}/*.zip -d "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
+   gh api "repos/<org>/<repo>/tarball/<sha>" | tar -xz --strip-components=1 -C "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
    ```
 
-   Check that the top-level `<repo>-<sha>` directory matches the permalink SHA.
-8. Resolve the authoritative snapshot with `docs/grader-policy.md#submission-and-snapshot-rules`.
-   - If no full SHA can be found, or the commit does not exist, stop repository-dependent checks.
-   - Confirm that the commit exists with `gh api repos/<org>/<repo>/commits/<sha> --jq .sha`.
-9. Review the files offline in the unpacked snapshot.
+9. Review the files offline in the fetched snapshot.
    Use `rg` and the file-reading tools.
    Build evidence links as `https://github.com/<org>/<repo>/blob/<sha>/<path>`.
 10. Collect the live GitHub evidence the assignment prompt asks for with `gh` (pull requests, reviews, issues, labels, Actions runs, branch protection).

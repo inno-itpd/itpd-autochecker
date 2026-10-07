@@ -43,9 +43,10 @@ These `**Since: W3**` rules do not apply: root `README.md` setup instructions, S
 - Soft deadline: Thursday 8 October 2026, 23:59.
 - Hard deadline: Saturday 10 October 2026, 23:59, the Week 2 exception that `course/syllabus.md` states.
 - The time zone is not stated; read both deadlines as Innopolis time (UTC+3).
-- Submission inputs: one PDF and one snapshot ZIP under `itpd-assignments-feedback/A2/submissions/<team_dir>/`, with the ZIP unzipped into `itpd-assignments-feedback/A2/work/<team_dir>/`.
+- Submission inputs: the Moodle PDF under `itpd-assignments-feedback/A2/submissions/<team_dir>/`; there is no ZIP.
+  The snapshot is fetched from GitHub at the permalink SHA into `itpd-assignments-feedback/A2/work/<team_dir>/`.
 - Live artifact families: story and task issues with their comments, timelines, and edit history; repository labels; pull requests with their reviews, files, and closing references; Actions runs of the Markdown check and the link check; external prototype views; and the meeting recording link.
-- Story and task issues are not in the ZIP, so they are read live and judged as of the snapshot commit time, per [procedure step 6](#assignment-specific-procedure-deltas).
+- Story and task issues are not in the snapshot, so they are read live and judged as of the snapshot commit time, per [procedure step 6](#assignment-specific-procedure-deltas).
 
 The segments, in order:
 
@@ -461,7 +462,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 - `reports/week-02/README.md` at the snapshot, and every repository file it links.
 - The Moodle PDF, its page count, and its contents.
-- The ZIP's top-level directory name, the snapshot SHA's position on `main`, and the snapshot commit time, per procedure step 4.
+- The snapshot SHA's position on `main`, and the snapshot commit time, per procedure step 4.
 - A privacy scan of the snapshot, per procedure step 12.
 
 **met:**
@@ -479,7 +480,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - `## Deviations` declares every deviation observed in the other segments, or says `None` when there is none.
 - One line states that no private-only material was committed to the repository.
 - The privacy scan finds no private-only material in the snapshot outside the meeting artifacts.
-- The snapshot SHA is on `main`, the PDF permalink points at `reports/week-02/README.md` at that full 40-character SHA, and the ZIP is the archive of the same commit.
+- The snapshot SHA is on `main`, and the PDF permalink points at `reports/week-02/README.md` at that full 40-character SHA.
 - The PDF is at most two pages, not counting a transcript appendix, and holds only the six items of `assignment-2.md`: the project name and team number, the member table, the permalink, the recording line, the transcript when publication was refused, and the privacy confirmation line.
 
 **partial:**
@@ -544,7 +545,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    - the privacy confirmation line;
    - the page count, for example from `pdfinfo`, and anything outside the six allowed items.
 
-3. Unzip the ZIP into `itpd-assignments-feedback/A2/work/<team_dir>/` when that directory is empty, check that its top-level directory is `<repo>-<SHA>`, and resolve the snapshot per `docs/grader-policy.md`.
+3. Resolve the snapshot per `docs/grader-policy.md`, and fetch it from GitHub into `itpd-assignments-feedback/A2/work/<team_dir>/` when that directory is empty.
 4. Set `REPO=<org>/<repo>` and `SHA=<full SHA>`, then read the snapshot commit time and check that the commit is on `main`:
 
    ```sh
@@ -555,7 +556,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    A status of `identical` or `ahead` puts the commit on `main`; `behind` or `diverged` does not, which is an S9 shortfall.
    Call the first value `SNAPSHOT_TIME`.
 
-5. Collect the live evidence once and keep it beside, not inside, the unzipped snapshot:
+5. Collect the live evidence once and keep it beside, not inside, the fetched snapshot:
 
    ```sh
    gh label list --repo "$REPO" --limit 200 --json name,description

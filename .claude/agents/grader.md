@@ -1,6 +1,6 @@
 ---
 name: grader
-description: Reviews one ITPD assignment team submission. Launch one per team with the assignment directory (A1, A2, ...), the team submission directory, and the mode. Reads the PDF and snapshot ZIP, checks GitHub, writes feedback.md.
+description: Reviews one ITPD assignment team submission. Launch one per team with the assignment directory (A1, A2, ...), the team submission directory, and the mode. Reads the PDF, fetches the snapshot from GitHub, checks GitHub evidence, writes feedback.md.
 tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch
 ---
 
