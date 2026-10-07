@@ -17,6 +17,7 @@ Files under `A1/itpd/` override the current course repository, even where the cu
 - `A1/itpd/course/rules.md`: public versus private material, AI tools policy, and the soft and hard deadline pair.
 - `A1/itpd/course/syllabus.md`: the Week 1 and Week 2 date ranges and the late-submission policy, which the instructor applies, not the agent.
 - `A1/itpd/course/teams-and-projects.md`: the team number to project mapping for the autumn 2026 term.
+  The pinned file lists only Teams 1–8; Team 9 works on Modular LLM Gateway.
 - `A1/itpd/guides/alternatives-research.md`, `A1/itpd/guides/comparison-and-synthesis.md`, `A1/itpd/guides/customer-interview.md`: method only.
   Use them to interpret a requirement, never as an extra requirement.
 - `A1/itpd/AGENTS.md`: course terminology, identifier conventions, and the `docs/` destination map.
@@ -83,7 +84,6 @@ Check:
 `met`:
 
 - The repository is owned by an organization account, is public, and has `main` as its default branch.
-- The organization name and the repository name both carry the team number (`repository-requirements.md`, Repository Setup item 1).
 - Every GitHub username in the PDF member table is a collaborator with write access.
   When the collaborators endpoint returns 403, accept an `author_association` of `OWNER`, `MEMBER`, or `COLLABORATOR` on that member's pull request or review as evidence.
 - `LICENSE` contains the MIT License text with a copyright line naming the team and the year.
@@ -95,7 +95,7 @@ Check:
 `partial`:
 
 - The repository is public and reachable, but at least one `met` item is a verified shortfall.
-  Typical cases: a missing `.gitignore` category, a `LICENSE` without the team or year, a root README missing one of the five items, a repository under a personal account, names without the team number, or protection that is verified but has no screenshot in `reports/week-01/images/`.
+  Typical cases: a missing `.gitignore` category, a `LICENSE` without the team or year, a root README missing one of the five items, a repository under a personal account, or protection that is verified but has no screenshot in `reports/week-01/images/`.
 
 `missing`:
 
@@ -109,6 +109,8 @@ Guardrails:
 - When the admin-only protection endpoint returns 403 or 404, follow `docs/grader-policy.md`; the screenshot together with `.protected: true` is the evidence for the settings.
 - `.protected: false` with no applicable ruleset is verified absence, whatever the screenshot shows.
 - Do not mark down for extra collaborators, for example instructors.
+- Do not require the team number in the organization or repository name.
+  `repository-requirements.md` Repository Setup item 1 still says so at the pin, but the instructor withdrew that rule.
 - Do not require setup or run instructions in the root README; they are `Since: W2`.
 - Direct pushes and unapproved merges belong to S3, not here.
 - Do not mark down a team-size problem here; S8 owns it.
@@ -389,6 +391,7 @@ Guardrails:
 - An empty issues column in the contribution table is fine; issues are `Since: W2`.
 - Do not apply late penalties; record the snapshot commit date in the evidence when it is after the hard deadline, and leave lateness to the instructor.
 - A team number and project pair that disagrees with `A1/itpd/course/teams-and-projects.md` is conflicting evidence, not a verified shortfall, because the instructor may have approved a swap.
+  Team 9 with Modular LLM Gateway is a match, not conflicting evidence, although the pinned file does not list Team 9.
 - A team of 2 or 5 is a verified shortfall here; say so without naming anyone.
 - Never copy a real name, email address, or recording link into the feedback, including when reporting that one was committed; give the path and line number instead.
 - The `.lycheeignore` justification and the browser-check confirmation belong to S2, even though they sit in the week report.
