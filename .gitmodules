@@ -1,0 +1,6 @@
+[submodule "A1/itpd"]
+	path = A1/itpd
+	url = https://github.com/inno-itpd/itpd
+[submodule "A2/itpd"]
+	path = A2/itpd
+	url = https://github.com/inno-itpd/itpd
