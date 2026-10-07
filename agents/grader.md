@@ -29,19 +29,29 @@ Follow the operator request to choose one of these modes:
 - Submission: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/submissions/{TEAM_DIR}/` (the Moodle PDF report)
 - Snapshot working copy, fetched from GitHub at the permalink SHA: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/`
   It is disposable: every review rebuilds it, and it can be deleted after grading.
+- Scratch directory: `tmp/{ASSIGNMENT_DIR}/{TEAM_DIR}/` (gitignored).
+  Write every intermediate file here: API dumps, commit lists, fetched pages, images, payloads.
+  Other graders run in parallel, so never write to a shared scratchpad, to `/tmp` directly, or into another team's directory, and never read another team's files.
 - Report: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/feedback.md`
 
 ## Steps
 
-1. Read `docs/grader-policy.md`.
-2. Read `docs/grading-feedback-format.md`.
-3. Read `{ASSIGNMENT_DIR}/grading_prompt.md`.
-4. Read every file listed in its `## Authoritative sources` section.
+1. Empty the scratch directory, so no files from an earlier run remain:
+
+   ```console
+   rm -rf "tmp/{ASSIGNMENT_DIR}/{TEAM_DIR}"
+   mkdir -p "tmp/{ASSIGNMENT_DIR}/{TEAM_DIR}"
+   ```
+
+2. Read `docs/grader-policy.md`.
+3. Read `docs/grading-feedback-format.md`.
+4. Read `{ASSIGNMENT_DIR}/grading_prompt.md`.
+5. Read every file listed in its `## Authoritative sources` section.
    They live under `{ASSIGNMENT_DIR}/itpd/`, pinned at the commit the assignment is reviewed against.
-5. In `partial regrade` or `segment inspect` mode, read the current report.
+6. In `partial regrade` or `segment inspect` mode, read the current report.
    For a structured view, run `uv run python scripts/inspect_feedback_segments.py {ASSIGNMENT_DIR} <feedback.md> S<n> ...`.
    Add `--fresh-payload <payload.json> --format text` to compare saved and fresh state.
-6. Read the PDF:
+7. Read the PDF:
 
    ```console
    pdftotext -layout itpd-assignments-feedback/{ASSIGNMENT_DIR}/submissions/{TEAM_DIR}/*.pdf -
@@ -56,10 +66,10 @@ Follow the operator request to choose one of these modes:
    - the privacy confirmation;
    - anything else the assignment prompt asks for.
    Do not copy real names or emails into any output.
-7. Resolve the authoritative snapshot with `docs/grader-policy.md#submission-and-snapshot-rules`.
+8. Resolve the authoritative snapshot with `docs/grader-policy.md#submission-and-snapshot-rules`.
    - Confirm that the commit exists with `gh api repos/<org>/<repo>/commits/<sha> --jq .sha`.
    - If no full SHA can be found, or the commit does not exist, stop repository-dependent checks.
-8. Fetch the snapshot at the permalink SHA into an empty directory, so no files from an earlier fetch remain:
+9. Fetch the snapshot at the permalink SHA into an empty directory, so no files from an earlier fetch remain:
 
    ```console
    rm -rf "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
@@ -67,14 +77,14 @@ Follow the operator request to choose one of these modes:
    gh api "repos/<org>/<repo>/tarball/<sha>" | tar -xz --strip-components=1 -C "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
    ```
 
-9. Review the files offline in the fetched snapshot.
-   Use `rg` and the file-reading tools.
-   Build evidence links as `https://github.com/<org>/<repo>/blob/<sha>/<path>`.
-10. Collect the live GitHub evidence the assignment prompt asks for with `gh` (pull requests, reviews, issues, labels, Actions runs, branch protection).
+10. Review the files offline in the fetched snapshot.
+    Use `rg` and the file-reading tools.
+    Build evidence links as `https://github.com/<org>/<repo>/blob/<sha>/<path>`.
+11. Collect the live GitHub evidence the assignment prompt asks for with `gh` (pull requests, reviews, issues, labels, Actions runs, branch protection).
     Follow `docs/grader-policy.md#live-github-evidence`.
-11. For recordings and other consumer-hosted media, make one access check only.
-12. Judge each segment independently with the status guide in `{ASSIGNMENT_DIR}/grading_prompt.md`.
-13. Set `Evidence gaps` per segment, then derive `Manual review required` and the overall assessment counts.
+12. For recordings and other consumer-hosted media, make one access check only.
+13. Judge each segment independently with the status guide in `{ASSIGNMENT_DIR}/grading_prompt.md`.
+14. Set `Evidence gaps` per segment, then derive `Manual review required` and the overall assessment counts.
 
 ## Output
 

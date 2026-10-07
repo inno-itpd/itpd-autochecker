@@ -23,6 +23,7 @@
 ├── scripts/                   # validate / inspect / patch / regrade CLIs
 ├── tests/                     # pytest suite
 ├── backlog/                   # Backlog.md tasks for this repo
+├── tmp/A<N>/<team_dir>/       # (gitignored) per-team grader scratch, so parallel workers never collide
 └── itpd-assignments-feedback/ # Submodule: assignment data and feedback
     └── A<N>/
         ├── submissions/       # Moodle export, committed: <team_dir>/*.pdf
@@ -73,7 +74,7 @@ When the user asks to review or re-review teams:
    - Claude Code: the `grader` agent (`.claude/agents/grader.md`).
    - opencode: the `grader` subagent (`.opencode/agents/grader.md`) via the `task` tool.
    - Pass the assignment directory, the team directory, and the mode in the prompt.
-   - Workers write disjoint paths, so they need no coordination.
+   - Workers write disjoint paths (feedback, `work/`, and `tmp/` per team), so they need no coordination.
 5. If subagents are unavailable, review sequentially without asking.
 6. After all batches, run the lint and extraction steps from the workflow above.
 
