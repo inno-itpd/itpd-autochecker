@@ -64,6 +64,7 @@ Process evidence lives on GitHub, not in the snapshot files: branch protection, 
 - Use the `gh` CLI (`gh api`, `gh pr list`, `gh issue list`, `gh run list`) with `--repo <org>/<repo>`.
 - Judge live state as of the snapshot where possible.
   Compare `createdAt`, `mergedAt`, `closedAt`, and run timestamps with the snapshot commit date.
+  An assignment prompt may set a later cut-off for an artifact family, such as issues judged as of the hard deadline.
 - Changes made after the hard deadline do not repair the submission.
   Note them in the evidence, but do not credit them.
 - The grader usually lacks admin rights, so admin-only endpoints such as `repos/<org>/<repo>/branches/main/protection` are expected to return 403 or 404.
@@ -90,8 +91,10 @@ Process evidence lives on GitHub, not in the snapshot files: branch protection, 
 ## Deviations
 
 - The week report may declare deviations from the assignment with a justification.
-- A declared and justified deviation is not a shortfall.
-  Judge whether the justification is reasonable.
+- A declared deviation is judged on whether what the team did instead satisfies the intent of the rule, and on whether the justification is reasonable.
+  When it does, it is not a shortfall.
+- Declaring a deviation does not excuse a broken Required rule whose intent the alternative cannot satisfy, such as a meeting that changed nothing when a change is required.
+  That stays a shortfall, and the honest declaration is recorded as a strength.
 - An undeclared deviation is treated as a missing requirement.
 
 ## Quality and honesty
