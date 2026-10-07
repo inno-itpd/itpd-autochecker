@@ -1,9 +1,10 @@
 ---
 id: TASK-010
 title: Review A1 submissions
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-07 10:15'
+updated_date: '2026-10-07 21:08'
 labels: []
 dependencies: []
 ordinal: 10000
