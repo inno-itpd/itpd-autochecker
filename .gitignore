@@ -1,0 +1,25 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Nix / direnv
+.direnv/
+result
+
+# Scratch
+tmp/
+
+# Editors
+.vscode/
+.idea/
+
+# Agent harness state (keep the grader agent definitions)
+.claude/*
+!.claude/agents/
+.opencode/*
+!.opencode/agents/
