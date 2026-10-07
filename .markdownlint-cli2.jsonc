@@ -1,0 +1,10 @@
+{
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD033": false,
+    "MD046": { "style": "fenced" },
+    "MD060": false
+  },
+  "ignores": ["A*/itpd/**", "itpd-assignments-feedback/**/submissions/**", "itpd-assignments-feedback/**/work/**", "backlog/**", ".direnv/**", ".venv/**"]
+}
