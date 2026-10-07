@@ -545,7 +545,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    - the privacy confirmation line;
    - the page count, for example from `pdfinfo`, and anything outside the six allowed items.
 
-3. Resolve the snapshot per `docs/grader-policy.md`, and fetch it from GitHub into `itpd-assignments-feedback/A2/work/<team_dir>/` when that directory is empty.
+3. Resolve the snapshot per `docs/grader-policy.md`, and fetch it from GitHub into a freshly emptied `itpd-assignments-feedback/A2/work/<team_dir>/`, as in `agents/grader.md`.
 4. Set `REPO=<org>/<repo>` and `SHA=<full SHA>`, then read the snapshot commit time and check that the commit is on `main`:
 
    ```sh

@@ -26,7 +26,7 @@
 └── itpd-assignments-feedback/ # Submodule: assignment data and feedback
     └── A<N>/
         ├── submissions/       # Moodle export, committed: <team_dir>/*.pdf
-        ├── work/              # (gitignored) snapshots fetched from GitHub at the permalink SHA
+        ├── work/              # (gitignored, disposable) snapshots fetched from GitHub at the permalink SHA
         ├── feedback/markdown/<team_dir>/feedback.md
         ├── dev.md             # Instructor triage table
         └── feedback_release.csv

@@ -28,6 +28,7 @@ Follow the operator request to choose one of these modes:
 
 - Submission: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/submissions/{TEAM_DIR}/` (the Moodle PDF report)
 - Snapshot working copy, fetched from GitHub at the permalink SHA: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/`
+  It is disposable: every review rebuilds it, and it can be deleted after grading.
 - Report: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/feedback.md`
 
 ## Steps
@@ -58,9 +59,10 @@ Follow the operator request to choose one of these modes:
 7. Resolve the authoritative snapshot with `docs/grader-policy.md#submission-and-snapshot-rules`.
    - Confirm that the commit exists with `gh api repos/<org>/<repo>/commits/<sha> --jq .sha`.
    - If no full SHA can be found, or the commit does not exist, stop repository-dependent checks.
-8. Fetch the snapshot at the permalink SHA:
+8. Fetch the snapshot at the permalink SHA into an empty directory, so no files from an earlier fetch remain:
 
    ```console
+   rm -rf "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
    mkdir -p "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
    gh api "repos/<org>/<repo>/tarball/<sha>" | tar -xz --strip-components=1 -C "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
    ```
