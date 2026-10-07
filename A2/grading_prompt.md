@@ -46,7 +46,8 @@ These `**Since: W3**` rules do not apply: root `README.md` setup instructions, S
 - Submission inputs: the Moodle PDF under `itpd-assignments-feedback/A2/submissions/<team_dir>/`; there is no ZIP.
   The snapshot is fetched from GitHub at the permalink SHA into `itpd-assignments-feedback/A2/work/<team_dir>/`.
 - Live artifact families: story and task issues with their comments, timelines, and edit history; repository labels; pull requests with their reviews, files, and closing references; Actions runs of the Markdown check and the link check; external prototype views; and the meeting recording link.
-- Story and task issues are not in the snapshot, so they are read live and judged as of the snapshot commit time, per [procedure step 6](#assignment-specific-procedure-deltas).
+- Story and task issues are not in the snapshot, so they are read live and judged as of the hard deadline, `2026-10-10T23:59:59+03:00` (`ISSUE_CUTOFF`), per [procedure step 6](#assignment-specific-procedure-deltas).
+  An issue opened after the snapshot commit but by the hard deadline counts.
 
 The segments, in order:
 
@@ -115,14 +116,14 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - `.github/pull_request_template.md` prompts for what changed and why, what was checked and how, and what the reviewer should look at, and it asks for the task issue the pull request closes, for example with a `Closes #` line.
 - Every in-scope pull request closes exactly one issue, that issue carries `task`, and it is never a story issue.
 - Every in-scope pull request's head branch is `<closed task number>-<short lowercase hyphenated description>`.
-- Every merged in-scope pull request has an approving review from a member other than its author, its task's acceptance-criteria boxes are all ticked, and its task closed as completed.
+- Every merged in-scope pull request has an approving review from a member other than its author, its task's acceptance-criteria boxes were all ticked before that approval and are ticked at merge, and its task closed as completed.
 - Every pull request closed without merging, and every abandoned task, left its task closed as not planned with a comment that gives the reason and links the pull request when there is one.
 - Every task issue opened after the forms pull request carries `task`, has at least one criterion written as a checklist item `- [ ] AC-nn:` numbered within the issue, and has a `Story` field that is empty or lists story issues as `- #<n>`, optionally followed by `(AC-nn, ...)`.
 
 **partial:**
 
 - The three files and the labels exist, and at least one other `met` criterion fails.
-- Typical shortfalls: a pull request that closes no issue, two issues, or a story issue; a branch without the task number; a merged pull request with no non-author approval or with unticked criteria; the blank issue without `task`; an `ASM-nn` left in `Traces to`; a catch-up field added inside an unrelated pull request; a template that does not ask for the task issue.
+- Typical shortfalls: a pull request that closes no issue, two issues, or a story issue; a branch without the task number; a merged pull request with no non-author approval, with unticked criteria, or with criteria ticked after the approval; the blank issue without `task`; an `ASM-nn` left in `Traces to`; a catch-up field added inside an unrelated pull request; a template that does not ask for the task issue.
 
 **missing:**
 
@@ -278,12 +279,12 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 **Check:**
 
 - Every story issue, from `gh issue list --repo "$REPO" --label user-story --state all --limit 1000 --json number,title,labels,state,stateReason,createdAt,closedAt,body,url`, or the team's own marker.
-- The comments, timeline, and edit history of every story issue, per procedure step 5, to read each story as of the snapshot commit time.
+- The comments, timeline, and edit history of every story issue, per procedure step 5, to read each story as of `ISSUE_CUTOFF`.
 - `docs/product-vision.md`, `docs/research/value-proposition.md`, and `docs/research/gap-analysis.md`, for the chain checks.
 
 **met:**
 
-- At the snapshot commit time there are at least 8 story issues, titled `US-nn: <title>` with unique two-digit identifiers, each carrying `user-story` or the team's marker and exactly one `moscow:*` label or priority field value.
+- At `ISSUE_CUTOFF` there are at least 8 story issues, titled `US-nn: <title>` with unique two-digit identifiers, each carrying `user-story` or the team's marker and exactly one `moscow:*` label or priority field value.
 - At least 5 stories are not `moscow:won't`.
 - Every story body has the sections the form renders, such as `### Story`, `### Value proposition`, `### Traces to`, `### Rests on`, `### Priority reason`, and `### Acceptance criteria`, showing that it was opened from the form.
 - Every statement is a user's need that names the user, the need, and the value, and it carries no design only the team decides, such as a screen, button, component, or library, unless that specific thing is itself the need.
@@ -301,12 +302,12 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 **partial:**
 
-- At least one story issue existed at the snapshot commit time, and at least one other `met` criterion fails.
+- At least one story issue existed at `ISSUE_CUTOFF`, and at least one other `met` criterion fails.
 - Typical shortfalls: fewer than 8 stories or fewer than 5 intended ones; a story with one criterion; a criterion such as "works well" or "is fast"; a statement that names a screen or a library; a missing or second `moscow:*` label; every intended story `Must Have`; a `Won't Have` story left open; a `GAP-nn` the story's `VP-nn` does not close; a relative link or a link at a commit hash.
 
 **missing:**
 
-- No story issue existed at the snapshot commit time, or none was opened from the form with a `US-nn` title.
+- No story issue existed at `ISSUE_CUTOFF`, or none was opened from the form with a `US-nn` title.
 
 **Guardrails:**
 
@@ -323,16 +324,16 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 **Check:**
 
 - `## Minimum Usable Product Candidate` in `reports/week-02/README.md` at the snapshot.
-- The labels of each listed story as of the snapshot commit time.
+- The labels of each listed story as of `ISSUE_CUTOFF`.
 - The verdict's entry in `docs/decisions.md`, and `## Decisions` in `reports/week-02/meeting-report.md`.
 
 **met:**
 
 - `reports/week-02/README.md` has a section headed exactly `## Minimum Usable Product Candidate`.
 - The section names the core task in one line: one thing a user does from start to finish.
-- The section lists the `US-nn` of each story with its issue linked, the list is not empty, and every listed story carries `moscow:must` at the snapshot commit time.
+- The section lists the `US-nn` of each story with its issue linked, the list is not empty, and every listed story carries `moscow:must` at `ISSUE_CUTOFF`.
 - The listed stories together let a user complete the core task end to end, and removing any one of them breaks the task.
-- The section cites the customer's verdict as a `DEC-nnn` linked to `docs/decisions.md#dec-nnn`, whose entry exists, has `**Made by:** Customer`, and has a `**Source:**` that links `reports/week-02/meeting-report.md`.
+- The section cites the customer's verdict as a `DEC-nnn` linked to `docs/decisions.md#dec-nnn`, whose entry exists, has `**Made by:** Customer`, or `Team, not contested` when the meeting report shows that the candidate was put to the customer, and has a `**Source:**` that links `reports/week-02/meeting-report.md`.
 - The section shows the candidate as it stands after the verdict: a story the verdict dropped is not listed, and it kept its `moscow:*` label unless the customer changed the priority.
 - No other file restates the candidate, apart from the meeting script's candidate part written before the meeting.
 
@@ -349,7 +350,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 - Two or three stories is Recommended; a long candidate is a quality note.
 - A candidate recorded under a slightly different heading is a shortfall here, not in S9.
-- When the verdict entry says `Team, not contested`, record it in `**Evidence:**` and leave it to the instructor rather than counting it as a shortfall.
+- A verdict entry with `**Made by:** Team, not contested` counts as the customer's verdict only when the script's candidate part and the meeting report show that the candidate was put to the customer; otherwise it is a shortfall.
 - The comment that records a priority change on a dropped story belongs to S7.
 - The script's candidate part belongs to S8.
 
@@ -394,7 +395,8 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - When nothing changed and the team declared it as a deviation, the status is `partial` and the honesty is recorded as a strength; an undeclared absence of change is handled per `docs/grader-policy.md`.
 - A change invented only to satisfy the rule, such as a reworded criterion with no link to the customer's reaction, is a shortfall.
 - An inaccessible external view is an evidence gap for that view only; the rest of the record is still judged.
-- Application code on `main` that is not tied to a prototype is reported here and listed as an ambiguity for the instructor, because Week 2 has no product code.
+- Only prototype code is banned from `main`.
+  Application code on `main` that no prototype record, spike branch, or spike pull request ties to a prototype is not a shortfall; record it in `**Evidence:**` as a note.
 - Repository tooling is not prototype code: `.github/`, Markdown tool configuration, `package.json` and its lockfile for that tooling, `flake.nix`, a task tracker's directory, and the course-materials submodule.
 
 ### S8 — Customer validation meeting
@@ -592,17 +594,21 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    gh pr diff <n> --repo "$REPO"
    ```
 
-6. Judge every issue as of `SNAPSHOT_TIME`:
+6. Judge every issue as of `ISSUE_CUTOFF`, the hard deadline `2026-10-10T23:59:59+03:00`:
 
-   - Count only issues whose `createdAt` is at or before `SNAPSHOT_TIME`, and note any story opened later as a caveat in S5 `**Evidence:**`.
-   - Take an issue's labels at `SNAPSHOT_TIME` from its timeline's `labeled` and `unlabeled` events, its title from `renamed` events, and its open or closed state and close reason from `closed` and `reopened` events.
-   - Take its body from the last edit at or before `SNAPSHOT_TIME` when the edit history allows it; otherwise judge the current body and say so in `**Evidence:**`.
-   - A comment or edit made after `SNAPSHOT_TIME` is a caveat, never a shortfall.
-   - Set `Evidence gaps: yes` only when the state at `SNAPSHOT_TIME` cannot be read and the difference could change the status.
+   - Count only issues whose `createdAt` is at or before `ISSUE_CUTOFF`, and note any story opened later as a caveat in S5 `**Evidence:**`.
+     An issue opened after `SNAPSHOT_TIME` but by `ISSUE_CUTOFF` counts like any other.
+   - Take an issue's labels at `ISSUE_CUTOFF` from its timeline's `labeled` and `unlabeled` events, its title from `renamed` events, and its open or closed state and close reason from `closed` and `reopened` events.
+   - Take its body from the last edit at or before `ISSUE_CUTOFF` when the edit history allows it; otherwise judge the current body and say so in `**Evidence:**`.
+   - A comment or edit made after `ISSUE_CUTOFF` is a caveat, never a shortfall.
+   - Set `Evidence gaps: yes` only when the state at `ISSUE_CUTOFF` cannot be read and the difference could change the status.
+   - Pull requests, Actions runs, and repository files stay judged as of `SNAPSHOT_TIME`.
 
 7. Identify the forms pull request as the pull request behind the earliest commit that added `.github/ISSUE_TEMPLATE/user-story.yml`.
    The in-scope pull requests for S1 run from its creation to `SNAPSHOT_TIME`, without Dependabot pull requests and pull requests a workflow opened.
-   Check that no pull request touching a Week 2 artifact was merged before it.
+   A Week 2 pull request is one created on or after Friday 2 October 2026, 00:00 Innopolis time, the start of Week 2 in `course/syllabus.md`.
+   A pull request merged at or before the team's Assignment 1 snapshot commit is part of the Week 1 submission, not a Week 2 pull request.
+   Check that no other Week 2 pull request was merged before the forms pull request.
 8. For each in-scope pull request, check the task workflow:
 
    ```sh
@@ -616,6 +622,9 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    - `closes` has exactly one number, and that issue carries `task` and not `user-story`.
    - `branch` matches `^<that number>-[a-z0-9]+(-[a-z0-9]+)*$`.
    - A merged pull request has an approver other than its author, its task's body has every criterion as `- [x] AC-nn:`, and the task's `stateReason` is `COMPLETED`.
+   - Compare the task's body edit history (`userContentEdits` `editedAt`, from step 5) with the approving review's `submittedAt`.
+     A shortfall needs the history to show a box ticked after the approval.
+     When the task has no edit history, check only that every box is ticked by merge and say so in `**Evidence:**`.
    - A pull request closed without merging left its task `NOT_PLANNED` with a comment that gives the reason and links the pull request.
 
 9. Check that no prototype code is on `main`:
