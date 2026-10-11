@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 # Segment names must match the `- S<n>: <name>` lines in `A<N>/grading_prompt.md` exactly.
+# `week_window_start` is 00:00 on the first day of the assignment's week and
+# `issue_cutoff` is its hard deadline, both ISO 8601 in Innopolis time (UTC+3),
+# the only timezone the course states, so the deadline facts live in one place.
 ASSIGNMENT_CONFIG: dict[str, dict] = {
     "A1": {
         "week": 1,
         "course_commit": "fe58ba70bbd90b92ffd6942d340f1e8b35b4bbb1",
         "primary_index": "reports/week-01/README.md",
+        "week_window_start": "2026-09-25T00:00:00+03:00",
+        "issue_cutoff": "2026-10-02T23:59:59+03:00",
         "segment_defs": {
             1: {"name": "Repository setup and branch protection"},
             2: {"name": "CI checks and supply-chain hygiene"},
@@ -22,6 +27,8 @@ ASSIGNMENT_CONFIG: dict[str, dict] = {
         "week": 2,
         "course_commit": "a949e8d7ff7f677ed3b97fa1b9bd9291b4a05bc1",
         "primary_index": "reports/week-02/README.md",
+        "week_window_start": "2026-10-02T00:00:00+03:00",
+        "issue_cutoff": "2026-10-10T23:59:59+03:00",
         "segment_defs": {
             1: {"name": "Issue forms, labels, and task workflow"},
             2: {"name": "Decisions and assumptions in the Week 2 format"},
