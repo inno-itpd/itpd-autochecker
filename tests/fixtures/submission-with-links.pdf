@@ -1,0 +1,65 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [ 4 0 R ] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R /Annots 9 0 R >>
+endobj
+5 0 obj
+<< /Length 391 >>
+stream
+BT
+/F1 11 Tf
+1 0 0 1 72 740 Tm
+14 TL
+(Example Product - Team 02) Tj
+T*
+(GitHub username Real name University email) Tj
+T*
+(@octo-user Mira Sample m.sample@example.edu) Tj
+T*
+(@second-dev Jon Doe j.doe@example.edu) Tj
+T*
+(Week 2 report: reports/week-02/README.md) Tj
+T*
+(Commit: 1234567890abcdef1234567890abcdef12345678) Tj
+T*
+(No private-only material was committed to the repository.) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Annot /Subtype /Link /Rect [72 692 540 708] /Border [0 0 0] /A << /Type /Action /S /URI /URI (https://github.com/example-org/example-repo/blob/1234567890abcdef1234567890abcdef12345678/reports/week-02/meeting-notes.md) >> >>
+endobj
+7 0 obj
+<< /Type /Annot /Subtype /Link /Rect [72 678 540 694] /Border [0 0 0] /A << /Type /Action /S /URI /URI (https://github.com/example-org/example-repo/blob/1234567890abcdef1234567890abcdef12345678/reports/week-02/README.md) >> >>
+endobj
+8 0 obj
+<< /Type /Annot /Subtype /Link /Rect [72 650 540 666] /Border [0 0 0] /A << /Type /Action /S /URI /URI (https://drive.google.com/file/d/ExampleRecordingLink/view?usp=sharing) >> >>
+endobj
+9 0 obj
+[ 6 0 R 7 0 R 8 0 R ]
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000117 00000 n 
+0000000214 00000 n 
+0000000354 00000 n 
+0000000796 00000 n 
+0000001045 00000 n 
+0000001287 00000 n 
+0000001483 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+1520
+%%EOF
