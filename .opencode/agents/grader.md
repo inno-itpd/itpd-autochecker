@@ -3,7 +3,5 @@ description: "Reviews one ITPD assignment team submission. Launch one per team. 
 mode: subagent
 ---
 
-<!-- markdownlint-disable-file MD041 -->
-
 Read `agents/grader.md` and follow it exactly.
 The operator prompt supplies `{ASSIGNMENT_DIR}`, `{TEAM_DIR}`, and the mode.

@@ -12,6 +12,8 @@
 ├── agents/grader.md           # Canonical one-team grader prompt
 ├── .opencode/agents/grader.md # opencode wrapper → agents/grader.md
 ├── .claude/agents/grader.md   # Claude Code wrapper → agents/grader.md
+├── .agents/skills/commit-itpd/ # commit skill for this repo's Git conventions
+├── .opencode/command/commit.md # /commit command → commit-itpd skill
 ├── docs/
 │   ├── grader-policy.md            # General grading policy
 │   └── grading-feedback-format.md  # Canonical feedback report format
@@ -141,9 +143,8 @@ Run `backlog` inside the dev shell so `BACKLOG_CWD` points at this repo.
 
 ## Git conventions
 
-<!-- TODO use commit-itpd skill from the itpd repo -->
-
 - Use Conventional Commits with a path scope, for example `feat(A1/prompt): ...`, `fix(tools): ...`, `docs(agents): ...`, `chore(deps): ...`.
 - Every commit has a body of 2-4 short bullets explaining what changed and why.
 - Commits made by an AI agent end with a `Co-Authored-By` trailer naming the model.
 - Commit feedback in the `itpd-assignments-feedback` submodule first, then bump the submodule here.
+- The `commit-itpd` skill (`.agents/skills/commit-itpd/SKILL.md`, also `/commit` in opencode) owns the message format, the staged-changes-only rule, and the model-identity rules.

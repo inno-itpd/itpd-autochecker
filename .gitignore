@@ -18,8 +18,9 @@ tmp/
 .vscode/
 .idea/
 
-# Agent harness state (keep the grader agent definitions)
+# Agent harness state (keep the grader agent definitions and the commit command)
 .claude/*
 !.claude/agents/
 .opencode/*
 !.opencode/agents/
+!.opencode/command/
