@@ -78,9 +78,9 @@ def patch_report(assignment: str, report: ParsedFeedbackReport, payload: dict[st
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Patch selected segments in feedback.md.")
+    parser = argparse.ArgumentParser(description="Patch selected segments in agent-feedback.md.")
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
-    parser.add_argument("feedback_path", help="Path to feedback.md")
+    parser.add_argument("feedback_path", help="Path to agent-feedback.md")
     parser.add_argument("patch_payload", help="Path to JSON patch payload")
     args = parser.parse_args()
 

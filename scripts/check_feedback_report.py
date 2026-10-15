@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the report contract validator and markdownlint-cli2 on one feedback.md."""
+"""Run the report contract validator and markdownlint-cli2 on one agent-feedback.md."""
 
 from __future__ import annotations
 
@@ -30,9 +30,9 @@ def lint_errors(feedback_path: Path) -> list[str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Validate one feedback.md report and lint it with markdownlint-cli2.")
+    parser = argparse.ArgumentParser(description="Validate one agent-feedback.md report and lint it with markdownlint-cli2.")
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
-    parser.add_argument("feedback_path", help="Path to feedback.md")
+    parser.add_argument("feedback_path", help="Path to agent-feedback.md")
     args = parser.parse_args()
 
     feedback_path = Path(args.feedback_path).resolve()

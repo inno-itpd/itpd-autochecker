@@ -10,7 +10,7 @@ uv run python scripts/render_feedback_report.py <assignment> <payload.json>
 This is the full-review counterpart of the structured `segment_updates`
 payloads that `scripts/patch_feedback_report.py` and
 `scripts/regrade_feedback_segments.py` apply to an existing report: it builds
-the whole `feedback.md` (metadata preamble, overall assessment, segments table,
+the whole `agent-feedback.md` (metadata preamble, overall assessment, segments table,
 unresolved gaps, summary, strengths, main issues, and segment details) in one
 pass.
 
@@ -18,7 +18,7 @@ Payload shape (all keys are required unless marked optional):
 
 ```json
 {
-  "output_path": "itpd-assignments-feedback/A1/feedback/markdown/<team_dir>/feedback.md",
+  "output_path": "itpd-assignments-feedback/A1/feedback/markdown/<team_dir>/agent-feedback.md",
   "team": 3,
   "repository": "https://github.com/<org>/<repo>",
   "snapshot": "<full 40-character lowercase commit SHA>",
@@ -323,7 +323,7 @@ def load_payload(path: Path) -> dict[str, object]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Render a complete feedback.md from one structured JSON payload. "
+            "Render a complete agent-feedback.md from one structured JSON payload. "
             "The payload shape is documented in this script's module docstring."
         )
     )

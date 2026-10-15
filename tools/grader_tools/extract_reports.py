@@ -75,15 +75,15 @@ def scan_feedback_dir(assignment: str, input_dir: Path) -> tuple[list[ExtractedE
     for team_dir in sorted(input_dir.iterdir()):
         if not team_dir.is_dir():
             continue
-        feedback_path = team_dir / "feedback.md"
+        feedback_path = team_dir / "agent-feedback.md"
         if not feedback_path.exists():
-            warnings.append(f"{team_dir.name}: missing feedback.md")
+            warnings.append(f"{team_dir.name}: missing agent-feedback.md")
             entries.append(_blank_entry(team_dir, "missing feedback"))
             continue
         try:
             entries.append(parse_feedback_file(assignment, feedback_path))
         except ValueError as exc:
-            warnings.append(f"{team_dir.name}: malformed feedback.md: " + str(exc).replace("\n", " ; "))
+            warnings.append(f"{team_dir.name}: malformed agent-feedback.md: " + str(exc).replace("\n", " ; "))
             entries.append(_blank_entry(team_dir, "malformed feedback"))
 
     entries.sort(key=lambda entry: team_sort_key(entry.group))

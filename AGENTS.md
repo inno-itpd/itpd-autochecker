@@ -30,7 +30,7 @@
     └── A<N>/
         ├── submissions/       # Moodle export, committed: <team_dir>/*.pdf
         ├── work/              # (gitignored, disposable) snapshots fetched from GitHub at the permalink SHA
-        ├── feedback/markdown/<team_dir>/feedback.md
+        ├── feedback/markdown/<team_dir>/agent-feedback.md
         ├── dev.md             # Instructor triage table
         └── feedback_release.csv
 ```
@@ -58,7 +58,7 @@
 1. Unpack the Moodle export into `itpd-assignments-feedback/A<N>/submissions/`, one directory per team.
 2. Run `uv run python scripts/preflight.py` before a grader batch; it checks `gh` auth, `pdftotext`, and `markdownlint-cli2`.
 3. Review teams with the grader agent (see below).
-4. Validate changed reports with `uv run python scripts/check_feedback_report.py A<N> <feedback.md>`, then run `markdownlint-cli2 --fix "itpd-assignments-feedback/A<N>/feedback/markdown/**/*.md"`.
+4. Validate changed reports with `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>`, then run `markdownlint-cli2 --fix "itpd-assignments-feedback/A<N>/feedback/markdown/**/*.md"`.
 5. Run `uv run python A<N>/extract_feedback.py` to regenerate `dev.md` and `feedback_release.csv`.
 6. Review the extractor warnings and fix malformed reports.
 
@@ -72,7 +72,7 @@ When the user asks to review or re-review teams:
 1. Read `agents/grader.md`.
 2. Read `grading.json` and use `team_batch_size` as the batch size.
    Default to `8` if the file or value is missing or invalid.
-3. Pick the teams: the ones the user names, or every directory in `itpd-assignments-feedback/A<N>/submissions/` that has no `feedback/markdown/<team_dir>/feedback.md` yet.
+3. Pick the teams: the ones the user names, or every directory in `itpd-assignments-feedback/A<N>/submissions/` that has no `feedback/markdown/<team_dir>/agent-feedback.md` yet.
 4. For each batch, launch one subagent per team in parallel:
    - Claude Code: the `grader` agent (`.claude/agents/grader.md`).
    - opencode: the `grader` subagent (`.opencode/agents/grader.md`) via the `task` tool.
@@ -90,8 +90,8 @@ All run from the repository root and print counts and paths only.
 - `uv run python scripts/fetch_team_snapshot.py A<N> <team_dir>` — PDF permalink, recording, page-count, and member-token extraction; commit and `main` check; snapshot refetch; writes `tmp/A<N>/<team_dir>/pdf-info.json`.
 - `uv run python scripts/collect_github_evidence.py A<N> <team_dir> [--issues <n> ...] [--paths <path> ...]` — paginated dumps (`labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`) in the same scratch directory.
 - `uv run python scripts/check_snapshot_links.py <work_dir> [--issue-bodies <issues.json>]` — broken relative links, missing anchors, and pre-cut research anchors.
-- `uv run python scripts/scan_privacy.py A<N> <team_dir> [--feedback <feedback.md>]` — privacy findings by path and kind only.
-- `uv run python scripts/check_feedback_report.py A<N> <feedback.md>` — report validation plus `markdownlint-cli2` in one command.
+- `uv run python scripts/scan_privacy.py A<N> <team_dir> [--feedback <agent-feedback.md>]` — privacy findings by path and kind only.
+- `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>` — report validation plus `markdownlint-cli2` in one command.
 - `uv run python scripts/render_feedback_report.py A<N> <payload.json>` — renders a complete report from one structured payload.
 - `uv run python scripts/image_info.py <files>` — PNG and JPEG dimensions, byte size, and PNG transparency.
 
@@ -99,11 +99,11 @@ The `pdf-info.json` keys and the dump file names are documented under Paths in `
 
 ## Segment inspection and targeted regrades
 
-- Inspect the saved state: `uv run python scripts/inspect_feedback_segments.py A<N> <feedback.md> S<n> ... [--fresh-payload <payload.json>] [--format text|json]`
-- Preview a regrade: `uv run python scripts/regrade_feedback_segments.py A<N> <feedback.md> <payload.json> S<n> ... --dry-run`
+- Inspect the saved state: `uv run python scripts/inspect_feedback_segments.py A<N> <agent-feedback.md> S<n> ... [--fresh-payload <payload.json>] [--format text|json]`
+- Preview a regrade: `uv run python scripts/regrade_feedback_segments.py A<N> <agent-feedback.md> <payload.json> S<n> ... --dry-run`
 - Apply a regrade (patches, validates, lints, and re-extracts): the same command without `--dry-run`.
-- Low-level patch: `uv run python scripts/patch_feedback_report.py A<N> <feedback.md> <payload.json>`
-- Validate one report: `uv run python scripts/validate_feedback_report.py A<N> <feedback.md>`
+- Low-level patch: `uv run python scripts/patch_feedback_report.py A<N> <agent-feedback.md> <payload.json>`
+- Validate one report: `uv run python scripts/validate_feedback_report.py A<N> <agent-feedback.md>`
 
 Payload shape:
 

@@ -77,15 +77,15 @@ def fail_render(tmp_path: Path, payload: dict[str, object], match: str, *, assig
 
 
 def test_render_matches_the_report_builder(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "feedback.md", statuses={4: "unverified"}, gaps={4})
+    payload = full_payload(tmp_path / "agent-feedback.md", statuses={4: "unverified"}, gaps={4})
     rendered, output_path = render_feedback_report("A1", payload)
     assert rendered == build_report("A1", statuses={4: "unverified"}, gaps={4})
-    assert output_path == tmp_path / "feedback.md"
+    assert output_path == tmp_path / "agent-feedback.md"
     assert not output_path.exists()
 
 
 def test_a2_payload_renders_a_valid_report(tmp_path: Path) -> None:
-    output = tmp_path / "feedback.md"
+    output = tmp_path / "agent-feedback.md"
     payload = full_payload(output, assignment="A2", statuses={2: "missing", 5: "partial", 8: "unverified"}, gaps={8})
     rendered, _ = render_feedback_report("A2", payload)
     defs = ASSIGNMENT_CONFIG["A2"]["segment_defs"]
@@ -93,7 +93,7 @@ def test_a2_payload_renders_a_valid_report(tmp_path: Path) -> None:
 
 
 def test_cli_writes_a_report_that_passes_the_validator(tmp_path: Path) -> None:
-    output = tmp_path / "A1" / "feedback" / "markdown" / "Team 3_1_assignsubmission_file" / "feedback.md"
+    output = tmp_path / "A1" / "feedback" / "markdown" / "Team 3_1_assignsubmission_file" / "agent-feedback.md"
     payload = full_payload(output, statuses={1: "partial", 4: "unverified"}, gaps={4, 7})
     payload_path = tmp_path / "payload.json"
     payload_path.write_text(json.dumps(payload), encoding="utf-8")
@@ -113,7 +113,7 @@ def test_cli_writes_a_report_that_passes_the_validator(tmp_path: Path) -> None:
 
 
 def test_missing_snapshot_uses_none_and_notes(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "feedback.md")
+    payload = full_payload(tmp_path / "agent-feedback.md")
     payload.pop("repository")
     payload.pop("snapshot")
     payload["snapshot_notes"] = "The PDF permalink could not be resolved."
@@ -126,7 +126,7 @@ def test_missing_snapshot_uses_none_and_notes(tmp_path: Path) -> None:
 
 
 def test_failed_render_keeps_an_existing_report(tmp_path: Path) -> None:
-    output = tmp_path / "feedback.md"
+    output = tmp_path / "agent-feedback.md"
     output.write_text("old report\n", encoding="utf-8")
     payload = full_payload(output)
     updates = payload["segment_updates"]
@@ -159,7 +159,7 @@ def test_rejects_non_object_payload(tmp_path: Path) -> None:
 
 def test_rejects_unknown_assignment(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="Unknown assignment"):
-        render_feedback_report("A9", full_payload(tmp_path / "feedback.md"))
+        render_feedback_report("A9", full_payload(tmp_path / "agent-feedback.md"))
 
 
 @pytest.mark.parametrize(
@@ -182,19 +182,19 @@ def test_rejects_unknown_assignment(tmp_path: Path) -> None:
     ],
 )
 def test_rejects_bad_top_level_fields(tmp_path: Path, mutate, match: str) -> None:
-    payload = full_payload(tmp_path / "feedback.md")
+    payload = full_payload(tmp_path / "agent-feedback.md")
     mutate(payload)
     fail_render(tmp_path, payload, match)
 
 
 def test_rejects_notes_when_metadata_is_complete(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "feedback.md")
+    payload = full_payload(tmp_path / "agent-feedback.md")
     payload["snapshot_notes"] = "Not needed."
     fail_render(tmp_path, payload, "snapshot_notes")
 
 
 def test_requires_notes_when_snapshot_is_missing(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "feedback.md")
+    payload = full_payload(tmp_path / "agent-feedback.md")
     payload["snapshot"] = None
     fail_render(tmp_path, payload, "snapshot_notes")
 
@@ -254,37 +254,37 @@ def test_requires_notes_when_snapshot_is_missing(tmp_path: Path) -> None:
     ],
 )
 def test_rejects_bad_segment_updates(tmp_path: Path, mutate, match: str) -> None:
-    payload = full_payload(tmp_path / "feedback.md")
+    payload = full_payload(tmp_path / "agent-feedback.md")
     mutate(payload)
     fail_render(tmp_path, payload, match)
 
 
 def test_rejects_unresolved_bullets_for_a_segment_without_gaps(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "feedback.md")
+    payload = full_payload(tmp_path / "agent-feedback.md")
     payload["unresolved_evidence_gaps"] = {"S3": ["Not a gap."]}
     fail_render(tmp_path, payload, "evidence_gaps")
 
 
 def test_requires_unresolved_bullets_for_gap_segments(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "feedback.md", statuses={4: "unverified"}, gaps={4})
+    payload = full_payload(tmp_path / "agent-feedback.md", statuses={4: "unverified"}, gaps={4})
     payload["unresolved_evidence_gaps"] = {}
     fail_render(tmp_path, payload, "needs bullets for: S4")
 
 
 def test_rejects_empty_unresolved_bullets(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "feedback.md", statuses={4: "unverified"}, gaps={4})
+    payload = full_payload(tmp_path / "agent-feedback.md", statuses={4: "unverified"}, gaps={4})
     payload["unresolved_evidence_gaps"] = {"S4": []}
     fail_render(tmp_path, payload, "at least 1 bullet")
 
 
 def test_rejects_multi_line_bullets(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "feedback.md")
+    payload = full_payload(tmp_path / "agent-feedback.md")
     payload["summary"] = ["One.", "Two.\nThree.", "Four."]
     fail_render(tmp_path, payload, "single lines")
 
 
 def test_payload_is_not_mutated(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "feedback.md", statuses={4: "unverified"}, gaps={4})
+    payload = full_payload(tmp_path / "agent-feedback.md", statuses={4: "unverified"}, gaps={4})
     before = copy.deepcopy(payload)
     render_feedback_report("A1", payload)
     assert payload == before

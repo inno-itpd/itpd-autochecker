@@ -11,7 +11,7 @@ def write_team(root: Path, team_dir: str, text: str | None) -> None:
     directory = root / team_dir
     directory.mkdir(parents=True)
     if text is not None:
-        (directory / "feedback.md").write_text(text, encoding="utf-8")
+        (directory / "agent-feedback.md").write_text(text, encoding="utf-8")
 
 
 def test_parse_team_name() -> None:
@@ -34,7 +34,7 @@ def test_extraction_writes_dev_md_and_csv(tmp_path: Path) -> None:
     rows = [line for line in dev_lines if line.startswith("| [Team") or line.startswith("| Team")]
     assert [row.split("|")[1].strip().split("]")[0].lstrip("[") for row in rows] == ["Team 2", "Team 5", "Team 7", "Team 10"]
     assert "met 7 · partial 1 · unverified 1" in rows[0]
-    assert "feedback/markdown/Team%202_2_assignsubmission_file/feedback.md#unresolved-evidence-gaps" in rows[0]
+    assert "feedback/markdown/Team%202_2_assignsubmission_file/agent-feedback.md#unresolved-evidence-gaps" in rows[0]
     assert "feedback file is missing" in rows[1]
     assert "feedback file is malformed" in rows[2]
     assert "First shortfall. <br> - Second shortfall." in rows[3]

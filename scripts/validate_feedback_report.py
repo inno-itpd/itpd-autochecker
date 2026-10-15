@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate one feedback.md report against the shared report contract."""
+"""Validate one agent-feedback.md report against the shared report contract."""
 
 from __future__ import annotations
 
@@ -16,9 +16,9 @@ from tools.grader_tools.validate import validate_feedback_file
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Validate one feedback.md report.")
+    parser = argparse.ArgumentParser(description="Validate one agent-feedback.md report.")
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
-    parser.add_argument("feedback_path", help="Path to feedback.md")
+    parser.add_argument("feedback_path", help="Path to agent-feedback.md")
     args = parser.parse_args()
 
     feedback_path = Path(args.feedback_path)

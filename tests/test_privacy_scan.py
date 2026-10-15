@@ -205,13 +205,13 @@ def test_feedback_mode_scans_the_report_instead_of_the_snapshot(tmp_path: Path) 
         {"docs/notes.md": "secret.person@university.edu\n"},
         name_tokens=("ivanov",),
     )
-    report = tmp_path / "report" / "feedback.md"
+    report = tmp_path / "report" / "agent-feedback.md"
     report.parent.mkdir()
     report.write_text("Contact secret.person@university.edu about Ivanov.\n", encoding="utf-8")
     result = scan_privacy("A1", TEAM, tmp_path, feedback_path=report)
     assert result.mode == "feedback"
     assert [(finding.rule, finding.line) for finding in result.findings] == [("email", 1), ("member-name", 1)]
-    assert all(finding.path == "report/feedback.md" for finding in result.findings)
+    assert all(finding.path == "report/agent-feedback.md" for finding in result.findings)
     assert "secret.person" not in "\n".join(result.summary_lines)
 
 

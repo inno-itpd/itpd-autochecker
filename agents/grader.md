@@ -11,17 +11,17 @@ Run every command from the repository root.
 Follow the operator request to choose one of these modes:
 
 1. `full review` (default)
-   - Review the submission and write a complete `feedback.md`.
+   - Review the submission and write a complete `agent-feedback.md`.
 2. `partial regrade`
    - Used when the operator names segment IDs such as `S3,S4`.
-   - Read the existing `feedback.md` first.
+   - Read the existing `agent-feedback.md` first.
    - Refresh only the requested segments plus any segment whose status depends on the same newly checked artifact.
    - Apply instructor notes directly when the operator provides them.
    - Patch with `uv run python scripts/regrade_feedback_segments.py` using a structured `segment_updates` payload.
      Use `uv run python scripts/patch_feedback_report.py` as the low-level fallback.
 3. `segment inspect`
    - Used when the operator asks what the grader currently sees for specific segments.
-   - Read the existing `feedback.md` first and do not edit any files.
+   - Read the existing `agent-feedback.md` first and do not edit any files.
    - Separate the saved report state from any fresh checks.
 
 ## Paths
@@ -32,7 +32,7 @@ Follow the operator request to choose one of these modes:
 - Scratch directory: `tmp/{ASSIGNMENT_DIR}/{TEAM_DIR}/` (gitignored).
   Write every intermediate file here: API dumps, commit lists, fetched pages, images, payloads.
   Other graders run in parallel, so never write to a shared scratchpad, to `/tmp` directly, or into another team's directory, and never read another team's files.
-- Report: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/feedback.md`
+- Report: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/agent-feedback.md`
 
 The helper scripts share two scratch contracts; never edit those files by hand:
 
@@ -55,7 +55,7 @@ The helper scripts share two scratch contracts; never edit those files by hand:
 5. Read every file listed in its `## Authoritative sources` section.
    They live under `{ASSIGNMENT_DIR}/itpd/`, pinned at the commit the assignment is reviewed against.
 6. In `partial regrade` or `segment inspect` mode, read the current report.
-   For a structured view, run `uv run python scripts/inspect_feedback_segments.py {ASSIGNMENT_DIR} <feedback.md> S<n> ...`.
+   For a structured view, run `uv run python scripts/inspect_feedback_segments.py {ASSIGNMENT_DIR} <agent-feedback.md> S<n> ...`.
    Add `--fresh-payload <payload.json> --format text` to compare saved and fresh state.
 7. Run the submission fetcher, which reads the PDF, checks the commit, and fetches the snapshot in one pass:
 
@@ -127,7 +127,7 @@ The helper scripts share two scratch contracts; never edit those files by hand:
 
 ## Output
 
-- In `full review` mode, write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/feedback.md` in the format from `docs/grading-feedback-format.md`, or render it from one structured payload:
+- In `full review` mode, write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/agent-feedback.md` in the format from `docs/grading-feedback-format.md`, or render it from one structured payload:
 
   ```console
   uv run python scripts/render_feedback_report.py {ASSIGNMENT_DIR} <payload.json>
@@ -137,21 +137,21 @@ The helper scripts share two scratch contracts; never edit those files by hand:
 - Validate it, and fix it until it passes:
 
   ```console
-  uv run python scripts/check_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/feedback.md"
+  uv run python scripts/check_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/agent-feedback.md"
   ```
 
   It runs the report validator and `markdownlint-cli2` together.
-  Fallback: `uv run python scripts/validate_feedback_report.py {ASSIGNMENT_DIR} <feedback.md>` and `markdownlint-cli2 <feedback.md>`.
+  Fallback: `uv run python scripts/validate_feedback_report.py {ASSIGNMENT_DIR} <agent-feedback.md>` and `markdownlint-cli2 <agent-feedback.md>`.
 - Scan the finished report for private-only material:
 
   ```console
-  uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR} --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/feedback.md"
+  uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR} --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/agent-feedback.md"
   ```
 
 - In `partial regrade` mode, prefer:
 
   ```console
-  uv run python scripts/regrade_feedback_segments.py {ASSIGNMENT_DIR} <feedback.md> <payload.json> S<n> ...
+  uv run python scripts/regrade_feedback_segments.py {ASSIGNMENT_DIR} <agent-feedback.md> <payload.json> S<n> ...
   ```
 
   The payload format is `{"segment_updates": {"S<n>": {"status", "evidence_gaps", "evidence", "verified_shortfalls", "unverified_checks"}}, "unresolved_evidence_gaps": {"S<n>": ["..."]}}`.

@@ -59,7 +59,7 @@ def run_script(*args: str) -> subprocess.CompletedProcess[str]:
 def test_regrade_cli_end_to_end(tmp_path: Path) -> None:
     team_dir = tmp_path / "A1" / "feedback" / "markdown" / "Team 3_1_assignsubmission_file"
     team_dir.mkdir(parents=True)
-    feedback = team_dir / "feedback.md"
+    feedback = team_dir / "agent-feedback.md"
     feedback.write_text(build_report("A1", statuses={4: "unverified"}, gaps={4}), encoding="utf-8")
     payload = tmp_path / "payload.json"
     payload.write_text(json.dumps({"segment_updates": {"S4": CLEAR_S4}}), encoding="utf-8")

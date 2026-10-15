@@ -70,7 +70,7 @@ def build_subset_payload(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Apply structured segment regrades and rerun the exports.")
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
-    parser.add_argument("feedback_path", help="Path to feedback.md")
+    parser.add_argument("feedback_path", help="Path to agent-feedback.md")
     parser.add_argument("fresh_payload", help="Path to a structured fresh payload JSON")
     parser.add_argument("segments", nargs="+", help="Segment IDs such as S1 S4")
     parser.add_argument("--quiet", action="store_true", help="Print only a one-line result")
@@ -136,7 +136,7 @@ def main() -> None:
     if markdownlint:
         subprocess.run([markdownlint, "--fix", str(feedback_path)], check=True, cwd=ROOT, stdout=subprocess.DEVNULL if args.quiet else None)
 
-    # feedback.md lives at <assignment root>/feedback/markdown/<team_dir>/feedback.md.
+    # agent-feedback.md lives at <assignment root>/feedback/markdown/<team_dir>/agent-feedback.md.
     feedback_dir = feedback_path.parent.parent
     assignment_root = feedback_dir.parent.parent
     dev_output = assignment_root / "dev.md"

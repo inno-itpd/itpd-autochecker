@@ -134,9 +134,9 @@ def render_text(output: dict[str, object], selectors: list[str]) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Inspect saved feedback.md segment state.")
+    parser = argparse.ArgumentParser(description="Inspect saved agent-feedback.md segment state.")
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
-    parser.add_argument("feedback_path", help="Path to feedback.md")
+    parser.add_argument("feedback_path", help="Path to agent-feedback.md")
     parser.add_argument("segments", nargs="+", help="Segment IDs such as S4 S8")
     parser.add_argument("--fresh-payload", help="Path to a structured fresh segment payload JSON")
     parser.add_argument("--format", choices=("text", "json"), default="json")
