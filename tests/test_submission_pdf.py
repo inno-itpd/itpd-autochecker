@@ -254,8 +254,8 @@ def test_fetch_team_snapshot_stops_cleanly_without_a_full_sha(tmp_path: Path) ->
     assert result.pdf_info["sha"] is None
     assert result.pdf_info["commit_exists"] is None
     assert result.pdf_info["snapshot_fetched"] is False
-    assert result.work_dir.exists()
-    assert list(result.work_dir.iterdir()) == []
+    assert result.snapshot_dir.exists()
+    assert list(result.snapshot_dir.iterdir()) == []
     payload = json.loads(result.pdf_info_path.read_text(encoding="utf-8"))
     assert payload["privacy_tokens"]["email_tokens"] == ["d.example@example.edu"]
     summary = "\n".join(result.summary_lines)
@@ -273,9 +273,9 @@ def test_fetch_team_snapshot_fetches_the_tarball(tmp_path: Path) -> None:
         calls.append(("check", repo))
         return CommitCheck(exists=True, snapshot_time="2026-10-02T20:21:43Z", on_main=True, on_main_status="ahead")
 
-    def fake_fetch(repo: str, sha: str, work_dir: Path) -> None:
+    def fake_fetch(repo: str, sha: str, snapshot_dir: Path) -> None:
         calls.append(("fetch", repo))
-        (work_dir / "README.md").write_text("snapshot", encoding="utf-8")
+        (snapshot_dir / "README.md").write_text("snapshot", encoding="utf-8")
 
     result = fetch_team_snapshot(
         "A1",
@@ -290,7 +290,11 @@ def test_fetch_team_snapshot_fetches_the_tarball(tmp_path: Path) -> None:
     assert result.pdf_info["snapshot_time"] == "2026-10-02T20:21:43Z"
     assert result.pdf_info["on_main"] is True
     assert result.pdf_info["snapshot_fetched"] is True
-    assert (result.work_dir / "README.md").read_text(encoding="utf-8") == "snapshot"
+    work_dir = root / "itpd-assignments-feedback" / "A1" / "work" / "Team 1_x_assignsubmission_file"
+    assert result.snapshot_dir == work_dir / "snapshot"
+    assert result.pdf_info_path == work_dir / "pdf-info.json"
+    assert result.pdf_info["snapshot_dir"] == "itpd-assignments-feedback/A1/work/Team 1_x_assignsubmission_file/snapshot"
+    assert (result.snapshot_dir / "README.md").read_text(encoding="utf-8") == "snapshot"
     summary = "\n".join(result.summary_lines)
     assert "commit: exists; on_main=yes (ahead)" in summary
     assert "Mira" not in summary
@@ -312,7 +316,7 @@ def test_fetch_team_snapshot_skips_fetch_when_commit_is_missing(tmp_path: Path) 
     )
     assert result.pdf_info["commit_exists"] is False
     assert result.pdf_info["snapshot_fetched"] is False
-    assert list(result.work_dir.iterdir()) == []
+    assert list(result.snapshot_dir.iterdir()) == []
     assert "commit: missing" in "\n".join(result.summary_lines)
 
 

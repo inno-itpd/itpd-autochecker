@@ -44,7 +44,7 @@ These `**Since: W3**` rules do not apply: root `README.md` setup instructions, S
 - Hard deadline: Saturday 10 October 2026, 23:59, the Week 2 exception that `course/syllabus.md` states.
 - The time zone is not stated; read both deadlines as Innopolis time (UTC+3).
 - Submission inputs: the Moodle PDF under `itpd-assignments-feedback/A2/submissions/<team_dir>/`; there is no ZIP.
-  The snapshot is fetched from GitHub at the permalink SHA into `itpd-assignments-feedback/A2/work/<team_dir>/`.
+  The snapshot is fetched from GitHub at the permalink SHA into `itpd-assignments-feedback/A2/work/<team_dir>/snapshot/`.
 - Live artifact families: story and task issues with their comments, timelines, and edit history; repository labels; pull requests with their reviews, files, and closing references; Actions runs of the Markdown check and the link check; external prototype views; and the meeting recording link.
 - Story and task issues are not in the snapshot, so they are read live and judged as of the hard deadline, `2026-10-10T23:59:59+03:00` (`ISSUE_CUTOFF`), per [procedure step 6](#assignment-specific-procedure-deltas).
   An issue opened after the snapshot commit but by the hard deadline counts.
@@ -543,7 +543,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    uv run python scripts/fetch_team_snapshot.py A2 <team_dir>
    ```
 
-   It records the extracted metadata in `tmp/A2/<team_dir>/pdf-info.json`: the team number, repository, permalink, full SHA, recording link, page count, GitHub usernames, and the member name/email tokens for the step 12 privacy scan.
+   It records the extracted metadata in `itpd-assignments-feedback/A2/work/<team_dir>/pdf-info.json`: the team number, repository, permalink, full SHA, recording link, page count, GitHub usernames, and the member name/email tokens for the step 12 privacy scan.
    The fallback is to read the PDF directly and extract:
 
    - the project name and the team number;
@@ -554,7 +554,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    - the privacy confirmation line;
    - the page count, for example from `pdfinfo`, and anything outside the six allowed items.
 
-3. The fetcher in step 2 resolves the snapshot per `docs/grader-policy.md` and refetches it into a freshly emptied `itpd-assignments-feedback/A2/work/<team_dir>/`.
+3. The fetcher in step 2 resolves the snapshot per `docs/grader-policy.md` and refetches it into a freshly emptied `itpd-assignments-feedback/A2/work/<team_dir>/snapshot/`.
    When it cannot, resolve and fetch by hand as in `agents/grader.md`.
 4. Read the snapshot commit time and the on-`main` result from `pdf-info.json` (`snapshot_time`, `on_main`, `on_main_status`), or re-check them with `REPO=<org>/<repo>` and `SHA=<full SHA>`:
 
@@ -566,7 +566,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    A status of `identical` or `ahead` puts the commit on `main`; `behind` or `diverged` does not, which is an S9 shortfall.
    Call the first value `SNAPSHOT_TIME`.
 5. Collect the live evidence once and keep it beside, not inside, the fetched snapshot.
-   Preferred: `uv run python scripts/collect_github_evidence.py A2 <team_dir> [--issues <n> ...] [--paths <path> ...]`, which reads `tmp/A2/<team_dir>/pdf-info.json` and writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json` there, printing counts and paths only.
+   Preferred: `uv run python scripts/collect_github_evidence.py A2 <team_dir> [--issues <n> ...] [--paths <path> ...]`, which reads `itpd-assignments-feedback/A2/work/<team_dir>/pdf-info.json` and writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json` there, printing counts and paths only.
    The raw fallback commands are:
 
    ```sh
@@ -664,7 +664,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
     uv run python scripts/scan_privacy.py A2 <team_dir>
     ```
 
-    It reads `tmp/A2/<team_dir>/pdf-info.json` and checks email addresses, phone numbers, `.env` and key files, recording links outside meeting artifacts, and the real names from the PDF member table, reporting each finding by path and kind only; the exit code is 1 when it finds any.
+    It reads `itpd-assignments-feedback/A2/work/<team_dir>/pdf-info.json` and checks email addresses, phone numbers, `.env` and key files, recording links outside meeting artifacts, and the real names from the PDF member table, reporting each finding by path and kind only; the exit code is 1 when it finds any.
     The raw fallback is email addresses with `grep -rnE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'`, phone numbers, the real names from the PDF member table, recording links in meeting files, and `.env` files.
     Report each finding by path and kind only.
 13. Make one access check per external prototype view and on the recording link, per `docs/grader-policy.md`.

@@ -25,11 +25,13 @@
 ├── scripts/                   # Per-team fetch, evidence, check, privacy, link, render, and regrade CLIs
 ├── tests/                     # pytest suite
 ├── backlog/                   # Backlog.md tasks for this repo
-├── tmp/A<N>/<team_dir>/       # (gitignored) per-team grader scratch, so parallel workers never collide
 └── itpd-assignments-feedback/ # Submodule: assignment data and feedback
     └── A<N>/
         ├── submissions/       # Moodle export, committed: <team_dir>/*.pdf
-        ├── work/              # (gitignored, disposable) snapshots fetched from GitHub at the permalink SHA
+        ├── work/<team_dir>/   # (gitignored, disposable) per-team grader work, so parallel workers never collide
+        │   ├── pdf-info.json  # PDF metadata, permalink, member tokens (mode 0600)
+        │   ├── *.json         # GitHub evidence dumps: labels, issues, prs, runs, commits
+        │   └── snapshot/      # repository fetched from GitHub at the permalink SHA
         ├── feedback/<team_dir>/agent-feedback.md
         ├── dev.md             # Instructor triage table
         └── feedback_release.csv
@@ -77,7 +79,7 @@ When the user asks to review or re-review teams:
    - Claude Code: the `grader` agent (`.claude/agents/grader.md`).
    - opencode: the `grader` subagent (`.opencode/agents/grader.md`) via the `task` tool.
    - Pass the assignment directory, the team directory, and the mode in the prompt.
-   - Workers write disjoint paths (feedback, `work/`, and `tmp/` per team), so they need no coordination.
+   - Workers write disjoint paths (feedback and `work/` per team), so they need no coordination.
 5. If subagents are unavailable, review sequentially without asking.
 6. After all batches, run the lint and extraction steps from the workflow above.
 
@@ -87,9 +89,9 @@ All run from the repository root and print counts and paths only.
 `agents/grader.md` uses them in steps 7 to 13 and keeps the raw `gh` and `jq` commands as fallback.
 
 - `uv run python scripts/preflight.py` — checks `gh` auth, `pdftotext`, and `markdownlint-cli2` before a batch.
-- `uv run python scripts/fetch_team_snapshot.py A<N> <team_dir>` — PDF permalink, recording, page-count, and member-token extraction; commit and `main` check; snapshot refetch; writes `tmp/A<N>/<team_dir>/pdf-info.json`.
-- `uv run python scripts/collect_github_evidence.py A<N> <team_dir> [--issues <n> ...] [--paths <path> ...]` — paginated dumps (`labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`) in the same scratch directory.
-- `uv run python scripts/check_snapshot_links.py <work_dir> [--issue-bodies <issues.json>]` — broken relative links, missing anchors, and pre-cut research anchors.
+- `uv run python scripts/fetch_team_snapshot.py A<N> <team_dir>` — PDF permalink, recording, page-count, and member-token extraction; commit and `main` check; snapshot refetch; writes `itpd-assignments-feedback/A<N>/work/<team_dir>/pdf-info.json`.
+- `uv run python scripts/collect_github_evidence.py A<N> <team_dir> [--issues <n> ...] [--paths <path> ...]` — paginated dumps (`labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`) in the same team work directory.
+- `uv run python scripts/check_snapshot_links.py <snapshot_dir> [--issue-bodies <issues.json>]` — broken relative links, missing anchors, and pre-cut research anchors.
 - `uv run python scripts/scan_privacy.py A<N> <team_dir> [--feedback <agent-feedback.md>]` — privacy findings by path and kind only.
 - `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>` — report validation plus `markdownlint-cli2` in one command.
 - `uv run python scripts/render_feedback_report.py A<N> <payload.json>` — renders a complete report from one structured payload.

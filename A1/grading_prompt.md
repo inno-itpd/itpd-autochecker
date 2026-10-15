@@ -32,7 +32,7 @@ Files under `A1/itpd/` override the current course repository, even where the cu
 - Hard deadline: Friday 2 October 2026, 23:59.
 - Week 1 runs 25 September to 1 October 2026, and Week 2 runs 2 to 8 October 2026 (`A1/itpd/course/syllabus.md`).
 - Submissions: `itpd-assignments-feedback/A1/submissions/<team_dir>/` holds the Moodle PDF; there is no ZIP.
-- Working copy: fetch the snapshot from GitHub at the permalink SHA into `itpd-assignments-feedback/A1/work/<team_dir>/`.
+- Working copy: fetch the snapshot from GitHub at the permalink SHA into `itpd-assignments-feedback/A1/work/<team_dir>/snapshot/`.
 
 Segments, in report order:
 
@@ -440,7 +440,7 @@ Guardrails:
    If a team directory holds more than one PDF, use the one that carries the permalink.
 3. From the PDF, extract: the project name, the team number, the member table as GitHub usernames only, the permalink and its SHA, the recording link, whether a transcript is included, the privacy confirmation line, and the page count.
    Keep real names and emails out of notes and feedback.
-4. Resolve the snapshot under `docs/grader-policy.md`, and fetch it from GitHub into a freshly emptied `itpd-assignments-feedback/A1/work/<team_dir>/`, as in `agents/grader.md`.
+4. Resolve the snapshot under `docs/grader-policy.md`, and fetch it from GitHub into a freshly emptied `itpd-assignments-feedback/A1/work/<team_dir>/snapshot/`, as in `agents/grader.md`.
 5. Record the snapshot commit date and confirm the snapshot is on `main`:
 
    ```bash

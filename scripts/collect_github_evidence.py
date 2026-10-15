@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dump the live GitHub evidence for one submission into tmp/<A>/<team_dir>/."""
+"""Dump the live GitHub evidence for one submission into its work directory."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Collect labels, issues, pull requests, runs, and commits for one team into "
-            "tmp/<assignment>/<team_dir>/ and print a compact summary."
+            "itpd-assignments-feedback/<assignment>/work/<team_dir>/ and print a compact summary."
         )
     )
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))

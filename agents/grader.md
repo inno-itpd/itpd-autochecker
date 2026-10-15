@@ -27,26 +27,26 @@ Follow the operator request to choose one of these modes:
 ## Paths
 
 - Submission: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/submissions/{TEAM_DIR}/` (the Moodle PDF report)
-- Snapshot working copy, fetched from GitHub at the permalink SHA: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/`
-  It is disposable: every review rebuilds it, and it can be deleted after grading.
-- Scratch directory: `tmp/{ASSIGNMENT_DIR}/{TEAM_DIR}/` (gitignored).
+- Team work directory: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/` (gitignored by the feedback repository).
   Write every intermediate file here: API dumps, commit lists, fetched pages, images, payloads.
   Other graders run in parallel, so never write to a shared scratchpad, to `/tmp` directly, or into another team's directory, and never read another team's files.
+- Snapshot working copy, fetched from GitHub at the permalink SHA: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot/`.
+  It is disposable: every review rebuilds it, and it can be deleted after grading.
 - Report: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md`
 
-The helper scripts share two scratch contracts; never edit those files by hand:
+The helper scripts share two contracts; never edit those files by hand:
 
-- `scripts/fetch_team_snapshot.py` writes `tmp/{ASSIGNMENT_DIR}/{TEAM_DIR}/pdf-info.json` (mode 0600) with keys `assignment`, `team_dir`, `pdf`, `pdf_path`, `page_count`, `recording_link`, `org`, `repo`, `sha`, `permalink`, `permalink_path`, `snapshot_time`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_fetched`, `work_dir`, `github_usernames`, and `privacy_tokens` (`name_tokens`, `email_tokens`).
+- `scripts/fetch_team_snapshot.py` writes `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/pdf-info.json` (mode 0600) with keys `assignment`, `team_dir`, `pdf`, `pdf_path`, `page_count`, `recording_link`, `org`, `repo`, `sha`, `permalink`, `permalink_path`, `snapshot_time`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_fetched`, `snapshot_dir`, `github_usernames`, and `privacy_tokens` (`name_tokens`, `email_tokens`).
 - `scripts/collect_github_evidence.py` writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, and `commits.json` beside it, and, on request, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`.
 - `scripts/scan_privacy.py` reads `pdf-info.json`, and `scripts/check_snapshot_links.py --issue-bodies` reads `issues.json`.
 
 ## Steps
 
-1. Empty the scratch directory, so no files from an earlier run remain:
+1. Empty the team work directory, so no files from an earlier run remain:
 
    ```console
-   rm -rf "tmp/{ASSIGNMENT_DIR}/{TEAM_DIR}"
-   mkdir -p "tmp/{ASSIGNMENT_DIR}/{TEAM_DIR}"
+   rm -rf "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
+   mkdir -p "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
    ```
 
 2. Read `docs/grader-policy.md`.
@@ -63,8 +63,8 @@ The helper scripts share two scratch contracts; never edit those files by hand:
    uv run python scripts/fetch_team_snapshot.py {ASSIGNMENT_DIR} {TEAM_DIR}
    ```
 
-   It prefers the PDF that carries the full-SHA permalink, records the team number, repository, permalink, full SHA, recording link, page count, and the member name/email tokens in `tmp/{ASSIGNMENT_DIR}/{TEAM_DIR}/pdf-info.json`, checks that the commit exists and is on `main`, and refetches the snapshot into `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/`.
-   It prints counts and paths only, so real names and emails never leave the scratch file.
+   It prefers the PDF that carries the full-SHA permalink, records the team number, repository, permalink, full SHA, recording link, page count, and the member name/email tokens in `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/pdf-info.json`, checks that the commit exists and is on `main`, and refetches the snapshot into `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot/`.
+   It prints counts and paths only, so real names and emails never leave the work directory.
    Do not copy real names or emails into any output.
 
    Fallback when the fetcher cannot read the PDF:
@@ -86,9 +86,9 @@ The helper scripts share two scratch contracts; never edit those files by hand:
 9. Only when the fetcher could not fetch the snapshot, do it by hand into an empty directory, so files from an earlier fetch do not remain:
 
    ```console
-   rm -rf "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
-   mkdir -p "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
-   gh api "repos/<org>/<repo>/tarball/<sha>" | tar -xz --strip-components=1 -C "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
+   rm -rf "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot"
+   mkdir -p "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot"
+   gh api "repos/<org>/<repo>/tarball/<sha>" | tar -xz --strip-components=1 -C "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot"
    ```
 
 10. Review the files offline in the fetched snapshot.
@@ -96,10 +96,10 @@ The helper scripts share two scratch contracts; never edit those files by hand:
     Check the snapshot's relative links, heading anchors, and pre-cut research anchors:
 
     ```console
-    uv run python scripts/check_snapshot_links.py "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
+    uv run python scripts/check_snapshot_links.py "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot"
     ```
 
-    After step 11, add `--issue-bodies "tmp/{ASSIGNMENT_DIR}/{TEAM_DIR}/issues.json"` to check anchors referenced from issue bodies; it reports pre-cut `#(alt|gap|vp)-NN-` anchors separately.
+    After step 11, add `--issue-bodies "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/issues.json"` to check anchors referenced from issue bodies; it reports pre-cut `#(alt|gap|vp)-NN-` anchors separately.
     Fallback when the checker cannot run: inspect relative targets and heading slugs with `rg`.
     Build evidence links as `https://github.com/<org>/<repo>/blob/<sha>/<path>`.
 11. Collect the live GitHub evidence the assignment prompt asks for:
@@ -108,7 +108,7 @@ The helper scripts share two scratch contracts; never edit those files by hand:
     uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} [--issues <n> ...] [--paths <path> ...]
     ```
 
-    It reads `pdf-info.json` and writes the paginated dumps into the scratch directory: `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, and, for each `--issues <n>`, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, and `issues/<n>.edits.json`, and, for each `--paths <path>`, `paths/<path>.json`.
+    It reads `pdf-info.json` and writes the paginated dumps into the team work directory: `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, and, for each `--issues <n>`, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, and `issues/<n>.edits.json`, and, for each `--paths <path>`, `paths/<path>.json`.
     Read those files instead of re-running `gh`; it prints counts and paths only.
     Fallback: the raw `gh` and `jq` commands in `{ASSIGNMENT_DIR}/grading_prompt.md`, for fields the collector does not cover.
     Follow `docs/grader-policy.md#live-github-evidence`.

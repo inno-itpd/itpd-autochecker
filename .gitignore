@@ -11,9 +11,6 @@ __pycache__/
 .direnv/
 result
 
-# Scratch
-tmp/
-
 # Editors
 .vscode/
 .idea/

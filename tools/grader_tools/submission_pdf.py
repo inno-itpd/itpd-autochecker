@@ -4,8 +4,9 @@ The PDF is the only per-team submission artifact.  This module extracts the
 permalink to the primary index (organization, repository, and full 40-character
 SHA), the recording link, the page count, and the member table from it, checks
 the commit on GitHub, fetches the tarball at the permalink SHA into
-``itpd-assignments-feedback/<A>/work/<team_dir>/``, and writes
-``tmp/<A>/<team_dir>/pdf-info.json`` for the other grader helpers.
+``itpd-assignments-feedback/<A>/work/<team_dir>/snapshot/``, and writes
+``itpd-assignments-feedback/<A>/work/<team_dir>/pdf-info.json`` for the other
+grader helpers.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from pathlib import Path
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
 
 PDF_INFO_FILENAME = "pdf-info.json"
+SNAPSHOT_DIRNAME = "snapshot"
 PDF_SUFFIX = ".pdf"
 PAGE_NUMBER_PATTERN = re.compile(r'<page\s+number="(\d+)"')
 PDFINFO_PAGES_PATTERN = re.compile(r"^Pages:\s+(\d+)\s*$", re.MULTILINE)
@@ -105,7 +107,7 @@ class SnapshotFetchResult:
     team_dir: str
     pdf_info: dict[str, object]
     pdf_info_path: Path
-    work_dir: Path
+    snapshot_dir: Path
     summary_lines: tuple[str, ...]
 
 
@@ -485,10 +487,10 @@ def _is_not_found(stderr: str) -> bool:
     return "404" in lowered or "not found" in lowered
 
 
-def fetch_snapshot(repo: str, sha: str, work_dir: Path) -> None:
-    if work_dir.exists():
-        shutil.rmtree(work_dir)
-    work_dir.mkdir(parents=True)
+def fetch_snapshot(repo: str, sha: str, snapshot_dir: Path) -> None:
+    if snapshot_dir.exists():
+        shutil.rmtree(snapshot_dir)
+    snapshot_dir.mkdir(parents=True)
     try:
         download = subprocess.run(["gh", "api", f"repos/{repo}/tarball/{sha}"], capture_output=True)
     except FileNotFoundError as exc:
@@ -499,7 +501,7 @@ def fetch_snapshot(repo: str, sha: str, work_dir: Path) -> None:
         )
     try:
         extract = subprocess.run(
-            ["tar", "-xz", "--strip-components=1", "-C", str(work_dir)],
+            ["tar", "-xz", "--strip-components=1", "-C", str(snapshot_dir)],
             input=download.stdout,
             capture_output=True,
         )
@@ -527,11 +529,12 @@ def fetch_team_snapshot(
         raise SubmissionPdfError(f"submission directory not found: {submission_dir}")
     metadata = select_submission_pdf(submission_dir, config["primary_index"])
     work_dir = root / FEEDBACK_ROOT / assignment / "work" / team_dir
-    pdf_info_path = root / "tmp" / assignment / team_dir / PDF_INFO_FILENAME
+    snapshot_dir = work_dir / SNAPSHOT_DIRNAME
+    pdf_info_path = work_dir / PDF_INFO_FILENAME
 
-    if work_dir.exists():
-        shutil.rmtree(work_dir)
-    work_dir.mkdir(parents=True)
+    if snapshot_dir.exists():
+        shutil.rmtree(snapshot_dir)
+    snapshot_dir.mkdir(parents=True)
 
     permalink = metadata.permalink
     commit: CommitCheck | None = None
@@ -555,9 +558,9 @@ def fetch_team_snapshot(
         if not commit.exists:
             summary.append("  snapshot: not fetched; stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules")
         else:
-            fetch_snapshot_fn(permalink.repo_full, permalink.sha, work_dir)
+            fetch_snapshot_fn(permalink.repo_full, permalink.sha, snapshot_dir)
             fetched = True
-            summary.append(f"  snapshot: fetched {len(list(work_dir.iterdir()))} top-level entries to {_relative(work_dir, root)}")
+            summary.append(f"  snapshot: fetched {len(list(snapshot_dir.iterdir()))} top-level entries to {_relative(snapshot_dir, root)}")
 
     name_tokens = sorted({token for member in metadata.members for token in member.name_tokens})
     summary.append(f"  recording: {'present' if metadata.recording_link else 'not found'}")
@@ -584,7 +587,7 @@ def fetch_team_snapshot(
         "on_main": commit.on_main if commit else None,
         "on_main_status": commit.on_main_status if commit else None,
         "snapshot_fetched": fetched,
-        "work_dir": _relative(work_dir, root),
+        "snapshot_dir": _relative(snapshot_dir, root),
         "github_usernames": [member.github_username for member in metadata.members],
         "privacy_tokens": {"name_tokens": name_tokens, "email_tokens": list(metadata.email_tokens)},
     }
@@ -594,7 +597,7 @@ def fetch_team_snapshot(
         team_dir=team_dir,
         pdf_info=pdf_info,
         pdf_info_path=pdf_info_path,
-        work_dir=work_dir,
+        snapshot_dir=snapshot_dir,
         summary_lines=tuple(summary),
     )
 

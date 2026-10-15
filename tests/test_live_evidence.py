@@ -56,7 +56,7 @@ class FakeGh:
 
 
 def write_pdf_info(tmp_path: Path, repo: object = REPO, sha: object = SHA) -> Path:
-    scratch = tmp_path / "tmp" / "A2" / TEAM
+    scratch = tmp_path / "itpd-assignments-feedback" / "A2" / "work" / TEAM
     scratch.mkdir(parents=True)
     (scratch / "pdf-info.json").write_text(
         json.dumps({"assignment": "A2", "team_dir": TEAM, "repo": repo, "sha": sha}),
@@ -133,8 +133,8 @@ def test_collect_writes_the_base_dumps_and_a_compact_summary(tmp_path: Path) -> 
     ]
     assert [file.count for file in result.files] == [1, 1, 1, 1, 1, 1]
     summary = "\n".join(result.summary_lines)
-    assert "tmp/A2/" in summary
-    assert "labels: 1 -> tmp/A2/" in summary
+    assert "itpd-assignments-feedback/A2/work/" in summary
+    assert "labels: 1 -> itpd-assignments-feedback/A2/work/" in summary
     assert f"repo: {REPO} @ {SHA}" in summary
     assert '{"name"' not in summary
     assert '"workflow_runs"' not in summary
@@ -223,7 +223,7 @@ def test_collect_issue_drilldowns(tmp_path: Path) -> None:
         "issue 11 edits",
     ]
     assert [file.count for file in result.files[-3:]] == [2, 1, 1]
-    assert "issue 11 comments: 2 -> tmp/A2/" in "\n".join(result.summary_lines)
+    assert "issue 11 comments: 2 -> itpd-assignments-feedback/A2/work/" in "\n".join(result.summary_lines)
 
 
 def test_collect_issue_edits_reports_graphql_errors(tmp_path: Path) -> None:

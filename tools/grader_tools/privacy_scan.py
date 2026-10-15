@@ -8,9 +8,9 @@ inside them.
 
 ``scripts/scan_privacy.py`` prints findings grouped by rule with their path and
 kind only; matched values never reach stdout.  The scanner reads
-``tmp/<assignment>/<team_dir>/pdf-info.json`` (written by
-``scripts/fetch_team_snapshot.py``) for the work directory, the recording link,
-and the member name and email tokens.
+``itpd-assignments-feedback/<assignment>/work/<team_dir>/pdf-info.json``
+(written by ``scripts/fetch_team_snapshot.py``) for the snapshot directory, the
+recording link, and the member name and email tokens.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
-from tools.grader_tools.submission_pdf import PDF_INFO_FILENAME
+from tools.grader_tools.submission_pdf import PDF_INFO_FILENAME, SNAPSHOT_DIRNAME
 
 BINARY_SNIFF_BYTES = 8192
 MAX_TEXT_BYTES = 5 * 1024 * 1024
@@ -85,7 +85,7 @@ PRIVACY_RULES: tuple[tuple[str, str], ...] = (
 
 
 class PrivacyScanError(RuntimeError):
-    """The scratch metadata or the scan target is missing or unreadable."""
+    """The work-directory metadata or the scan target is missing or unreadable."""
 
 
 @dataclass(frozen=True)
@@ -93,7 +93,7 @@ class PrivacyTokens:
     name_tokens: tuple[str, ...]
     email_tokens: tuple[str, ...]
     recording_link: str | None
-    work_dir: str | None
+    snapshot_dir: str | None
     snapshot_fetched: bool | None
 
 
@@ -152,13 +152,13 @@ def load_privacy_tokens(path: Path) -> PrivacyTokens:
     raw_tokens = payload.get("privacy_tokens")
     tokens = raw_tokens if isinstance(raw_tokens, dict) else {}
     recording_link = payload.get("recording_link")
-    work_dir = payload.get("work_dir")
+    snapshot_dir = payload.get("snapshot_dir")
     snapshot_fetched = payload.get("snapshot_fetched")
     return PrivacyTokens(
         name_tokens=_token_tuple(tokens.get("name_tokens")),
         email_tokens=_token_tuple(tokens.get("email_tokens")),
         recording_link=recording_link if isinstance(recording_link, str) and recording_link else None,
-        work_dir=work_dir if isinstance(work_dir, str) and work_dir else None,
+        snapshot_dir=snapshot_dir if isinstance(snapshot_dir, str) and snapshot_dir else None,
         snapshot_fetched=snapshot_fetched if isinstance(snapshot_fetched, bool) else None,
     )
 
@@ -261,7 +261,7 @@ def scan_privacy(
 ) -> PrivacyScanResult:
     if assignment not in ASSIGNMENT_CONFIG:
         raise PrivacyScanError(f"unknown assignment: {assignment}")
-    info_path = root / "tmp" / assignment / team_dir / PDF_INFO_FILENAME
+    info_path = root / FEEDBACK_ROOT / assignment / "work" / team_dir / PDF_INFO_FILENAME
     tokens = load_privacy_tokens(info_path)
     collector = _Collector()
     counts = _Counts()
@@ -285,11 +285,11 @@ def scan_privacy(
                 f"{info_path} reports snapshot_fetched=false; repository-dependent checks are stopped, "
                 "so the snapshot cannot be scanned (see docs/grader-policy.md#submission-and-snapshot-rules)"
             )
-        work_dir = tokens.work_dir or f"{FEEDBACK_ROOT}/{assignment}/work/{team_dir}"
-        scan_root = root / work_dir
+        snapshot_dir = tokens.snapshot_dir or f"{FEEDBACK_ROOT}/{assignment}/work/{team_dir}/{SNAPSHOT_DIRNAME}"
+        scan_root = root / snapshot_dir
         if not scan_root.is_dir():
             raise PrivacyScanError(
-                f"missing snapshot directory {work_dir}; run scripts/fetch_team_snapshot.py "
+                f"missing snapshot directory {snapshot_dir}; run scripts/fetch_team_snapshot.py "
                 f"{assignment} {team_dir} first"
             )
         mode = "snapshot"

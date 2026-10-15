@@ -27,26 +27,25 @@ def make_snapshot(
     snapshot_fetched: bool = True,
 ) -> Path:
     work = tmp_path / "itpd-assignments-feedback" / "A1" / "work" / TEAM
-    work.mkdir(parents=True, exist_ok=True)
+    snapshot = work / "snapshot"
+    snapshot.mkdir(parents=True, exist_ok=True)
     for relative, content in files.items():
-        target = work / relative
+        target = snapshot / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         if isinstance(content, bytes):
             target.write_bytes(content)
         else:
             target.write_text(content, encoding="utf-8")
-    scratch = tmp_path / "tmp" / "A1" / TEAM
-    scratch.mkdir(parents=True, exist_ok=True)
     payload = {
         "assignment": "A1",
         "team_dir": TEAM,
         "recording_link": recording_link,
         "snapshot_fetched": snapshot_fetched,
-        "work_dir": f"itpd-assignments-feedback/A1/work/{TEAM}",
+        "snapshot_dir": f"itpd-assignments-feedback/A1/work/{TEAM}/snapshot",
         "privacy_tokens": {"name_tokens": list(name_tokens), "email_tokens": list(email_tokens)},
     }
-    (scratch / "pdf-info.json").write_text(json.dumps(payload), encoding="utf-8")
-    return work
+    (work / "pdf-info.json").write_text(json.dumps(payload), encoding="utf-8")
+    return snapshot
 
 
 def test_email_rule_flags_personal_but_not_placeholders(tmp_path: Path) -> None:

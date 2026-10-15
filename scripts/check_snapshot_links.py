@@ -30,8 +30,8 @@ def build_parser() -> argparse.ArgumentParser:
         )
     )
     parser.add_argument(
-        "work_dir",
-        help="Fetched snapshot directory, for example itpd-assignments-feedback/A2/work/<team_dir>",
+        "snapshot_dir",
+        help="Fetched snapshot directory, for example itpd-assignments-feedback/A2/work/<team_dir>/snapshot",
     )
     parser.add_argument(
         "--issue-bodies",
@@ -45,7 +45,7 @@ def run(argv: Sequence[str], *, out: Callable[[str], None] = print) -> int:
     args = build_parser().parse_args(argv)
     try:
         result = check_snapshot_links(
-            Path(args.work_dir),
+            Path(args.snapshot_dir),
             issue_bodies_path=Path(args.issue_bodies) if args.issue_bodies else None,
         )
     except SnapshotLinksError as exc:

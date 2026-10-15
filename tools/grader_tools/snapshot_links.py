@@ -89,7 +89,7 @@ class LinkFinding:
 
 @dataclass(frozen=True)
 class SnapshotLinksResult:
-    work_dir: Path
+    snapshot_dir: Path
     markdown_files: int
     findings: tuple[LinkFinding, ...]
     issue_bodies_checked: int
@@ -311,13 +311,13 @@ def load_issue_bodies(path: Path) -> list[tuple[int | None, str]]:
 
 
 def check_snapshot_links(
-    work_dir: Path,
+    snapshot_dir: Path,
     *,
     issue_bodies_path: Path | None = None,
 ) -> SnapshotLinksResult:
-    root = Path(work_dir)
+    root = Path(snapshot_dir)
     if not root.is_dir():
-        raise SnapshotLinksError(f"missing snapshot directory: {work_dir}")
+        raise SnapshotLinksError(f"missing snapshot directory: {snapshot_dir}")
 
     parsed: dict[str, _ParsedMarkdown] = {}
     for path in iter_markdown_files(root):
@@ -358,7 +358,7 @@ def check_snapshot_links(
         has_issue_bodies=issue_bodies_path is not None,
     )
     return SnapshotLinksResult(
-        work_dir=root,
+        snapshot_dir=root,
         markdown_files=len(parsed),
         findings=ordered,
         issue_bodies_checked=issue_bodies_checked,

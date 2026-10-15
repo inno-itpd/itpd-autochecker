@@ -21,7 +21,7 @@ from tools.grader_tools.submission_pdf import (
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Extract the PDF permalink metadata and fetch the GitHub snapshot into work/<team_dir>/."
+        description="Extract the PDF permalink metadata and fetch the GitHub snapshot into work/<team_dir>/snapshot/."
     )
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
     parser.add_argument("team_dir", help="Submission directory name under submissions/")

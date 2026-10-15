@@ -1,14 +1,14 @@
-"""Collect the live GitHub evidence for one team into its scratch directory.
+"""Collect the live GitHub evidence for one team into its team work directory.
 
 The A2 grading prompt's procedure step 5 defines the gh calls, their field
 lists, and the limit per call.  Those lists are constants here, so the
 collector and the prompt cannot drift apart; ``tests/test_live_evidence.py``
 checks them against ``A2/grading_prompt.md``.
 
-The collector reads ``tmp/<assignment>/<team_dir>/pdf-info.json`` (written by
-``scripts/fetch_team_snapshot.py``) for the repository and the snapshot SHA,
-writes JSON dumps beside it, and returns a compact summary of counts and paths.
-Raw dumps are only written to files, never printed.
+The collector reads ``itpd-assignments-feedback/<assignment>/work/<team_dir>/pdf-info.json``
+(written by ``scripts/fetch_team_snapshot.py``) for the repository and the
+snapshot SHA, writes JSON dumps beside it, and returns a compact summary of
+counts and paths. Raw dumps are only written to files, never printed.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
+from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
 from tools.grader_tools.submission_pdf import (
     PDF_INFO_FILENAME,
     CommandResult,
@@ -75,7 +75,7 @@ USER_CONTENT_EDITS_QUERY = (
 
 
 class LiveEvidenceError(RuntimeError):
-    """The scratch metadata is missing or a gh call failed."""
+    """The pdf-info metadata is missing or a gh call failed."""
 
 
 @dataclass(frozen=True)
@@ -91,7 +91,7 @@ class LiveEvidenceResult:
     team_dir: str
     repo: str
     sha: str
-    scratch_dir: Path
+    work_dir: Path
     files: tuple[EvidenceFile, ...]
     summary_lines: tuple[str, ...]
 
@@ -319,8 +319,8 @@ def collect_github_evidence(
     issue_numbers = _unique_issue_numbers(issues)
     repo_paths = list(dict.fromkeys(normalize_repo_path(path) for path in paths))
 
-    scratch_dir = root / "tmp" / assignment / team_dir
-    info_path = scratch_dir / PDF_INFO_FILENAME
+    work_dir = root / FEEDBACK_ROOT / assignment / "work" / team_dir
+    info_path = work_dir / PDF_INFO_FILENAME
     repo, sha = snapshot_target(load_pdf_info(info_path), info_path)
 
     files: list[EvidenceFile] = []
@@ -340,7 +340,7 @@ def collect_github_evidence(
     )
     for label, filename, command, shape in collectors:
         value = shape(_run_gh(command, runner))
-        dump_path = scratch_dir / filename
+        dump_path = work_dir / filename
         write_json_dump(dump_path, value)
         record(label, dump_path, _record_count(value))
 
@@ -352,13 +352,13 @@ def collect_github_evidence(
         )
         for kind, command, shape in drilldowns:
             value = shape(_run_gh(command, runner))
-            dump_path = scratch_dir / "issues" / f"{number}.{kind}.json"
+            dump_path = work_dir / "issues" / f"{number}.{kind}.json"
             write_json_dump(dump_path, value)
             record(f"issue {number} {kind}", dump_path, _record_count(value))
 
     for repo_path in repo_paths:
         value = project_path_commits(_run_gh(path_commits_command(repo, sha, repo_path), runner))
-        dump_path = scratch_dir / "paths" / f"{repo_path}.json"
+        dump_path = work_dir / "paths" / f"{repo_path}.json"
         write_json_dump(dump_path, value)
         record(f"path {repo_path} commits", dump_path, len(value))
 
@@ -367,7 +367,7 @@ def collect_github_evidence(
         team_dir=team_dir,
         repo=repo,
         sha=sha,
-        scratch_dir=scratch_dir,
+        work_dir=work_dir,
         files=tuple(files),
         summary_lines=tuple(summary),
     )
