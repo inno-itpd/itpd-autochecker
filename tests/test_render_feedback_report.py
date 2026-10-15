@@ -93,7 +93,7 @@ def test_a2_payload_renders_a_valid_report(tmp_path: Path) -> None:
 
 
 def test_cli_writes_a_report_that_passes_the_validator(tmp_path: Path) -> None:
-    output = tmp_path / "A1" / "feedback" / "markdown" / "Team 3_1_assignsubmission_file" / "agent-feedback.md"
+    output = tmp_path / "A1" / "feedback" / "Team 3_1_assignsubmission_file" / "agent-feedback.md"
     payload = full_payload(output, statuses={1: "partial", 4: "unverified"}, gaps={4, 7})
     payload_path = tmp_path / "payload.json"
     payload_path.write_text(json.dumps(payload), encoding="utf-8")

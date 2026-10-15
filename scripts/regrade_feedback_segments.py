@@ -136,9 +136,9 @@ def main() -> None:
     if markdownlint:
         subprocess.run([markdownlint, "--fix", str(feedback_path)], check=True, cwd=ROOT, stdout=subprocess.DEVNULL if args.quiet else None)
 
-    # agent-feedback.md lives at <assignment root>/feedback/markdown/<team_dir>/agent-feedback.md.
+    # agent-feedback.md lives at <assignment root>/feedback/<team_dir>/agent-feedback.md.
     feedback_dir = feedback_path.parent.parent
-    assignment_root = feedback_dir.parent.parent
+    assignment_root = feedback_dir.parent
     dev_output = assignment_root / "dev.md"
     release_output = assignment_root / "feedback_release.csv"
     if args.quiet:

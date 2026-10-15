@@ -50,7 +50,7 @@ FEEDBACK_ROOT = "itpd-assignments-feedback"
 def default_paths(assignment: str) -> dict[str, str]:
     base = f"{FEEDBACK_ROOT}/{assignment}"
     return {
-        "feedback_dir": f"{base}/feedback/markdown",
+        "feedback_dir": f"{base}/feedback",
         "dev_output": f"{base}/dev.md",
         "release_output": f"{base}/feedback_release.csv",
     }

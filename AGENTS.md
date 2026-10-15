@@ -30,7 +30,7 @@
     └── A<N>/
         ├── submissions/       # Moodle export, committed: <team_dir>/*.pdf
         ├── work/              # (gitignored, disposable) snapshots fetched from GitHub at the permalink SHA
-        ├── feedback/markdown/<team_dir>/agent-feedback.md
+        ├── feedback/<team_dir>/agent-feedback.md
         ├── dev.md             # Instructor triage table
         └── feedback_release.csv
 ```
@@ -58,7 +58,7 @@
 1. Unpack the Moodle export into `itpd-assignments-feedback/A<N>/submissions/`, one directory per team.
 2. Run `uv run python scripts/preflight.py` before a grader batch; it checks `gh` auth, `pdftotext`, and `markdownlint-cli2`.
 3. Review teams with the grader agent (see below).
-4. Validate changed reports with `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>`, then run `markdownlint-cli2 --fix "itpd-assignments-feedback/A<N>/feedback/markdown/**/*.md"`.
+4. Validate changed reports with `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>`, then run `markdownlint-cli2 --fix "itpd-assignments-feedback/A<N>/feedback/**/*.md"`.
 5. Run `uv run python A<N>/extract_feedback.py` to regenerate `dev.md` and `feedback_release.csv`.
 6. Review the extractor warnings and fix malformed reports.
 
@@ -72,7 +72,7 @@ When the user asks to review or re-review teams:
 1. Read `agents/grader.md`.
 2. Read `grading.json` and use `team_batch_size` as the batch size.
    Default to `8` if the file or value is missing or invalid.
-3. Pick the teams: the ones the user names, or every directory in `itpd-assignments-feedback/A<N>/submissions/` that has no `feedback/markdown/<team_dir>/agent-feedback.md` yet.
+3. Pick the teams: the ones the user names, or every directory in `itpd-assignments-feedback/A<N>/submissions/` that has no `feedback/<team_dir>/agent-feedback.md` yet.
 4. For each batch, launch one subagent per team in parallel:
    - Claude Code: the `grader` agent (`.claude/agents/grader.md`).
    - opencode: the `grader` subagent (`.opencode/agents/grader.md`) via the `task` tool.
@@ -142,7 +142,7 @@ Decision rules:
 3. Add `A<N>` to `tools/grader_tools/assignment_config.py`: segment names identical to the prompt, plus `primary_index`, `week_window_start`, and `issue_cutoff` as ISO 8601 Innopolis (UTC+3) strings.
    `scripts/fetch_team_snapshot.py`, `collect_github_evidence.py`, `scan_privacy.py`, `check_feedback_report.py`, and `render_feedback_report.py` all read this config.
 4. Copy `A1/extract_feedback.py` to `A<N>/` and change `ASSIGNMENT`.
-5. Create `itpd-assignments-feedback/A<N>/feedback/markdown/` (with a `.gitkeep`).
+5. Create `itpd-assignments-feedback/A<N>/feedback/` (with a `.gitkeep`).
 6. Smoke-check the helpers against one submission: `uv run python scripts/preflight.py`, then `uv run python scripts/fetch_team_snapshot.py A<N> <team_dir>` and `uv run python scripts/collect_github_evidence.py A<N> <team_dir>`.
 
 ## Task tracking

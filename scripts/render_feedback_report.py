@@ -18,7 +18,7 @@ Payload shape (all keys are required unless marked optional):
 
 ```json
 {
-  "output_path": "itpd-assignments-feedback/A1/feedback/markdown/<team_dir>/agent-feedback.md",
+  "output_path": "itpd-assignments-feedback/A1/feedback/<team_dir>/agent-feedback.md",
   "team": 3,
   "repository": "https://github.com/<org>/<repo>",
   "snapshot": "<full 40-character lowercase commit SHA>",

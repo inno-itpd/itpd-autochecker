@@ -32,7 +32,7 @@ Follow the operator request to choose one of these modes:
 - Scratch directory: `tmp/{ASSIGNMENT_DIR}/{TEAM_DIR}/` (gitignored).
   Write every intermediate file here: API dumps, commit lists, fetched pages, images, payloads.
   Other graders run in parallel, so never write to a shared scratchpad, to `/tmp` directly, or into another team's directory, and never read another team's files.
-- Report: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/agent-feedback.md`
+- Report: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md`
 
 The helper scripts share two scratch contracts; never edit those files by hand:
 
@@ -127,7 +127,7 @@ The helper scripts share two scratch contracts; never edit those files by hand:
 
 ## Output
 
-- In `full review` mode, write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/agent-feedback.md` in the format from `docs/grading-feedback-format.md`, or render it from one structured payload:
+- In `full review` mode, write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md` in the format from `docs/grading-feedback-format.md`, or render it from one structured payload:
 
   ```console
   uv run python scripts/render_feedback_report.py {ASSIGNMENT_DIR} <payload.json>
@@ -137,7 +137,7 @@ The helper scripts share two scratch contracts; never edit those files by hand:
 - Validate it, and fix it until it passes:
 
   ```console
-  uv run python scripts/check_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/agent-feedback.md"
+  uv run python scripts/check_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
   ```
 
   It runs the report validator and `markdownlint-cli2` together.
@@ -145,7 +145,7 @@ The helper scripts share two scratch contracts; never edit those files by hand:
 - Scan the finished report for private-only material:
 
   ```console
-  uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR} --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/markdown/{TEAM_DIR}/agent-feedback.md"
+  uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR} --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
   ```
 
 - In `partial regrade` mode, prefer:

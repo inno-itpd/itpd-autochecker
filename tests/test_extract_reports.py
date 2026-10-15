@@ -20,7 +20,7 @@ def test_parse_team_name() -> None:
 
 
 def test_extraction_writes_dev_md_and_csv(tmp_path: Path) -> None:
-    feedback_dir = tmp_path / "A1" / "feedback" / "markdown"
+    feedback_dir = tmp_path / "A1" / "feedback"
     write_team(feedback_dir, "Team 10_1_assignsubmission_file", build_report("A1", team=10))
     write_team(feedback_dir, "Team 2_2_assignsubmission_file", build_report("A1", statuses={3: "partial", 4: "unverified"}, gaps={4}, team=2))
     write_team(feedback_dir, "Team 5_3_assignsubmission_file", None)
@@ -34,7 +34,7 @@ def test_extraction_writes_dev_md_and_csv(tmp_path: Path) -> None:
     rows = [line for line in dev_lines if line.startswith("| [Team") or line.startswith("| Team")]
     assert [row.split("|")[1].strip().split("]")[0].lstrip("[") for row in rows] == ["Team 2", "Team 5", "Team 7", "Team 10"]
     assert "met 7 · partial 1 · unverified 1" in rows[0]
-    assert "feedback/markdown/Team%202_2_assignsubmission_file/agent-feedback.md#unresolved-evidence-gaps" in rows[0]
+    assert "feedback/Team%202_2_assignsubmission_file/agent-feedback.md#unresolved-evidence-gaps" in rows[0]
     assert "feedback file is missing" in rows[1]
     assert "feedback file is malformed" in rows[2]
     assert "First shortfall. <br> - Second shortfall." in rows[3]
