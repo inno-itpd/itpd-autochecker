@@ -164,6 +164,6 @@ Run `backlog` inside the dev shell so `BACKLOG_CWD` points at this repo.
 
 - Use Conventional Commits with a path scope, for example `feat(A1/prompt): ...`, `fix(tools): ...`, `docs(agents): ...`, `chore(deps): ...`.
 - Every commit has a body of 2-4 short bullets explaining what changed and why.
-- Commits made by an AI agent end with a `Co-Authored-By` trailer naming the model.
+- Commits made by an AI agent end with `Harness:` and `Model:` metadata lines instead of a `Co-Authored-By` trailer, with `Model:` holding the exact `<provider>/<model>` identifier.
 - Commit feedback in the `itpd-assignments-feedback` submodule first, then bump the submodule here.
 - The `commit-itpd` skill (`.agents/skills/commit-itpd/SKILL.md`, also `/commit` in opencode) owns the message format, the staged-changes-only rule, and the model-identity rules.
