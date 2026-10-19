@@ -49,7 +49,7 @@ Follow the operator request to choose one of these modes:
 The helper scripts share two contracts; never edit those files by hand:
 
 - `scripts/fetch_team_snapshot.py` writes `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/pdf-info.json` (mode 0600) with keys `assignment`, `team_dir`, `pdf`, `pdf_path`, `page_count`, `recording_link`, `org`, `repo`, `sha`, `permalink`, `permalink_path`, `snapshot_time`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_fetched`, `snapshot_dir`, `github_usernames`, and `privacy_tokens` (`name_tokens`, `email_tokens`).
-- `scripts/collect_github_evidence.py` writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json` beside it, plus the compact `summary.md` digest, and, on request, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`.
+- `scripts/collect_github_evidence.py` writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json` beside it, plus the compact `summary.md` digest, and, on request, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`, and, with `--issue-fields`, `issue-fields.json` with each issue's `type`, `milestone`, `assignees`, and `field_values`.
 - `scripts/scan_privacy.py` reads `pdf-info.json`, and `scripts/check_snapshot_links.py --issue-bodies` reads `issues.json`.
 
 ## Context budget
@@ -143,9 +143,12 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
 
     ```console
     uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} [--issues <n> ...] [--paths <path> ...]
+    uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} --issue-fields
     ```
 
     It reads `pdf-info.json` and writes the paginated dumps into the team work directory: `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json`, and, for each `--issues <n>`, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, and `issues/<n>.edits.json`, and, for each `--paths <path>`, `paths/<path>.json`, plus the bounded `summary.md` digest.
+    `--issue-fields` is its own mode: it writes `issue-fields.json` with every issue's `type`, `milestone`, `assignees`, and `field_values` from one paginated REST list call, skips pull requests, and does not rewrite the other dumps.
+    It cannot be combined with `--summary`, `--issues`, or `--paths`.
     Read `summary.md` first, then open a dump only through the bounded projections in `## Context budget`.
     Regenerate the digest from the saved dumps without calling `gh`:
 

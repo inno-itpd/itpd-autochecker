@@ -10,6 +10,7 @@ from scripts.collect_github_evidence import run as collect_run
 from tools.grader_tools.live_evidence import (
     EDIT_FIELDS,
     ISSUE_FIELDS,
+    ISSUE_FIELDS_FILENAME,
     ISSUE_LIMIT,
     LABEL_FIELDS,
     LABEL_LIMIT,
@@ -34,6 +35,7 @@ from tools.grader_tools.live_evidence import (
     comments_command,
     commits_command,
     edits_command,
+    issue_fields_command,
     issues_command,
     labels_command,
     milestones_command,
@@ -123,6 +125,96 @@ def base_responses() -> dict[tuple[str, ...], str]:
         ),
         tuple(tags_command(REPO)): json.dumps([{"name": "v1.0.0", "commit": {"sha": "a" * 40}, "ignored": "x"}]),
     }
+
+
+def issue_fields_responses() -> dict[tuple[str, ...], str]:
+    return {
+        tuple(issue_fields_command(REPO)): json.dumps(
+            [
+                {
+                    "number": 50,
+                    "state": "open",
+                    "title": "Ship the slice",
+                    "type": {"name": "User story"},
+                    "milestone": {"title": "SPRINT-03"},
+                    "assignees": [{"login": "alice"}, {"login": "bob"}],
+                    "issue_field_values": [
+                        {
+                            "data_type": "single_select",
+                            "issue_field_id": 1,
+                            "issue_field_name": "Responsible",
+                            "single_select_option": {"name": "alice"},
+                            "value": 101,
+                        },
+                        {
+                            "data_type": "single_select",
+                            "issue_field_id": 2,
+                            "issue_field_name": "Accountable",
+                            "single_select_option": {"name": "bob"},
+                            "value": 102,
+                        },
+                    ],
+                },
+                {
+                    "number": 51,
+                    "state": "closed",
+                    "title": "Null-safe task",
+                    "type": None,
+                    "milestone": None,
+                    "assignees": None,
+                    "issue_field_values": None,
+                },
+                {"number": 52, "state": "open", "title": "Absent keys"},
+                {
+                    "number": 53,
+                    "state": "open",
+                    "title": "A pull request",
+                    "pull_request": {"url": "https://example.com/pull/53"},
+                    "issue_field_values": [
+                        {
+                            "data_type": "single_select",
+                            "issue_field_name": "Responsible",
+                            "single_select_option": {"name": "alice"},
+                        }
+                    ],
+                },
+            ]
+        )
+    }
+
+
+EXPECTED_ISSUE_FIELDS = [
+    {
+        "number": 50,
+        "state": "open",
+        "title": "Ship the slice",
+        "type": "User story",
+        "milestone": "SPRINT-03",
+        "assignees": ["alice", "bob"],
+        "field_values": [
+            {"name": "Responsible", "data_type": "single_select", "value": "alice"},
+            {"name": "Accountable", "data_type": "single_select", "value": "bob"},
+        ],
+    },
+    {
+        "number": 51,
+        "state": "closed",
+        "title": "Null-safe task",
+        "type": None,
+        "milestone": None,
+        "assignees": [],
+        "field_values": [],
+    },
+    {
+        "number": 52,
+        "state": "open",
+        "title": "Absent keys",
+        "type": None,
+        "milestone": None,
+        "assignees": [],
+        "field_values": [],
+    },
+]
 
 
 def test_collect_writes_the_base_dumps_and_a_compact_summary(tmp_path: Path) -> None:
@@ -365,6 +457,99 @@ def test_collect_stops_without_a_snapshot_repo(tmp_path: Path) -> None:
     assert "pdf-info.json has no repository and SHA" in summary
     assert "result: skipped (no snapshot)" in summary
     assert "--repo org/repo" in summary
+
+
+def test_issue_fields_projects_the_expected_rows(tmp_path: Path) -> None:
+    scratch = write_pdf_info(tmp_path)
+    runner = FakeGh(issue_fields_responses())
+    result = collect_github_evidence("A2", TEAM, tmp_path, issue_fields=True, runner=runner)
+
+    assert runner.calls == [tuple(issue_fields_command(REPO))]
+    path = scratch / ISSUE_FIELDS_FILENAME
+    assert json.loads(path.read_text(encoding="utf-8")) == EXPECTED_ISSUE_FIELDS
+    assert list(EXPECTED_ISSUE_FIELDS[0]) == [
+        "number",
+        "state",
+        "title",
+        "type",
+        "milestone",
+        "assignees",
+        "field_values",
+    ]
+    assert list(EXPECTED_ISSUE_FIELDS[0]["field_values"][0]) == ["name", "data_type", "value"]
+    assert path.stat().st_mode & 0o777 == 0o600
+    assert [file.label for file in result.files] == ["issue fields"]
+    assert [file.count for file in result.files] == [3]
+    assert result.summary_path is None
+    summary = "\n".join(result.summary_lines)
+    assert f"issue fields: 3 -> itpd-assignments-feedback/A2/work/{TEAM}/{ISSUE_FIELDS_FILENAME}" in summary
+    assert '{"number"' not in summary
+
+
+def test_issue_fields_is_null_safe_for_missing_arrays_and_objects(tmp_path: Path) -> None:
+    scratch = write_pdf_info(tmp_path)
+    collect_github_evidence("A2", TEAM, tmp_path, issue_fields=True, runner=FakeGh(issue_fields_responses()))
+
+    rows = json.loads((scratch / ISSUE_FIELDS_FILENAME).read_text(encoding="utf-8"))
+    for number in (51, 52):
+        row = next(item for item in rows if item["number"] == number)
+        assert row["type"] is None
+        assert row["milestone"] is None
+        assert row["assignees"] == []
+        assert row["field_values"] == []
+
+
+def test_issue_fields_skips_pull_requests(tmp_path: Path) -> None:
+    scratch = write_pdf_info(tmp_path)
+    collect_github_evidence("A2", TEAM, tmp_path, issue_fields=True, runner=FakeGh(issue_fields_responses()))
+
+    rows = json.loads((scratch / ISSUE_FIELDS_FILENAME).read_text(encoding="utf-8"))
+    assert [row["number"] for row in rows] == [50, 51, 52]
+
+
+def test_issue_fields_leaves_the_existing_dumps_unchanged(tmp_path: Path) -> None:
+    scratch = write_pdf_info(tmp_path)
+    collect_github_evidence("A2", TEAM, tmp_path, runner=FakeGh(base_responses()))
+    before = {path.name: path.read_bytes() for path in scratch.iterdir() if path.is_file()}
+
+    collect_github_evidence("A2", TEAM, tmp_path, issue_fields=True, runner=FakeGh(issue_fields_responses()))
+
+    after = {path.name: path.read_bytes() for path in scratch.iterdir() if path.is_file()}
+    assert set(after) == set(before) | {ISSUE_FIELDS_FILENAME}
+    for name, content in before.items():
+        assert after[name] == content
+
+
+def test_issue_fields_cli_writes_the_dump_and_prints_its_path(tmp_path: Path) -> None:
+    scratch = write_pdf_info(tmp_path)
+    responses = issue_fields_responses()
+
+    def fake_collect(assignment: str, team_dir: str, *, root: Path, **kwargs: object) -> LiveEvidenceResult:
+        return collect_github_evidence(assignment, team_dir, root, runner=FakeGh(responses), **kwargs)
+
+    lines: list[str] = []
+    status = collect_run(
+        ["A2", TEAM, "--issue-fields"], root=tmp_path, out=lines.append, collect=fake_collect
+    )
+
+    assert status == 0
+    assert (scratch / ISSUE_FIELDS_FILENAME).is_file()
+    assert lines == [
+        f"A2 / {TEAM}",
+        f"  repo: {REPO} @ {SHA}",
+        f"  issue fields: 3 -> itpd-assignments-feedback/A2/work/{TEAM}/{ISSUE_FIELDS_FILENAME}",
+    ]
+
+
+def test_issue_fields_rejects_summary_and_drilldowns(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit):
+        collect_run(["A2", TEAM, "--issue-fields", "--summary"], root=tmp_path, out=lambda _: None)
+
+    lines: list[str] = []
+    status = collect_run(["A2", TEAM, "--issue-fields", "--issues", "12"], root=tmp_path, out=lines.append)
+
+    assert status == 2
+    assert lines == ["ERROR: --issue-fields cannot be combined with --issues or --paths"]
 
 
 def test_collect_cli_exits_zero_on_a_skipped_snapshot() -> None:

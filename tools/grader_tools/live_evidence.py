@@ -16,6 +16,12 @@ milestones with their due dates and open and closed issue counts.  The digest
 is capped at ``SUMMARY_LINE_CAP`` lines, and each list is truncated visibly, so
 a grader can read it before opening any dump.  ``regenerate_evidence_summary``
 rebuilds it from the saved dumps without calling ``gh``.
+
+The ``--issue-fields`` mode is a separate, one-call dump: it reads every issue
+through one paginated REST list call, skips pull requests, and writes
+``issue-fields.json`` with each issue's number, state, title, type, milestone,
+assignees, and issue-field values.  It never rewrites the other dumps, and it
+is not combined with ``--summary`` or the drill-down options.
 """
 
 from __future__ import annotations
@@ -85,6 +91,7 @@ USER_CONTENT_EDITS_QUERY = (
 
 SUMMARY_FILENAME = "summary.md"
 SUMMARY_LINE_CAP = 60
+ISSUE_FIELDS_FILENAME = "issue-fields.json"
 SUMMARY_DUMP_FILES = (
     "issues.json",
     "prs.json",
@@ -194,6 +201,10 @@ def releases_command(repo: str) -> list[str]:
 
 def tags_command(repo: str) -> list[str]:
     return ["api", f"repos/{repo}/tags?per_page=100", "--paginate"]
+
+
+def issue_fields_command(repo: str) -> list[str]:
+    return ["api", f"repos/{repo}/issues?state=all&per_page=100", "--paginate"]
 
 
 def comments_command(repo: str, number: int) -> list[str]:
@@ -329,6 +340,74 @@ def project_releases(text: str) -> list[object]:
 
 def project_tags(text: str) -> list[object]:
     return project_list(text, TAG_FIELDS, "tag")
+
+
+def _issue_logins(assignees: object) -> list[object]:
+    """Return the assignee logins, with an absent or null array becoming ``[]``."""
+    if not isinstance(assignees, list):
+        return []
+    return [user.get("login") for user in assignees if isinstance(user, dict) and user.get("login") is not None]
+
+
+def _issue_field_value(value: Mapping[str, object]) -> object:
+    """Read the human-readable option of a REST issue-field value."""
+    single = value.get("single_select_option")
+    if isinstance(single, Mapping) and single.get("name") is not None:
+        return single.get("name")
+    multiple = value.get("multi_select_options")
+    if isinstance(multiple, list):
+        names = [
+            option.get("name")
+            for option in multiple
+            if isinstance(option, Mapping) and option.get("name") is not None
+        ]
+        if names:
+            return names
+    return value.get("value")
+
+
+def _issue_field_values(values: object) -> list[dict[str, object]]:
+    """Project ``issue_field_values``, with an absent or null array becoming ``[]``."""
+    if not isinstance(values, list):
+        return []
+    projected: list[dict[str, object]] = []
+    for value in values:
+        if not isinstance(value, dict):
+            continue
+        projected.append(
+            {
+                "name": value.get("issue_field_name"),
+                "data_type": value.get("data_type"),
+                "value": _issue_field_value(value),
+            }
+        )
+    return projected
+
+
+def project_issue_fields(text: str) -> list[object]:
+    """Project a paginated REST issue list into one row per issue, without pull requests."""
+    projected: list[object] = []
+    for item in merge_list_pages(text):
+        if not isinstance(item, dict):
+            raise LiveEvidenceError("an issue is not a JSON object")
+        if "pull_request" in item:
+            continue
+        issue_type = item.get("type")
+        issue_type = issue_type if isinstance(issue_type, dict) else {}
+        milestone = item.get("milestone")
+        milestone = milestone if isinstance(milestone, dict) else {}
+        projected.append(
+            {
+                "number": item.get("number"),
+                "state": item.get("state"),
+                "title": item.get("title"),
+                "type": issue_type.get("name"),
+                "milestone": milestone.get("title"),
+                "assignees": _issue_logins(item.get("assignees")),
+                "field_values": _issue_field_values(item.get("issue_field_values")),
+            }
+        )
+    return projected
 
 
 def normalize_repo_path(path: str) -> str:
@@ -626,12 +705,15 @@ def collect_github_evidence(
     *,
     issues: Sequence[int] = (),
     paths: Sequence[str] = (),
+    issue_fields: bool = False,
     runner: Callable[[list[str]], CommandResult] = run_gh,
 ) -> LiveEvidenceResult:
     if assignment not in ASSIGNMENT_CONFIG:
         raise LiveEvidenceError(f"unknown assignment: {assignment}")
     issue_numbers = _unique_issue_numbers(issues)
     repo_paths = list(dict.fromkeys(normalize_repo_path(path) for path in paths))
+    if issue_fields and (issue_numbers or repo_paths):
+        raise LiveEvidenceError("--issue-fields cannot be combined with --issues or --paths")
 
     work_dir = root / FEEDBACK_ROOT / assignment / "work" / team_dir
     info_path = work_dir / PDF_INFO_FILENAME
@@ -655,6 +737,21 @@ def collect_github_evidence(
     def record(label: str, path: Path, count: int) -> None:
         files.append(EvidenceFile(label=label, path=path, count=count))
         summary.append(f"  {label}: {count} -> {_display(path, root)}")
+
+    if issue_fields:
+        value = project_issue_fields(_run_gh(issue_fields_command(repo), runner))
+        dump_path = work_dir / ISSUE_FIELDS_FILENAME
+        write_json_dump(dump_path, value)
+        record("issue fields", dump_path, len(value))
+        return LiveEvidenceResult(
+            assignment=assignment,
+            team_dir=team_dir,
+            repo=repo,
+            sha=sha,
+            work_dir=work_dir,
+            files=tuple(files),
+            summary_lines=tuple(summary),
+        )
 
     collectors: tuple[tuple[str, str, list[str], Callable[[str], object]], ...] = (
         ("labels", "labels.json", labels_command(repo), merge_list_pages),

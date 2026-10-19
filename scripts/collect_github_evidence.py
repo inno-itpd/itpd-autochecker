@@ -28,7 +28,10 @@ def build_parser() -> argparse.ArgumentParser:
             "one team into itpd-assignments-feedback/<assignment>/work/<team_dir>/, write a bounded "
             "summary.md digest, and print a compact summary. A submission with no resolvable snapshot "
             "is a judged outcome: the script prints 'result: skipped (no snapshot)' and exits 0. "
-            "With --summary it rebuilds and prints the digest from the saved dumps and never calls gh."
+            "With --issue-fields it instead writes issue-fields.json, one row per issue with its type, "
+            "milestone, assignees, and field values, from one paginated REST list call; that mode is "
+            "not combined with --summary, --issues, or --paths. With --summary it rebuilds and prints "
+            "the digest from the saved dumps and never calls gh."
         )
     )
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
@@ -48,7 +51,17 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="Repository paths, from the repository root, to fetch commit histories for",
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--issue-fields",
+        action="store_true",
+        help=(
+            "Write issue-fields.json: one row per issue with its type, milestone, assignees, and field "
+            "values from one paginated REST list call, skipping pull requests; does not rewrite the "
+            "other dumps"
+        ),
+    )
+    mode.add_argument(
         "--summary",
         action="store_true",
         help="Rebuild summary.md from the dumps already in the team work directory and print it; never calls gh",
@@ -73,6 +86,9 @@ def run(
         for line in digest.splitlines():
             out(line)
         return 0
+    if args.issue_fields and (args.issues or args.paths):
+        out("ERROR: --issue-fields cannot be combined with --issues or --paths")
+        return 2
     try:
         result = collect(
             args.assignment,
@@ -80,6 +96,7 @@ def run(
             root=root,
             issues=args.issues,
             paths=args.paths,
+            issue_fields=args.issue_fields,
         )
     except LiveEvidenceError as exc:
         out(f"ERROR: {exc}")

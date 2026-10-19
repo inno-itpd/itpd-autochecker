@@ -99,7 +99,7 @@ Use the status vocabulary of `docs/grading-feedback-format.md` and the evidence 
 A segment is `met` only when every `met` criterion below holds on verified evidence.
 A segment is `partial` when its core artifact exists and at least one verified shortfall remains.
 A segment is `missing` when the `missing` criterion below holds.
-A segment is `unverified` when its core evidence could not be read, such as S7 when the repository's pull requests cannot be read at all, or S6 when the organization's issue fields and project cannot be queried and nothing else settles them.
+A segment is `unverified` when its core evidence could not be read, such as S7 when the repository's pull requests cannot be read at all, or S6 when neither the per-issue field values nor the project can be read and nothing else settles them.
 Recommended items and the What Good Looks Like points are quality notes for the instructor, and they never cause a shortfall unless they coincide with a Required rule.
 
 ### S1 — Threshold of success
@@ -299,23 +299,24 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 **Check:**
 
-- The organization's issue fields, from `gh api graphql` with a query over `organization(login: "<org>") { issueFields(first: 50) { nodes { name, dataType, options } } }`, and the field visibility from the project's fields or the issue's sidebar, per [procedure step 12](#assignment-specific-procedure-deltas).
-- The organization's GitHub projects, from `gh project list --owner <org> --format json` and `gh project field-list`, `gh project view`, and `gh api graphql` for the project's items and views.
-- Every open issue and every issue the plan schedules, from `issues.json`, with its `milestone`, `assignees`, and issue-field values.
+- The per-issue field values first: from `issue-fields.json` (the collector's `--issue-fields` mode), from the REST `issue_field_values` in `gh api "repos/$REPO/issues/<n>"`, or from the GraphQL `issueFieldValues` query, per [procedure step 12](#assignment-specific-procedure-deltas).
+- The fields' names, data types, options, issue-type pinning, and visibility from each issue's sidebar and from the project's fields, per [procedure step 12](#assignment-specific-procedure-deltas).
+- The organization's GitHub projects, from `gh project list --owner <org> --format json` and `gh project field-list`, `gh project view`, and the project's page for its items and views.
+- Every open issue and every issue the plan schedules, from `issue-fields.json` or `issues.json`, with its `milestone`, `assignees`, and field values.
 - The repository's GitHub milestones, from the milestone list in S2.
 
 **met:**
 
-- The organization has the two issue fields `Responsible` and `Accountable`, each single-select.
-- Each field's options are one per team member, named by the member's GitHub username, and every member from the PDF's member table has an option.
-- Each field is pinned to the issue types the team uses for story and task issues, or to `Issues without a type` when the team uses none.
-- Each field's visibility is `Public`, or the team declares a deviation and carries the two roles as the labels `responsible:<username>` and `accountable:<username>`.
+- The two issue fields `Responsible` and `Accountable` exist, each single-select, as every scheduled issue's `field_values` and the issue sidebar name them.
+- Each field's options are one per team member, named by the member's GitHub username, and every member from the PDF's member table has an option, from the issue sidebar's option list or the project's fields.
+- Each field is pinned to the issue types the team uses for story and task issues, or to `Issues without a type` when the team uses none, from the fields the sidebar offers on an issue of each type.
+- Each field's visibility is `Public`, from the issue sidebar or the project's fields, or the team declares a deviation and carries the two roles as the labels `responsible:<username>` and `accountable:<username>`.
 - One GitHub project exists per team, in the organization, titled after the product or the repository, and its description links the repository.
 - The project's visibility is `Public`.
 - The project holds every open issue of the repository at or before `ISSUE_CUTOFF`.
 - The project carries at least one table view whose columns include the `Responsible` and `Accountable` fields, the built-in `Assignees`, and the built-in `Milestone`, grouped or sorted by `Milestone`.
-- Every issue the plan schedules at or before `ISSUE_CUTOFF`, and at least the `SPRINT-03` set, is in its sprint's GitHub milestone.
-- Every such issue's `Responsible` and `Accountable` values name two different members, and its assignees are exactly those two members.
+- Every issue the plan schedules at or before `ISSUE_CUTOFF`, and at least the `SPRINT-03` set, is in its sprint's GitHub milestone, from `issue-fields.json` or `issues.json` beside the milestone list.
+- Every such issue's `Responsible` and `Accountable` values, from its `field_values` or its sidebar, name two different members, and its assignees are exactly those two members.
 - On the label fallback, every such issue carries both role labels and the same two assignees.
 
 **partial:**
@@ -325,15 +326,19 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 **missing:**
 
-- Neither issue field exists, or no organization project holds the repository's issues, at `ISSUE_CUTOFF`.
+- Neither `Responsible` nor `Accountable` is readable from any issue's `field_values` or its sidebar, or no organization project holds the repository's issues, at `ISSUE_CUTOFF`.
 
 **guardrails:**
 
+- Public issues and their field values are readable by everyone, including non-organization-members, so read each issue's `issue_field_values` from REST or `issueFieldValues` from GraphQL, or the values in its sidebar.
+- An empty `organization { issueFields }` result or a `totalCount` of `0` is never evidence that a field is absent, because that list needs organization membership the review token may not have.
+- S6 is never `missing` on the organization field list alone: the per-issue values and the project settle the segment.
 - A team that cannot create issue fields and declares the label fallback is judged on the fallback, and its absence of fields is never a shortfall.
 - The project's auto-add workflow and adding items by hand both count.
 - An issue the team has not scheduled is not a shortfall: only issues the plan schedules carry the two values and a milestone, and the `SPRINT-03` set is the floor.
 - An already closed issue needs no values or milestone, and the values stay on it after it closes; do not require values on issues closed before Week 3.
-- When the issue fields or the project cannot be queried with the token, say which endpoint failed, judge the rest from the issues, and set `Evidence gaps: yes` only when the answer could change the status.
+- When the project cannot be queried with the token, say which endpoint failed, judge the rest from the issues, and set `Evidence gaps: yes` only when the answer could change the status.
+- `**Evidence:**` names the route that answered: `issue-fields.json`, the REST `issue_field_values`, the GraphQL `issueFieldValues`, or the issue sidebar.
 - Whether a work item closed by a pull request followed the workflow belongs to S7; this segment judges only that the work item is scheduled.
 
 ### S7 — Minimum usable product on main
@@ -669,6 +674,8 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    Read `summary.md` first: it carries the issue counts, the pull-request numbers, the failing runs, the tags, and each milestone's due date with its open and closed issue counts, in at most 60 lines.
    Open a dump only through a bounded projection that prints at most about 40 lines (`head -n 40`, a `jq` projection, or an `rg` match); never `cat` a full dump, because `commits.json` reached 1.35 MB and `prs.json` 284 KB.
    `--summary` rebuilds the digest from the saved dumps without calling `gh`.
+   The issue fields are their own mode: `uv run python scripts/collect_github_evidence.py A3 <team_dir> --issue-fields` writes `issue-fields.json` there with every issue's `type`, `milestone`, `assignees`, and `field_values`, from one paginated REST list call and without its pull requests.
+   It is not combined with `--summary`, `--issues`, or `--paths`.
    The raw fallback commands are:
 
    ```sh
@@ -770,22 +777,46 @@ Recommended items and the What Good Looks Like points are quality notes for the 
     - Read the changelog's dated section, the plan's `REL-03` line, and `reports/week-03/README.md` at the snapshot, and find, for each, the pull request that first added it, with the commits API over the file's path.
     - Compare the merge time of those three pull requests with the release's `published_at` and the tag's commit date; each must be later than, or at, the tag.
 
-12. Check the milestones, the issue fields, and the project with the endpoints that need the organization:
+12. Check the milestones, the issue fields, and the project from the issue dumps and the organization's endpoints:
 
     ```sh
     gh api "repos/$REPO/milestones?state=all&per_page=100" \
       --jq '.[] | [.title, .due_on, .state, .open_issues, .closed_issues] | @tsv'
-    gh api graphql -F org='<org>' -f query='
-      query($org: String!) {
-        organization(login: $org) { issueFields(first: 50) { nodes { name, dataType, options } } }
-      }'
+    gh api "repos/$REPO/issues/<n>" \
+      --jq '{number, type: (.type.name // null), milestone: (.milestone.title // null),
+             assignees: [(.assignees // [])[].login],
+             field_values: [(.issue_field_values // [])[] | {field: .issue_field_name, data_type, value: (.single_select_option.name // .value)}]}'
     gh project list --owner <org> --format json
     gh project field-list <number> --owner <org> --format json
     gh project view <number> --owner <org> --format json
     ```
 
-    Read each project's visibility from `gh project view`, and the table views and their columns from the project's GraphQL `views` and `fields`, falling back to the project page's HTML when the API refuses.
-    The issue fields API is an organization feature: when `issueFields` is rejected, read the values from each issue's sidebar or from an issue JSON fetched with `gh api "repos/$REPO/issues/<n>" --jq '.type, .milestone.title'` and the project's fields, and say in `**Evidence:**` which route answered.
+    Read the per-issue values first, from `issue-fields.json` or the REST projection above, and the field names, options, issue-type pinning, and visibility from the issue sidebar and the project's fields.
+    The same values are available from GraphQL when REST cannot answer:
+
+    ```sh
+    gh api graphql -F owner='<org>' -F name='<repo>' -F n=<n> -f query='
+      query($owner: String!, $name: String!, $n: Int!) {
+        repository(owner: $owner, name: $name) {
+          issue(number: $n) {
+            number
+            milestone { title }
+            assignees(first: 10) { nodes { login } }
+            issueFieldValues(first: 20) {
+              nodes {
+                ... on IssueFieldSingleSelectValue { field { ... on IssueFieldSingleSelect { name } } value }
+                ... on IssueFieldMultiSelectValue { field { ... on IssueFieldMultiSelect { name } } value }
+                ... on IssueFieldTextValue { field { ... on IssueFieldText { name } } value }
+              }
+            }
+          }
+        }
+      }'
+    ```
+
+    The organization `issueFields` list is not evidence: it needs organization membership the token may not have, and an empty list or `totalCount: 0` never means a field is absent.
+    Read each project's visibility from `gh project view`, and the table views and their columns from the project's page and `gh project field-list`.
+    Say in `**Evidence:**` which route answered.
 
 13. Check that every `**Sprint Backlog:**` link in `docs/project-plan.md` resolves, and that the milestone it names is the sprint's own milestone and lists the issues scheduled into that sprint:
 
