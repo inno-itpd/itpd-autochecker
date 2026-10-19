@@ -63,9 +63,24 @@
 
 ## Workflow
 
+Every Python command in the workflow, the helper scripts, and the regrades uses the same invocation, chosen once with this probe from the repository root:
+
+```console
+.venv/bin/python -c "import sys" >/dev/null 2>&1 && echo ".venv/bin/python" || echo "uv run python"
+```
+
+Two invocations are legitimate:
+
+- `.venv/bin/python` runs the prepared virtualenv in the checkout directly.
+- `uv run python` runs the same project environment through uv.
+
+Use the one the probe prints for all of them, and do not mix them.
+The workflow, helper, and regrade commands below show `uv run python`; when the probe prints `.venv/bin/python`, substitute it in every `uv run python` command.
+
 1. Unpack the Moodle export into `itpd-assignments-feedback/A<N>/submissions/`, one directory per team.
 2. Run `uv run python scripts/preflight.py` before a grader batch; it checks `gh` auth, `pdftotext`, and `markdownlint-cli2`.
 3. Review teams with the grader agent (see below).
+   **Keep every team's `work/<team_dir>/` until the batch has been extracted in step 5**, because the final `scripts/scan_privacy.py` run reads `pdf-info.json` and the fetched snapshot from it.
 4. Validate changed reports with `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>`, then run `markdownlint-cli2 --fix "itpd-assignments-feedback/A<N>/feedback/**/*.md"`.
 5. Run `uv run python A<N>/extract_feedback.py` to regenerate `dev.md` and `feedback_release.csv`.
 6. Review the extractor warnings and fix malformed reports.
@@ -95,10 +110,10 @@ All run from the repository root and print counts and paths only.
 `agents/grader.md` uses them in steps 7 to 13 and keeps the raw `gh` and `jq` commands as fallback.
 
 - `uv run python scripts/preflight.py` — checks `gh` auth, `pdftotext`, and `markdownlint-cli2` before a batch.
-- `uv run python scripts/fetch_team_snapshot.py A<N> <team_dir>` — PDF permalink, recording, page-count, and member-token extraction; commit and `main` check; snapshot refetch; writes `itpd-assignments-feedback/A<N>/work/<team_dir>/pdf-info.json`.
+- `uv run python scripts/fetch_team_snapshot.py A<N> <team_dir> [--repo org/repo]` — PDF permalink (a bare SHA is resolved with `gh search commits`, or paired with `--repo` and recorded as `permalink_source=operator`), recording, page-count, and member-token extraction; commit and `main` check; snapshot refetch; writes `itpd-assignments-feedback/A<N>/work/<team_dir>/pdf-info.json`.
 - `uv run python scripts/collect_github_evidence.py A<N> <team_dir> [--issues <n> ...] [--paths <path> ...]` — paginated dumps (`labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`) in the same team work directory.
 - `uv run python scripts/check_snapshot_links.py <snapshot_dir> [--issue-bodies <issues.json>]` — broken relative links, missing anchors, and pre-cut research anchors.
-- `uv run python scripts/scan_privacy.py A<N> <team_dir> [--feedback <agent-feedback.md>]` — privacy findings by path and kind only.
+- `uv run python scripts/scan_privacy.py A<N> <team_dir> [--feedback <agent-feedback.md>] [--no-snapshot]` — privacy findings by path and kind only; `--no-snapshot` with `--feedback` derives the tokens from the submission PDF after `work/<team_dir>/` is cleaned.
 - `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>` — report validation plus `markdownlint-cli2` in one command.
 - `uv run python scripts/render_feedback_report.py A<N> <payload.json>` — renders a complete report from one structured payload.
 - `uv run python scripts/image_info.py <files>` — PNG and JPEG dimensions, byte size, and PNG transparency.
@@ -170,19 +185,36 @@ Run `backlog` inside the dev shell so `BACKLOG_CWD` points at this repo.
 
 ## Troubleshooting
 
-- **`uv run` fails with `Could not acquire lock` / `Read-only file system (os error 30)` at `~/.cache/uv`:** the default cache is not writable; uv never reached the interpreter.
-  Run uv from inside the checkout, where `uv.toml` points the cache at `.local/uv-cache`; outside it, pass `--config-file <repo>/uv.toml` or export `UV_CACHE_DIR` to a writable directory.
-  `uv run --no-cache` is not a substitute: uv still creates its temp files in the cache directory.
-  If the failing path is a stale absolute one, an exported `UV_CACHE_DIR` is overriding `uv.toml`; unset it.
-- **`uv run` fails with `Unknown operating system: ''`:** a Python calls `sysconfig` without its build data.
-  A Nix Python expects `_PYTHON_HOST_PLATFORM`/`_PYTHON_SYSCONFIGDATA_NAME` in its environment; when they are empty, `_get_sysconfigdata_name()` returns `''`, the initialization does `__import__('')`, and `sysconfig.get_platform()`/`HOSTTYPE` come out empty (the error text names uv's platform probe, but any caller of `sysconfig` is affected).
-  `uv run` avoids it: uv reads the venv's `pyvenv.cfg`, which names the store Python, and never imports `sysconfig`.
-  The dev shell exports both variables for the Python directly.
-  Fix the variables or the interpreter; a cache override cannot fix it.
 - **`uv` ignores `uv.toml`:** uv discovers the project file from the working directory upwards, so a call made from outside the checkout does not see it.
   Run uv from the repository, or pass `--config-file <repo>/uv.toml`; an exported `UV_CACHE_DIR` also overrides the file's `cache-dir`.
 - **`direnv` does not pick up a `shellHook` change:** a cached development shell keeps the old hook until it is reloaded.
   Run `direnv reload` (or `direnv allow`) after editing `.envrc` or `flake.nix`.
+
+### Observed failure modes
+
+These are the failure modes the A3 batch produced, with the remedy for each.
+
+- **Context blowup:** the A3 batch lost 14 grader runs to oversized input; `commits.json` reached 1.35 MB and `prs.json` 284 KB.
+  Read `summary.md` first, open a dump only through a projection capped at about 40 lines, and prefer four small projections over one large read.
+  If a command's output is unexpectedly large, stop, narrow it, and continue, and never re-read a file you already summarized.
+  The same rules are in the `## Context budget` section of `agents/grader.md`.
+- **Bare-SHA PDF:** a submission PDF may carry only `Submission commit: <sha40>` and no GitHub URL.
+  `scripts/fetch_team_snapshot.py` resolves it with `gh search commits <sha> --json repository --jq 'map(.repository.fullName) | unique'` and adopts the repository only when exactly one matches; zero or several matches keep the stop path and name the candidates and the command tried.
+  The operator override is `scripts/fetch_team_snapshot.py A<N> <team_dir> --repo org/repo`, recorded as `permalink_source=operator`.
+  When `repo` or `sha` is `null` in `pdf-info.json`, `scripts/collect_github_evidence.py` prints `result: skipped (no snapshot)` and exits 0, so a missing snapshot is a judged outcome, not a tool failure; in A3 the S12 shortfall still stands.
+- **Cleaned work directory:** `scripts/scan_privacy.py` needs `pdf-info.json` and the fetched snapshot by default, so deleting `work/<team_dir>/` early breaks the final privacy gate.
+  Keep `work/<team_dir>/` until the batch is extracted; when it was already cleaned, scan the report with tokens derived from the submission PDF: `scripts/scan_privacy.py A<N> <team_dir> --feedback <report> --no-snapshot`.
+  `--no-snapshot` without `--feedback` is an error, because the report scan still needs the PDF for its tokens.
+- **`uv` Cause 1 — read-only cache:** `uv run` fails with `Could not acquire lock` / `Read-only file system (os error 30)` at `~/.cache/uv`, and uv never reached the interpreter.
+  Run uv from inside the checkout, where `uv.toml` puts the cache in `.local/uv-cache`; outside it, pass `--config-file <repo>/uv.toml`, or set `UV_CACHE_DIR` to a writable directory.
+  `uv run --no-cache` is not a substitute: uv still creates its temporary files in the cache directory.
+  If the failing path is a stale absolute one, an exported `UV_CACHE_DIR` is overriding `uv.toml`; unset it.
+- **`uv` Cause 2 — broken Nix-Python `sysconfig`:** `uv run` fails with `Unknown operating system: ''`, because the Nix Python's `sysconfig` build data is broken: `_get_sysconfigdata_name()` returns `''`, its initialization does `__import__('')`, and `sysconfig.get_platform()`/`HOSTTYPE` come out empty.
+  The error text names uv's platform probe, but any caller of `sysconfig` is affected.
+  `uv run` does not avoid it: uv's platform probe runs against the same interpreter, so the failure persists even with a writable cache.
+  Use `.venv/bin/python`, which runs these scripts without touching `sysconfig`, or repair the Python and its `_PYTHON_HOST_PLATFORM`/`_PYTHON_SYSCONFIGDATA_NAME`; the dev shell exports both variables for the Python directly.
+
+The two causes are independent: Cause 1 is about where uv keeps its cache, Cause 2 is about the interpreter's build data. A cache override fixes only Cause 1 and is never a complete fix.
 
 ## Git conventions
 
