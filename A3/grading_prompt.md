@@ -44,7 +44,7 @@ These `**Since: W4**` rules do not apply: product-code CI, the Definition of Don
 - Primary index artifact: `reports/week-03/README.md` at the snapshot, as named in Assignment Report In The Repository and in Moodle item 3 of `assignment-3.md`.
 - Soft deadline: Thursday 15 October 2026, 23:59.
 - Hard deadline: Saturday 17 October 2026, 23:59, as `course/syllabus.md` and `assignments/assignment-3.md` state it.
-- Soft deadline of the following week: Friday 23 October 2026, 23:59, the date the Week 4 syllabus block gives `REL-04`.
+- Hard deadline of the following week: Friday 23 October 2026, 23:59, the date the Week 4 syllabus block gives `REL-04`, and the date a plan milestone due in Week 4 is judged against.
 - The time zone is not stated; read every deadline as Innopolis time (UTC+3).
 - Submission inputs: the Moodle PDF under `itpd-assignments-feedback/A3/submissions/<team_dir>/`; there is no ZIP.
   The snapshot is fetched from GitHub at the permalink SHA into `itpd-assignments-feedback/A3/work/<team_dir>/snapshot/`.
@@ -179,7 +179,8 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 **Guardrails:**
 
-- A milestone due date is judged against `course/syllabus.md`: `2026-10-17`, `2026-10-23`, `2026-10-29`, `2026-11-05`, `2026-11-12`, `2026-11-19`, and `2026-11-26` for `SPRINT-03` to `SPRINT-09`, and the same dates for a plan milestone due in that week.
+- A milestone due date is judged against `course/syllabus.md`, which is authoritative: its table dates are the Thursday soft deadlines, each hard deadline is the following Friday at 23:59, and Weeks 2 and 3 are the Saturday exceptions.
+- The hard deadlines for `SPRINT-03` to `SPRINT-09` are `2026-10-17`, `2026-10-23`, `2026-10-30`, `2026-11-06`, `2026-11-13`, `2026-11-20`, and `2026-11-27`, the same dates applying to a plan milestone due in that week.
 - A closed GitHub milestone is a strength when its release was cut and its leftover issues moved on, and never a shortfall.
 - Further plan milestones are the team's choice; their absence beyond `MLS-03` is never a shortfall, and "plan milestones as increments, not weeks" is a quality note.
 - Whether an issue carries its milestone and the two values belongs to S6, and whether `**Sprint Backlog:**` resolves belongs to [procedure step 13](#assignment-specific-procedure-deltas), reported here.
