@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable, Sequence
 from pathlib import Path
 import sys
 
@@ -12,14 +13,16 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.live_evidence import LiveEvidenceError, collect_github_evidence
+from tools.grader_tools.live_evidence import LiveEvidenceError, LiveEvidenceResult, collect_github_evidence
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Collect labels, issues, pull requests, runs, and commits for one team into "
-            "itpd-assignments-feedback/<assignment>/work/<team_dir>/ and print a compact summary."
+            "itpd-assignments-feedback/<assignment>/work/<team_dir>/ and print a compact summary. "
+            "A submission with no resolvable snapshot is a judged outcome: the script prints "
+            "'result: skipped (no snapshot)' and exits 0."
         )
     )
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
@@ -39,19 +42,35 @@ def main() -> None:
         metavar="PATH",
         help="Repository paths, from the repository root, to fetch commit histories for",
     )
-    args = parser.parse_args()
+    return parser
 
+
+def run(
+    argv: Sequence[str],
+    *,
+    root: Path = ROOT,
+    out: Callable[[str], None] = print,
+    collect: Callable[..., LiveEvidenceResult] = collect_github_evidence,
+) -> int:
+    args = build_parser().parse_args(argv)
     try:
-        result = collect_github_evidence(
+        result = collect(
             args.assignment,
             args.team_dir,
-            root=ROOT,
+            root=root,
             issues=args.issues,
             paths=args.paths,
         )
     except LiveEvidenceError as exc:
-        raise SystemExit(f"ERROR: {exc}") from exc
-    print("\n".join(result.summary_lines))
+        out(f"ERROR: {exc}")
+        return 2
+    for line in result.summary_lines:
+        out(line)
+    return 0
+
+
+def main() -> None:
+    raise SystemExit(run(sys.argv[1:]))
 
 
 if __name__ == "__main__":

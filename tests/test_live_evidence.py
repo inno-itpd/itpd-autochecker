@@ -6,6 +6,7 @@ import re
 
 import pytest
 
+from scripts.collect_github_evidence import run as collect_run
 from tools.grader_tools.live_evidence import (
     EDIT_FIELDS,
     ISSUE_FIELDS,
@@ -20,6 +21,7 @@ from tools.grader_tools.live_evidence import (
     RUN_SHA_FIELDS,
     USER_CONTENT_EDITS_QUERY,
     LiveEvidenceError,
+    LiveEvidenceResult,
     collect_github_evidence,
 )
 from tools.grader_tools.live_evidence import (
@@ -284,8 +286,34 @@ def test_collect_requires_the_scratch_metadata(tmp_path: Path) -> None:
 
 def test_collect_stops_without_a_snapshot_repo(tmp_path: Path) -> None:
     write_pdf_info(tmp_path, repo=None, sha=None)
-    with pytest.raises(LiveEvidenceError, match="no repository and SHA"):
-        collect_github_evidence("A2", TEAM, tmp_path, runner=FakeGh({}))
+    result = collect_github_evidence("A2", TEAM, tmp_path, runner=FakeGh({}))
+
+    assert result.skipped is True
+    assert result.files == ()
+    assert result.repo is None
+    assert result.sha is None
+    summary = "\n".join(result.summary_lines)
+    assert "pdf-info.json has no repository and SHA" in summary
+    assert "result: skipped (no snapshot)" in summary
+    assert "--repo org/repo" in summary
+
+
+def test_collect_cli_exits_zero_on_a_skipped_snapshot() -> None:
+    skipped = LiveEvidenceResult(
+        assignment="A2",
+        team_dir=TEAM,
+        repo=None,
+        sha=None,
+        work_dir=Path("work"),
+        files=(),
+        summary_lines=("result: skipped (no snapshot)",),
+        skipped=True,
+    )
+    lines: list[str] = []
+    status = collect_run(["A2", TEAM], out=lines.append, collect=lambda *args, **kwargs: skipped)
+
+    assert status == 0
+    assert lines == ["result: skipped (no snapshot)"]
 
 
 def test_collect_rejects_unknown_assignment(tmp_path: Path) -> None:

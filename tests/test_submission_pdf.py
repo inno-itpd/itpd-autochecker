@@ -7,10 +7,15 @@ from pathlib import Path
 
 import pytest
 
+import tools.grader_tools.submission_pdf as submission_pdf_module
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
 from tools.grader_tools.submission_pdf import (
+    BARE_SHA_SOURCE,
+    BareShaResolution,
     CommandResult,
     CommitCheck,
+    PdfMetadata,
+    PdfPermalink,
     SnapshotFetchError,
     SubmissionPdfError,
     check_commit,
@@ -23,6 +28,8 @@ from tools.grader_tools.submission_pdf import (
     parse_pdftohtml_links,
     read_pdf_metadata,
     rejoin_wrapped_urls,
+    resolve_bare_sha_repo,
+    search_commits_command,
     select_submission_pdf,
 )
 
@@ -328,3 +335,194 @@ def test_fetch_team_snapshot_rejects_unknown_assignment(tmp_path: Path) -> None:
 def test_fetch_team_snapshot_rejects_missing_submission_dir(tmp_path: Path) -> None:
     with pytest.raises(SubmissionPdfError):
         fetch_team_snapshot("A1", "Team 99_x_assignsubmission_file", tmp_path)
+
+
+def test_find_permalink_returns_an_unresolved_candidate_for_a_bare_sha() -> None:
+    permalink = find_permalink(
+        ["https://drive.google.com/drive/folders/recording"],
+        f"Submission commit: {SHA}",
+        "reports/week-02/README.md",
+    )
+    assert permalink is not None
+    assert permalink.repo_full is None
+    assert permalink.org is None
+    assert permalink.sha == SHA
+    assert permalink.path == ""
+    assert permalink.source == BARE_SHA_SOURCE
+
+
+def test_find_permalink_leaves_several_bare_shas_unresolved() -> None:
+    text = f"Submission commit: {SHA}\nPrevious snapshot: {'a' * 40}"
+    assert find_permalink([], text, "reports/week-02/README.md") is None
+
+
+def test_resolve_bare_sha_repo_adopts_a_single_repository() -> None:
+    calls: list[list[str]] = []
+
+    def runner(command: list[str]) -> CommandResult:
+        calls.append(command)
+        return CommandResult(returncode=0, stdout=json.dumps(["example-org/example-repo"]), stderr="")
+
+    resolution = resolve_bare_sha_repo(SHA, runner)
+    assert resolution.repo == "example-org/example-repo"
+    assert resolution.candidates == ("example-org/example-repo",)
+    assert resolution.error is None
+    assert calls == [search_commits_command(SHA)]
+
+
+def test_resolve_bare_sha_repo_names_an_ambiguous_result() -> None:
+    resolution = resolve_bare_sha_repo(
+        SHA,
+        lambda command: CommandResult(returncode=0, stdout=json.dumps(["a/one", "b/two"]), stderr=""),
+    )
+    assert resolution.repo is None
+    assert resolution.candidates == ("a/one", "b/two")
+    assert "matched 2 repositories (a/one, b/two)" in resolution.detail
+    assert "gh search commits" in resolution.detail
+
+
+def test_resolve_bare_sha_repo_keeps_a_failed_search_unresolved() -> None:
+    resolution = resolve_bare_sha_repo(
+        SHA,
+        lambda command: CommandResult(returncode=1, stdout="", stderr="HTTP 403: rate limited"),
+    )
+    assert resolution.repo is None
+    assert resolution.error == "HTTP 403: rate limited"
+    assert "failed: HTTP 403: rate limited" in resolution.detail
+
+
+def test_resolve_bare_sha_repo_rejects_invalid_json() -> None:
+    resolution = resolve_bare_sha_repo(
+        SHA,
+        lambda command: CommandResult(returncode=0, stdout="not json", stderr=""),
+    )
+    assert resolution.repo is None
+    assert resolution.error == "gh returned invalid JSON"
+
+
+def build_bare_sha_root(tmp_path: Path) -> tuple[Path, str, PdfMetadata]:
+    team_dir = "Team 1_x_assignsubmission_file"
+    submission = tmp_path / "itpd-assignments-feedback" / "A1" / "submissions" / team_dir
+    submission.mkdir(parents=True)
+    metadata = PdfMetadata(
+        pdf_path=submission / "submission.pdf",
+        page_count=2,
+        text=f"Submission commit: {SHA}",
+        links=(),
+        permalink=PdfPermalink(url="", org=None, repo=None, sha=SHA, path="", source=BARE_SHA_SOURCE),
+        recording_link=None,
+        members=(),
+        email_tokens=(),
+    )
+    return tmp_path, team_dir, metadata
+
+
+def test_fetch_team_snapshot_resolves_a_bare_sha_repository(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root, team_dir, metadata = build_bare_sha_root(tmp_path)
+    monkeypatch.setattr(submission_pdf_module, "select_submission_pdf", lambda submission_dir, primary_index: metadata)
+    searched: list[str] = []
+
+    def fake_resolve(sha: str) -> BareShaResolution:
+        searched.append(sha)
+        return BareShaResolution(repo="example-org/example-repo", candidates=(), command="gh search commits " + sha)
+
+    result = fetch_team_snapshot(
+        "A1",
+        team_dir,
+        root,
+        resolve_repo_fn=fake_resolve,
+        check_commit_fn=lambda repo, sha: CommitCheck(True, "2026-10-17T10:00:00Z", True, "ahead"),
+        fetch_snapshot_fn=lambda repo, sha, snapshot_dir: (snapshot_dir / "README.md").write_text("snapshot"),
+    )
+    assert searched == [SHA]
+    assert result.pdf_info["repo"] == "example-org/example-repo"
+    assert result.pdf_info["org"] == "example-org"
+    assert result.pdf_info["sha"] == SHA
+    assert result.pdf_info["permalink"] is None
+    assert result.pdf_info["permalink_source"] == "gh-search-commits"
+    assert result.pdf_info["commit_exists"] is True
+    assert result.pdf_info["snapshot_fetched"] is True
+    summary = "\n".join(result.summary_lines)
+    assert "repo=example-org/example-repo sha=" + SHA in summary
+    assert "source=gh-search-commits" in summary
+
+
+def test_fetch_team_snapshot_keeps_the_stop_path_when_the_bare_sha_is_ambiguous(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, team_dir, metadata = build_bare_sha_root(tmp_path)
+    monkeypatch.setattr(submission_pdf_module, "select_submission_pdf", lambda submission_dir, primary_index: metadata)
+
+    def fail(*args, **kwargs):  # pragma: no cover - must not be called
+        raise AssertionError("repository-dependent checks must not run while the repository is unresolved")
+
+    result = fetch_team_snapshot(
+        "A1",
+        team_dir,
+        root,
+        resolve_repo_fn=lambda sha: BareShaResolution(
+            repo=None, candidates=("a/one", "b/two"), command="gh search commits " + sha
+        ),
+        check_commit_fn=fail,
+        fetch_snapshot_fn=fail,
+    )
+    assert result.pdf_info["repo"] is None
+    assert result.pdf_info["sha"] == SHA
+    assert result.pdf_info["permalink_source"] == BARE_SHA_SOURCE
+    assert result.pdf_info["commit_exists"] is None
+    assert result.pdf_info["snapshot_fetched"] is False
+    summary = "\n".join(result.summary_lines)
+    assert "repo=unresolved" in summary
+    assert "matched 2 repositories (a/one, b/two)" in summary
+    assert "gh search commits " + SHA in summary
+
+
+def test_fetch_team_snapshot_repo_override_pairs_the_bare_sha(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root, team_dir, metadata = build_bare_sha_root(tmp_path)
+    monkeypatch.setattr(submission_pdf_module, "select_submission_pdf", lambda submission_dir, primary_index: metadata)
+
+    def fail_resolve(sha: str) -> BareShaResolution:  # pragma: no cover - must not be called
+        raise AssertionError("--repo must skip the gh search")
+
+    result = fetch_team_snapshot(
+        "A1",
+        team_dir,
+        root,
+        repo="ops/repo",
+        resolve_repo_fn=fail_resolve,
+        check_commit_fn=lambda repo, sha: CommitCheck(True, "2026-10-17T10:00:00Z", True, "identical"),
+        fetch_snapshot_fn=lambda repo, sha, snapshot_dir: (snapshot_dir / "README.md").write_text("snapshot"),
+    )
+    assert result.pdf_info["repo"] == "ops/repo"
+    assert result.pdf_info["org"] == "ops"
+    assert result.pdf_info["sha"] == SHA
+    assert result.pdf_info["permalink_source"] == "operator"
+    assert result.pdf_info["snapshot_fetched"] is True
+    assert "source=operator (from --repo)" in "\n".join(result.summary_lines)
+
+
+def test_fetch_team_snapshot_ignores_the_override_when_the_pdf_names_a_repo(tmp_path: Path) -> None:
+    root = build_assignment_root(tmp_path, "A1", "submission-with-links.pdf")
+    result = fetch_team_snapshot(
+        "A1",
+        "Team 1_x_assignsubmission_file",
+        root,
+        repo="other/repo",
+        check_commit_fn=lambda repo, sha: CommitCheck(True, "2026-10-02T20:21:43Z", True, "ahead"),
+        fetch_snapshot_fn=lambda repo, sha, snapshot_dir: (snapshot_dir / "README.md").write_text("snapshot"),
+    )
+    assert result.pdf_info["repo"] == "example-org/example-repo"
+    assert "note: --repo other/repo ignored; the PDF names example-org/example-repo" in "\n".join(result.summary_lines)
+
+
+def test_fetch_team_snapshot_rejects_a_malformed_repo_override(tmp_path: Path) -> None:
+    root = build_assignment_root(tmp_path, "A1", "submission-with-links.pdf")
+    with pytest.raises(SubmissionPdfError, match="org/repo"):
+        fetch_team_snapshot("A1", "Team 1_x_assignsubmission_file", root, repo="not-a-repo")
+
+
+def test_fetch_team_snapshot_cli_rejects_a_malformed_repo_option() -> None:
+    from scripts.fetch_team_snapshot import build_parser
+
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["A1", "Team 1_x_assignsubmission_file", "--repo", "not-a-repo"])

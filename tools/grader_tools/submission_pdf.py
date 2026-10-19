@@ -41,6 +41,11 @@ BARE_SHA_PATTERN = re.compile(r"(?<![0-9a-fA-F])(?P<sha>[0-9a-f]{40})(?![0-9a-fA
 REPO_AT_SHA_PATTERN = re.compile(r"(?P<org>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)\s+at\s+(?P<sha>[0-9a-f]{40})")
 EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 RECORDING_HINT_PATTERN = re.compile(r"record|kickoff|meeting|validation|drive|zoom|youtu", re.IGNORECASE)
+BARE_SHA_SOURCE = "bare-sha"
+GH_SEARCH_SOURCE = "gh-search-commits"
+OPERATOR_SOURCE = "operator"
+SEARCH_COMMITS_JQ = "map(.repository.fullName) | unique"
+REPO_FULL_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 URL_CONTINUATION_CHARS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._~:/?#[]@!$&'()*+,;=%-"
 )
@@ -56,15 +61,23 @@ class SnapshotFetchError(RuntimeError):
 
 @dataclass(frozen=True)
 class PdfPermalink:
+    """A snapshot link read from the submission PDF.
+
+    ``org`` and ``repo`` are ``None`` when the PDF carries a bare 40-character
+    SHA and no repository URL; the repository is then resolved separately.
+    """
+
     url: str
-    org: str
-    repo: str
+    org: str | None
+    repo: str | None
     sha: str
     path: str
     source: str
 
     @property
-    def repo_full(self) -> str:
+    def repo_full(self) -> str | None:
+        if self.org is None or self.repo is None:
+            return None
         return f"{self.org}/{self.repo}"
 
 
@@ -274,6 +287,13 @@ def find_permalink(
     primary_index: str,
     sources: dict[str, str] | None = None,
 ) -> PdfPermalink | None:
+    """Find the snapshot permalink, preferring the primary index.
+
+    Preference order: a URL that carries ``/blob/<sha>`` (highest primary-index
+    score first), then a plain repository URL beside exactly one bare SHA, then
+    ``<org>/<repo> at <sha>``, then a bare SHA alone, which leaves the
+    repository unresolved for `resolve_bare_sha_repo`.
+    """
     sources = sources or {}
     best: tuple[int, int, PdfPermalink] | None = None
     for order, url in enumerate(urls):
@@ -334,7 +354,82 @@ def _permalink_from_bare_sha(urls: list[str], text: str, sources: dict[str, str]
             path="",
             source="text",
         )
-    return None
+    shas = {sha_match.group("sha") for sha_match in BARE_SHA_PATTERN.finditer(text)}
+    if len(shas) != 1:
+        return None
+    return PdfPermalink(
+        url="",
+        org=None,
+        repo=None,
+        sha=shas.pop(),
+        path="",
+        source=BARE_SHA_SOURCE,
+    )
+
+
+@dataclass(frozen=True)
+class BareShaResolution:
+    """The repository a bare commit SHA was found in, or why it stayed unknown."""
+
+    repo: str | None
+    candidates: tuple[str, ...]
+    command: str
+    error: str | None = None
+
+    @property
+    def detail(self) -> str:
+        stop = "stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules"
+        if self.error is not None:
+            return f"`{self.command}` failed: {self.error}; {stop}"
+        if self.candidates:
+            return f"`{self.command}` matched {len(self.candidates)} repositories ({', '.join(self.candidates)}); {stop}"
+        return f"`{self.command}` matched no repository; {stop}"
+
+
+def search_commits_command(sha: str) -> list[str]:
+    """Return the documented gh fallback that finds the repository of one commit."""
+    return ["search", "commits", sha, "--json", "repository", "--jq", SEARCH_COMMITS_JQ]
+
+
+def search_commits_display(sha: str) -> str:
+    return "gh search commits " + " ".join(search_commits_command(sha)[1:])
+
+
+def resolve_bare_sha_repo(sha: str, runner: Callable[[list[str]], CommandResult] = run_gh) -> BareShaResolution:
+    """Resolve the repository of a bare SHA with `gh search commits`.
+
+    Exactly one repository is adopted; zero, several, or a failed call keep the
+    stop path, so the caller never guesses and the summary can name the
+    candidates and the command tried.
+    """
+    command = search_commits_command(sha)
+    try:
+        result = runner(command)
+    except SubmissionPdfError as exc:
+        return BareShaResolution(repo=None, candidates=(), command=search_commits_display(sha), error=str(exc))
+    if result.returncode != 0:
+        detail = result.stderr.strip() or f"exit code {result.returncode}"
+        return BareShaResolution(repo=None, candidates=(), command=search_commits_display(sha), error=detail)
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return BareShaResolution(
+            repo=None,
+            candidates=(),
+            command=search_commits_display(sha),
+            error="gh returned invalid JSON",
+        )
+    if not isinstance(payload, list):
+        return BareShaResolution(
+            repo=None,
+            candidates=(),
+            command=search_commits_display(sha),
+            error="gh returned no repository list",
+        )
+    candidates = tuple(sorted({value for value in payload if isinstance(value, str) and value}))
+    if len(candidates) == 1:
+        return BareShaResolution(repo=candidates[0], candidates=candidates, command=search_commits_display(sha))
+    return BareShaResolution(repo=None, candidates=candidates, command=search_commits_display(sha))
 
 
 def find_recording_link(urls: list[str], text: str, permalink: PdfPermalink | None) -> str | None:
@@ -518,12 +613,16 @@ def fetch_team_snapshot(
     team_dir: str,
     root: Path = Path("."),
     *,
+    repo: str | None = None,
     check_commit_fn: Callable[[str, str], CommitCheck] = check_commit,
     fetch_snapshot_fn: Callable[[str, str, Path], None] = fetch_snapshot,
+    resolve_repo_fn: Callable[[str], BareShaResolution] = resolve_bare_sha_repo,
 ) -> SnapshotFetchResult:
     config = ASSIGNMENT_CONFIG.get(assignment)
     if config is None:
         raise SubmissionPdfError(f"unknown assignment: {assignment}")
+    if repo is not None and not REPO_FULL_PATTERN.fullmatch(repo):
+        raise SubmissionPdfError(f"--repo must be org/repo, got {repo!r}")
     submission_dir = root / FEEDBACK_ROOT / assignment / "submissions" / team_dir
     if not submission_dir.is_dir():
         raise SubmissionPdfError(f"submission directory not found: {submission_dir}")
@@ -539,16 +638,40 @@ def fetch_team_snapshot(
     permalink = metadata.permalink
     commit: CommitCheck | None = None
     fetched = False
+    repo_full = permalink.repo_full if permalink else None
+    permalink_source = permalink.source if permalink else None
     summary = [f"{assignment} / {team_dir}", f"  pdf: {metadata.pdf_path.name} ({metadata.page_count} page(s))"]
     if permalink is None:
         summary.append("  permalink: none (no full 40-character SHA in the PDF)")
         summary.append("  commit: not checked; stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules")
+    elif repo_full is None and repo is not None:
+        repo_full = repo
+        permalink_source = OPERATOR_SOURCE
+        summary.append(f"  permalink: repo={repo} sha={permalink.sha} path={permalink.path or '(root)'} source={permalink_source} (from --repo)")
+    elif repo_full is None:
+        resolution = resolve_repo_fn(permalink.sha)
+        if resolution.repo is None:
+            summary.append(
+                f"  permalink: repo=unresolved sha={permalink.sha} path=(root) source={permalink_source}"
+            )
+            summary.append(f"  repo resolution: {resolution.detail}")
+            summary.append("  commit: not checked; stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules")
+        else:
+            repo_full = resolution.repo
+            permalink_source = GH_SEARCH_SOURCE
+            summary.append(
+                f"  permalink: repo={repo_full} sha={permalink.sha} path=(root) source={permalink_source}"
+            )
     else:
         summary.append(
-            f"  permalink: repo={permalink.repo_full} sha={permalink.sha} "
-            f"path={permalink.path or '(root)'} source={permalink.source}"
+            f"  permalink: repo={repo_full} sha={permalink.sha} "
+            f"path={permalink.path or '(root)'} source={permalink_source}"
         )
-        commit = check_commit_fn(permalink.repo_full, permalink.sha)
+        if repo is not None and repo != repo_full:
+            summary.append(f"  note: --repo {repo} ignored; the PDF names {repo_full}")
+
+    if permalink is not None and repo_full is not None:
+        commit = check_commit_fn(repo_full, permalink.sha)
         state = "exists" if commit.exists else "missing"
         on_main = "unknown" if commit.on_main is None else ("yes" if commit.on_main else "no")
         summary.append(
@@ -558,7 +681,7 @@ def fetch_team_snapshot(
         if not commit.exists:
             summary.append("  snapshot: not fetched; stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules")
         else:
-            fetch_snapshot_fn(permalink.repo_full, permalink.sha, snapshot_dir)
+            fetch_snapshot_fn(repo_full, permalink.sha, snapshot_dir)
             fetched = True
             summary.append(f"  snapshot: fetched {len(list(snapshot_dir.iterdir()))} top-level entries to {_relative(snapshot_dir, root)}")
 
@@ -577,11 +700,12 @@ def fetch_team_snapshot(
         "pdf_path": _relative(metadata.pdf_path, root),
         "page_count": metadata.page_count,
         "recording_link": metadata.recording_link,
-        "org": permalink.org if permalink else None,
-        "repo": permalink.repo_full if permalink else None,
+        "org": repo_full.split("/", 1)[0] if repo_full else None,
+        "repo": repo_full,
         "sha": permalink.sha if permalink else None,
-        "permalink": permalink.url if permalink else None,
-        "permalink_path": permalink.path if permalink else None,
+        "permalink": (permalink.url or None) if permalink else None,
+        "permalink_path": (permalink.path or None) if permalink else None,
+        "permalink_source": permalink_source,
         "snapshot_time": commit.snapshot_time if commit else None,
         "commit_exists": commit.exists if commit else None,
         "on_main": commit.on_main if commit else None,

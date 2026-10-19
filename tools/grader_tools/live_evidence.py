@@ -89,11 +89,12 @@ class EvidenceFile:
 class LiveEvidenceResult:
     assignment: str
     team_dir: str
-    repo: str
-    sha: str
+    repo: str | None
+    sha: str | None
     work_dir: Path
     files: tuple[EvidenceFile, ...]
     summary_lines: tuple[str, ...]
+    skipped: bool = False
 
 
 def labels_command(repo: str) -> list[str]:
@@ -287,14 +288,24 @@ def load_pdf_info(path: Path) -> dict[str, object]:
     return payload
 
 
-def snapshot_target(payload: dict[str, object], path: Path) -> tuple[str, str]:
+def snapshot_target(payload: dict[str, object]) -> tuple[str, str] | None:
+    """Return the repository and SHA, or ``None`` when the snapshot is unresolved."""
     repo = payload.get("repo")
     sha = payload.get("sha")
-    if not isinstance(repo, str) or not repo or not isinstance(sha, str) or not sha:
-        raise LiveEvidenceError(
-            f"{path} has no repository and SHA; repository-dependent checks are stopped per docs/grader-policy.md"
-        )
-    return repo, sha
+    if isinstance(repo, str) and repo and isinstance(sha, str) and sha:
+        return repo, sha
+    return None
+
+
+def stop_summary(assignment: str, team_dir: str, info_path: Path, root: Path) -> tuple[str, ...]:
+    """The judged outcome for a submission with no resolvable snapshot."""
+    return (
+        f"{assignment} / {team_dir}",
+        f"  {_display(info_path, root)} has no repository and SHA; "
+        "repository-dependent checks are stopped per docs/grader-policy.md#submission-and-snapshot-rules",
+        "  result: skipped (no snapshot)",
+        "  hint: pair the PDF's SHA by hand with scripts/fetch_team_snapshot.py <assignment> <team_dir> --repo org/repo",
+    )
 
 
 def write_json_dump(path: Path, payload: object) -> None:
@@ -321,7 +332,19 @@ def collect_github_evidence(
 
     work_dir = root / FEEDBACK_ROOT / assignment / "work" / team_dir
     info_path = work_dir / PDF_INFO_FILENAME
-    repo, sha = snapshot_target(load_pdf_info(info_path), info_path)
+    target = snapshot_target(load_pdf_info(info_path))
+    if target is None:
+        return LiveEvidenceResult(
+            assignment=assignment,
+            team_dir=team_dir,
+            repo=None,
+            sha=None,
+            work_dir=work_dir,
+            files=(),
+            summary_lines=stop_summary(assignment, team_dir, info_path, root),
+            skipped=True,
+        )
+    repo, sha = target
 
     files: list[EvidenceFile] = []
     summary = [f"{assignment} / {team_dir}", f"  repo: {repo} @ {sha}"]
