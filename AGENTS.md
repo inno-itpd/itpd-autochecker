@@ -73,10 +73,12 @@ If a command must run from elsewhere, pass `--config-file <repo>/uv.toml` or set
 1. Unpack the Moodle export into `itpd-assignments-feedback/A<N>/submissions/`, one directory per team.
 2. Run `uv run python scripts/preflight.py` before a grader batch; it checks `gh` auth, `pdftotext`, and `markdownlint-cli2`.
 3. Review teams with the grader agent (see below).
-   **Keep every team's `work/<team_dir>/` until the batch has been extracted in step 5**, because the final `scripts/scan_privacy.py` run reads `pdf-info.json` and the fetched snapshot from it.
+   **Keep every team's `work/<team_dir>/` until the batch has been extracted in step 6**, because the final `scripts/scan_privacy.py` run reads `pdf-info.json` and the fetched snapshot from it.
 4. Validate changed reports with `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>`, then run `markdownlint-cli2 --fix "itpd-assignments-feedback/A<N>/feedback/**/*.md"`.
-5. Run `uv run python A<N>/extract_feedback.py` to regenerate `dev.md` and `feedback_release.csv`.
-6. Review the extractor warnings and fix malformed reports.
+5. Check batch readiness before extraction: run `list_agents` and stop while any grader for the batch is still running, then run `uv run python scripts/check_batch_ready.py A<N> [--active <team_dir> ...]`, passing every team `list_agents` still reports as running or registered.
+   Refuse extraction while the gate exits non-zero.
+6. Run `uv run python A<N>/extract_feedback.py` to regenerate `dev.md` and `feedback_release.csv`.
+7. Review the extractor warnings and fix malformed reports.
 
 ## Reviewing teams with the grader agent
 
@@ -94,8 +96,12 @@ When the user asks to review or re-review teams:
    - opencode: the `grader` subagent (`.opencode/agents/grader.md`) via the `task` tool.
    - Pass the assignment directory, the team directory, and the mode in the prompt.
    - Workers write disjoint paths (feedback and `work/` per team), so they need no coordination.
-5. If subagents are unavailable, review sequentially without asking.
-6. After all batches, run the lint and extraction steps from the workflow above.
+5. When a grader run fails, do not launch a fresh subagent first.
+   Check `list_agents`: if the team's session still exists and is resumable, continue it with `send_message`, telling it to read the saved report and payload and continue rather than start over.
+   Launch a replacement subagent only when that session cannot be resumed and no writer for the team is active.
+   Never run two writers for one team: interrupt the duplicate before resuming, because two writers on one report and payload leave a half-rendered report that `scripts/check_batch_ready.py` refuses.
+6. If subagents are unavailable, review sequentially without asking.
+7. After all batches, run the pre-extraction gate, the lint, and the extraction steps from the workflow above.
 
 ## Grader helper scripts
 
@@ -103,6 +109,7 @@ All run from the repository root and print counts and paths only.
 `agents/grader.md` uses them in steps 7 to 13 and keeps the raw `gh` and `jq` commands as fallback.
 
 - `uv run python scripts/preflight.py` — checks `gh` auth, `pdftotext`, and `markdownlint-cli2` before a batch.
+- `uv run python scripts/check_batch_ready.py A<N> [--active <team_dir> ...]` — pre-extraction gate: refuses a team whose grader `list_agents` still reports as running or registered (pass each team on `--active`, because a script cannot call `list_agents`), a non-empty work directory with no report, and a report older than `work/<team_dir>/payload.json`; exit codes 0 ready, 1 not ready, 2 usage error.
 - `uv run python scripts/fetch_team_snapshot.py A<N> <team_dir> [--repo org/repo]` — PDF permalink (a bare SHA is resolved with `gh search commits`, or paired with `--repo` and recorded as `permalink_source=operator`), recording, page-count, and member-token extraction; commit and `main` check; snapshot refetch; writes `itpd-assignments-feedback/A<N>/work/<team_dir>/pdf-info.json`.
 - `uv run python scripts/collect_github_evidence.py A<N> <team_dir> [--issues <n> ...] [--paths <path> ...] [--issue-fields]` — paginated dumps (`labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`) in the same team work directory, and, with `--issue-fields`, `issue-fields.json` with every issue's `type`, `milestone`, `assignees`, and field values from one paginated REST list call.
 - `uv run python scripts/check_snapshot_links.py <snapshot_dir> [--issue-bodies <issues.json>]` — broken relative links, missing anchors, and pre-cut research anchors.
@@ -191,6 +198,10 @@ These are the failure modes the A3 batch produced, with the remedy for each.
   Read `summary.md` first, open a dump only through a projection capped at about 40 lines, and prefer four small projections over one large read.
   If a command's output is unexpectedly large, stop, narrow it, and continue, and never re-read a file you already summarized.
   The same rules are in the `## Context budget` section of `agents/grader.md`.
+- **Provider 403:** four of seven A3 grader runs died within seconds with `403 "Access denied by security policy."` (`code: AUTH`) after running 5 to 10 minutes.
+  The harness auto-resumed them, and because fresh retries had already started for two of the teams, Teams 1 and 4 briefly had two writers on the same report and payload; interrupt the duplicate before resuming.
+  Every retry at four-way concurrency succeeded, so the limit was the provider, not the batch size: `grading.json` stays unchanged at `{"team_batch_size": 8}`, and the documented batch size stays at 8.
+  Treat a 403 as a resumable session and follow the resume rules in `## Reviewing teams with the grader agent`; never start a new writer for a team that still has one.
 - **Bare-SHA PDF:** a submission PDF may carry only `Submission commit: <sha40>` and no GitHub URL.
   `scripts/fetch_team_snapshot.py` resolves it with `gh search commits <sha> --json repository --jq 'map(.repository.fullName) | unique'` and adopts the repository only when exactly one matches; zero or several matches keep the stop path and name the candidates and the command tried.
   The operator override is `scripts/fetch_team_snapshot.py A<N> <team_dir> --repo org/repo`, recorded as `permalink_source=operator`.
