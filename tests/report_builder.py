@@ -23,6 +23,21 @@ def preamble(assignment: str, team: int = 3) -> str:
     )
 
 
+def unresolved_preamble(assignment: str, team: int = 3, notes: str = "The PDF permalink could not be resolved.") -> str:
+    """Build the preamble of a report whose snapshot could not be resolved."""
+    return "\n".join(
+        [
+            f"# Assignment {assignment[1:]} Feedback Report",
+            "",
+            f"- Team: {team}",
+            "- Repository reviewed: none",
+            "- Snapshot reviewed: none",
+            "- Primary index reviewed: none",
+            f"- Notes about the snapshot: {notes}",
+        ]
+    )
+
+
 def block(seg_num: int, name: str, status: str, evidence_gaps: bool = False) -> SegmentBlock:
     verified = [f"S{seg_num} shortfall."] if status in ("partial", "missing") else []
     unverified = [f"S{seg_num} blocked check."] if evidence_gaps else []
@@ -39,7 +54,13 @@ def block(seg_num: int, name: str, status: str, evidence_gaps: bool = False) -> 
     )
 
 
-def build_report(assignment: str, statuses: dict[int, str] | None = None, gaps: set[int] | None = None, team: int = 3) -> str:
+def build_report(
+    assignment: str,
+    statuses: dict[int, str] | None = None,
+    gaps: set[int] | None = None,
+    team: int = 3,
+    preamble_text: str | None = None,
+) -> str:
     segment_defs = ASSIGNMENT_CONFIG[assignment]["segment_defs"]
     statuses = statuses or {}
     gaps = gaps or set()
@@ -48,7 +69,7 @@ def build_report(assignment: str, statuses: dict[int, str] | None = None, gaps: 
         for seg_num, segment_def in segment_defs.items()
     }
     return render_report(
-        preamble=preamble(assignment, team),
+        preamble=preamble_text if preamble_text is not None else preamble(assignment, team),
         segment_defs=segment_defs,
         segment_blocks=blocks,
         unresolved_gaps={seg_num: [f"S{seg_num} gap detail."] for seg_num in gaps},

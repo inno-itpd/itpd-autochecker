@@ -62,6 +62,11 @@ If the primary index is `none`, add one more bullet immediately below:
 The `Notes about the snapshot` bullet is not allowed when a primary index was reviewed.
 Problems resolving the PDF permalink belong in `## Unresolved evidence gaps`, not in the metadata.
 
+`scripts/regrade_feedback_segments.py` and `scripts/patch_feedback_report.py` can rewrite these bullets through their optional `report` payload object.
+A resolved `repository` + `snapshot` pair renders the canonical primary-index link and removes the `Notes about the snapshot` bullet.
+An unresolved pair keeps `Primary index reviewed: none` and requires the notes bullet.
+The title and team number stay as they were in the saved report.
+
 ## Overall assessment
 
 The section body must be exactly:

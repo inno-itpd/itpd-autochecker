@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
-"""Apply structured segment regrades, validate the result, and regenerate the exports."""
+"""Apply structured segment regrades, validate the result, and regenerate the exports.
+
+The payload uses the same shape as `scripts/patch_feedback_report.py`, and it
+may additionally carry an optional top-level `report` object for the metadata
+preamble and an optional top-level `sections` object for the Summary,
+Strengths, and Main issues lists.  Each field is optional; see
+`scripts/patch_feedback_report.py` for the full contract.  Metadata and section
+changes apply even when only some segments are regraded.
+
+The patched report is validated exactly like a full render before it is
+written.  An invalid payload prints `ERROR: ...` with exit code 2 and leaves
+the report file untouched.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.patch_feedback_report import patch_report
+from scripts.patch_feedback_report import SECTION_BODY_KEYS, patch_report
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
 from tools.grader_tools.extract_reports import run_extraction
 from tools.grader_tools.feedback_report import (
@@ -64,19 +76,16 @@ def build_subset_payload(
         else:
             raise ValueError(f"{selector} still has evidence gaps, but no unresolved evidence gaps bullets were provided")
     subset["unresolved_evidence_gaps"] = merged
+
+    # Metadata and section patches are report-level, so they ride along with the
+    # segment subset unchanged.
+    for key in ("report", "sections", *SECTION_BODY_KEYS):
+        if key in payload:
+            subset[key] = payload[key]
     return subset
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Apply structured segment regrades and rerun the exports.")
-    parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
-    parser.add_argument("feedback_path", help="Path to agent-feedback.md")
-    parser.add_argument("fresh_payload", help="Path to a structured fresh payload JSON")
-    parser.add_argument("segments", nargs="+", help="Segment IDs such as S1 S4")
-    parser.add_argument("--quiet", action="store_true", help="Print only a one-line result")
-    parser.add_argument("--dry-run", action="store_true", help="Show the predicted impact without patching")
-    args = parser.parse_args()
-
+def run(args: argparse.Namespace) -> int:
     segment_defs = ASSIGNMENT_CONFIG[args.assignment]["segment_defs"]
     feedback_path = Path(args.feedback_path)
     payload_path = Path(args.fresh_payload)
@@ -123,13 +132,13 @@ def main() -> None:
     if args.dry_run:
         if args.quiet:
             print(f"DRY RUN {args.assignment}: {impact_line}")
-        return
+        return 0
 
     subset = build_subset_payload(load_patch_payload(payload_path), fresh_updates, args.segments, predicted_blocks, saved_unresolved)
     rendered = patch_report(args.assignment, report, subset)
     errors = validate_report(args.assignment, parse_feedback_text(rendered, segment_defs))
     if errors:
-        raise SystemExit("Patched report would be invalid:\n" + "\n".join(f"- {error}" for error in errors))
+        raise ValueError("Patched report would be invalid:\n" + "\n".join(f"- {error}" for error in errors))
     feedback_path.write_text(rendered, encoding="utf-8")
 
     markdownlint = shutil.which("markdownlint-cli2")
@@ -147,6 +156,23 @@ def main() -> None:
         print(f"OK {args.assignment}: {impact_line}")
     else:
         status = run_extraction(args.assignment, feedback_dir, dev_output, release_output)
+    return status
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Apply structured segment regrades and rerun the exports.")
+    parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
+    parser.add_argument("feedback_path", help="Path to agent-feedback.md")
+    parser.add_argument("fresh_payload", help="Path to a structured fresh payload JSON")
+    parser.add_argument("segments", nargs="+", help="Segment IDs such as S1 S4")
+    parser.add_argument("--quiet", action="store_true", help="Print only a one-line result")
+    parser.add_argument("--dry-run", action="store_true", help="Show the predicted impact without patching")
+    args = parser.parse_args()
+    try:
+        status = run(args)
+    except (ValueError, OSError) as exc:
+        print(f"ERROR: {exc}")
+        raise SystemExit(2)
     raise SystemExit(status)
 
 

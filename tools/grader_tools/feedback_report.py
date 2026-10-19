@@ -5,6 +5,8 @@ import json
 import re
 from pathlib import Path
 
+from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
+
 STATUSES = ("met", "partial", "missing", "unverified")
 SHORTFALL_STATUSES = ("partial", "missing")
 
@@ -40,6 +42,24 @@ HEADING_PATTERNS = {
     for heading in SECTION_ORDER
 }
 NEXT_H2 = re.compile(r"^##\s", re.MULTILINE)
+
+# The canonical repository metadata lines.  `render_preamble` writes them and
+# `parse_preamble` reads them, so the regrade payload cannot drift from a full
+# render.
+SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+REPOSITORY_URL_PATTERN = re.compile(r"^https://github\.com/[^/`\s]+/[^/`\s]+$")
+REPOSITORY_SLUG_PATTERN = re.compile(r"^[^/`\s]+/[^/`\s]+$")
+PREAMBLE_TITLE_LINE = re.compile(r"^# Assignment \d+ Feedback Report$")
+PREAMBLE_TEAM_LINE = re.compile(r"^- Team: (\d+)$")
+PREAMBLE_REPOSITORY_LINE = re.compile(
+    r"^- Repository reviewed: (`(https://github\.com/[^/`\s]+/[^/`\s]+)`|none)$"
+)
+PREAMBLE_SNAPSHOT_LINE = re.compile(r"^- Snapshot reviewed: (`([0-9a-f]{40})`|none)$")
+PREAMBLE_PRIMARY_LINE = re.compile(
+    r"^- Primary index reviewed: (none|\[`([^`]+)`\]\((https://github\.com/[^)]+)\))$"
+)
+PREAMBLE_NOTES_LINE = re.compile(r"^- Notes about the snapshot: (.+)$")
+SEGMENT_SELECTOR_PATTERN = re.compile(r"^S\d+$", re.IGNORECASE)
 SEGMENT_HEADING = re.compile(r"^###\s*S(\d+):\s*(.*?)\s*$", re.MULTILINE)
 TOP_GAP_BULLET = re.compile(r"^- \[S(\d+)\]\((#[^)]+)\)$")
 STATUS_ALTERNATION = "|".join(STATUSES)
@@ -110,6 +130,18 @@ class ParsedFeedbackReport:
     details_body: str
     segments_table: ParsedSegmentsTable
     segment_blocks: dict[int, SegmentBlock]
+
+
+@dataclass(frozen=True)
+class ReportMetadata:
+    """The repository metadata bullets of a feedback report."""
+
+    title: str
+    team: int
+    repository: str | None
+    snapshot: str | None
+    primary_index: str | None
+    notes: str | None
 
 
 @dataclass(frozen=True)
@@ -263,6 +295,141 @@ def parse_feedback_text(text: str, segment_defs: SegmentDefs) -> ParsedFeedbackR
 
 def parse_feedback_report(path: Path, segment_defs: SegmentDefs) -> ParsedFeedbackReport:
     return parse_feedback_text(path.read_text(encoding="utf-8"), segment_defs)
+
+
+def single_line_text(value: object, field_name: str) -> str:
+    """Validate a non-empty, single-line prose field."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"`{field_name}` must be a non-empty string")
+    text = value.strip()
+    if "\n" in text or "\r" in text:
+        raise ValueError(f"`{field_name}` must be a single line")
+    return text
+
+
+def normalize_repository(value: str) -> str:
+    """Normalize `org/repo` or a GitHub URL to the canonical repository URL."""
+    text = value.strip()
+    if REPOSITORY_URL_PATTERN.fullmatch(text):
+        return text
+    if REPOSITORY_SLUG_PATTERN.fullmatch(text):
+        return f"https://github.com/{text}"
+    raise ValueError("`repository` must be `org/repo` or `https://github.com/<org>/<repo>`")
+
+
+def parse_preamble(preamble: str) -> ReportMetadata:
+    """Read the title and repository metadata bullets of an existing report."""
+    lines = [line.strip() for line in normalize_line_endings(preamble).splitlines() if line.strip()]
+    if not lines:
+        raise ValueError("Report preamble is empty")
+    if len(lines) < 5:
+        raise ValueError("Report preamble must include the title and four repository metadata bullets")
+    if not PREAMBLE_TITLE_LINE.fullmatch(lines[0]):
+        raise ValueError("Report preamble must start with `# Assignment <N> Feedback Report`")
+
+    team_match = PREAMBLE_TEAM_LINE.fullmatch(lines[1])
+    if not team_match:
+        raise ValueError("Report preamble `- Team:` line is missing or malformed")
+    repository_match = PREAMBLE_REPOSITORY_LINE.fullmatch(lines[2])
+    if not repository_match:
+        raise ValueError("Report preamble `- Repository reviewed:` line is missing or malformed")
+    snapshot_match = PREAMBLE_SNAPSHOT_LINE.fullmatch(lines[3])
+    if not snapshot_match:
+        raise ValueError("Report preamble `- Snapshot reviewed:` line is missing or malformed")
+    primary_match = PREAMBLE_PRIMARY_LINE.fullmatch(lines[4])
+    if not primary_match:
+        raise ValueError("Report preamble `- Primary index reviewed:` line is missing or malformed")
+
+    repository = repository_match.group(2) if repository_match.group(1) != "none" else None
+    snapshot = snapshot_match.group(2) if snapshot_match.group(1) != "none" else None
+    primary_index = None if primary_match.group(1) == "none" else primary_match.group(2)
+
+    notes: str | None = None
+    extra = lines[5:]
+    if extra:
+        notes_match = PREAMBLE_NOTES_LINE.fullmatch(extra[0])
+        if not notes_match:
+            raise ValueError("Report preamble has unexpected content after the repository metadata")
+        if len(extra) > 1:
+            raise ValueError("Report preamble has unexpected content after the snapshot notes")
+        notes = notes_match.group(1).strip()
+
+    return ReportMetadata(
+        title=lines[0],
+        team=int(team_match.group(1)),
+        repository=repository,
+        snapshot=snapshot,
+        primary_index=primary_index,
+        notes=notes,
+    )
+
+
+def render_preamble(assignment: str, metadata: ReportMetadata, *, notes_field: str = "notes") -> str:
+    """Render the canonical title and repository metadata bullets.
+
+    A resolved `repository` + `snapshot` pair renders the primary-index
+    permalink and forbids notes.  An unresolved pair renders
+    `Primary index reviewed: none` and requires a notes bullet.  `notes_field`
+    names the payload field in error messages so the full render and the
+    regrade payload can report their own key.
+    """
+    if assignment not in ASSIGNMENT_CONFIG:
+        raise ValueError(f"Unknown assignment `{assignment}`; expected one of: {', '.join(sorted(ASSIGNMENT_CONFIG))}")
+    config_index = ASSIGNMENT_CONFIG[assignment]["primary_index"]
+
+    title = single_line_text(metadata.title, "title")
+    if not isinstance(metadata.team, int) or isinstance(metadata.team, bool) or metadata.team < 1:
+        raise ValueError("`team` must be a positive integer")
+
+    repository = metadata.repository.strip() if metadata.repository is not None else None
+    if repository is not None and not REPOSITORY_URL_PATTERN.fullmatch(repository):
+        raise ValueError("`repository` must be `https://github.com/<org>/<repo>`")
+    snapshot = metadata.snapshot.strip() if metadata.snapshot is not None else None
+    if snapshot is not None and not SHA_PATTERN.fullmatch(snapshot):
+        raise ValueError("`snapshot` must be a full 40-character lowercase commit SHA")
+    primary_index = metadata.primary_index.strip() if metadata.primary_index is not None else None
+    if primary_index is not None and primary_index != config_index:
+        raise ValueError(f"`primary_index` must be `{config_index}`")
+    notes = single_line_text(metadata.notes, notes_field) if metadata.notes is not None else None
+
+    lines = [
+        title,
+        "",
+        f"- Team: {metadata.team}",
+        f"- Repository reviewed: `{repository}`" if repository is not None else "- Repository reviewed: none",
+        f"- Snapshot reviewed: `{snapshot}`" if snapshot is not None else "- Snapshot reviewed: none",
+    ]
+    if repository is not None and snapshot is not None:
+        if notes is not None:
+            raise ValueError(f"`{notes_field}` is only allowed when `repository` or `snapshot` is missing")
+        index = primary_index or config_index
+        lines.append(f"- Primary index reviewed: [`{index}`]({repository}/blob/{snapshot}/{index})")
+    else:
+        if notes is None:
+            raise ValueError(f"`{notes_field}` is required when `repository` or `snapshot` is missing")
+        lines.append("- Primary index reviewed: none")
+        lines.append(f"- Notes about the snapshot: {notes}")
+    return "\n".join(lines)
+
+
+def bullet_list(value: object, field_name: str, *, minimum: int = 0, maximum: int | None = None) -> list[str]:
+    """Validate a list of non-empty, single-line prose bullets."""
+    if value is None:
+        raise ValueError(f"`{field_name}` is required as a list of one-line strings")
+    if not isinstance(value, list):
+        raise ValueError(f"`{field_name}` must be a list of one-line strings")
+    bullets: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(f"`{field_name}` must be a list of non-empty one-line strings")
+        if "\n" in item:
+            raise ValueError(f"`{field_name}` bullets must be single lines")
+        bullets.append(item.strip())
+    if len(bullets) < minimum:
+        raise ValueError(f"`{field_name}` needs at least {minimum} bullet(s), got {len(bullets)}")
+    if maximum is not None and len(bullets) > maximum:
+        raise ValueError(f"`{field_name}` allows at most {maximum} bullet(s), got {len(bullets)}")
+    return bullets
 
 
 def _normalize_string_list(value: object, field_name: str) -> list[str]:
@@ -470,12 +637,20 @@ def compute_report_impact(
 
 
 def load_patch_payload(path: Path) -> dict[str, object]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Patch payload must be a JSON object")
+    return payload
 
 
-def load_fresh_segment_updates(path: Path) -> dict[str, dict[str, object]]:
-    payload = load_patch_payload(path)
-    updates = payload.get("segment_updates", payload)
+def fresh_segment_updates_from_payload(payload: dict[str, object]) -> dict[str, dict[str, object]]:
+    updates = payload.get("segment_updates")
+    if updates is None:
+        updates = {
+            key: value
+            for key, value in payload.items()
+            if isinstance(key, str) and SEGMENT_SELECTOR_PATTERN.fullmatch(key.strip())
+        }
     if not isinstance(updates, dict) or not updates:
         raise ValueError("Fresh payload must be a non-empty `segment_updates` object or a top-level segment map")
     normalized: dict[str, dict[str, object]] = {}
@@ -484,6 +659,10 @@ def load_fresh_segment_updates(path: Path) -> dict[str, dict[str, object]]:
             raise ValueError(f"Fresh payload update for {selector} must be an object")
         normalized[selector] = update
     return normalized
+
+
+def load_fresh_segment_updates(path: Path) -> dict[str, dict[str, object]]:
+    return fresh_segment_updates_from_payload(load_patch_payload(path))
 
 
 def render_overall_assessment(statuses: list[str], manual_review_required: bool) -> str:

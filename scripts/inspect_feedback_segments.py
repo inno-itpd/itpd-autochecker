@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Inspect saved feedback segments and optionally compare them to fresh updates."""
+"""Inspect saved feedback segments and optionally compare them to fresh updates.
+
+With `--fresh-payload`, the output also predicts the report-level changes the
+same payload would make to the metadata preamble and to the Summary,
+Strengths, and Main issues sections.  The script stays read-only: it never
+writes the report or any saved state.
+"""
 
 from __future__ import annotations
 
@@ -12,21 +18,81 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from scripts.patch_feedback_report import (
+    SECTION_BODY_KEYS,
+    resolve_report_metadata,
+    resolve_sections,
+)
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
 from tools.grader_tools.feedback_report import (
+    SEGMENT_SELECTOR_PATTERN,
+    ReportMetadata,
     apply_structured_segment_update,
     compute_report_impact,
     diff_segment_block,
     format_status_counts,
     fresh_segment_state_from_update,
     fresh_segment_state_to_dict,
-    load_fresh_segment_updates,
+    fresh_segment_updates_from_payload,
+    load_patch_payload,
     parse_feedback_report,
+    parse_preamble,
     parse_unresolved_section,
     segment_block_to_dict,
     segment_diff_to_dict,
     segment_selector_to_int,
 )
+
+SECTION_LABELS = {
+    "summary": "summary",
+    "strengths": "strengths",
+    "main_issues_to_fix": "main issues",
+}
+
+
+def _payload_has_segments(payload: dict[str, object]) -> bool:
+    return "segment_updates" in payload or any(
+        isinstance(key, str) and SEGMENT_SELECTOR_PATTERN.fullmatch(key.strip()) for key in payload
+    )
+
+
+def _metadata_to_dict(metadata: ReportMetadata) -> dict[str, object]:
+    return {
+        "team": metadata.team,
+        "repository": metadata.repository,
+        "snapshot": metadata.snapshot,
+        "primary_index": metadata.primary_index,
+        "notes": metadata.notes,
+    }
+
+
+def _metadata_changes(saved: ReportMetadata, predicted: ReportMetadata) -> list[str]:
+    changes: list[str] = []
+    for field in ("snapshot", "repository", "primary_index"):
+        old = getattr(saved, field)
+        new = getattr(predicted, field)
+        if old != new:
+            changes.append(f"{field} {old if old is not None else 'none'} -> {new if new is not None else 'none'}")
+    if saved.notes != predicted.notes:
+        if predicted.notes is None:
+            changes.append("notes removed")
+        elif saved.notes is None:
+            changes.append(f"notes added: {predicted.notes}")
+        else:
+            changes.append("notes updated")
+    return changes
+
+
+def _sections_to_dict(bodies: dict[str, str]) -> dict[str, str]:
+    return {key: bodies[key].strip() for key in SECTION_BODY_KEYS}
+
+
+def _section_changes(saved: dict[str, str], predicted: dict[str, str]) -> list[str]:
+    return [
+        f"{SECTION_LABELS[key]} updated"
+        for key in SECTION_BODY_KEYS
+        if saved[key].strip() != predicted[key].strip()
+    ]
 
 
 def _diff_labels(diff: dict[str, object]) -> list[str]:
@@ -59,7 +125,12 @@ def build_output(assignment: str, feedback_path: Path, selectors: list[str], fre
     segment_defs = ASSIGNMENT_CONFIG[assignment]["segment_defs"]
     report = parse_feedback_report(feedback_path, segment_defs)
     unresolved = parse_unresolved_section(report.unresolved_body, segment_defs)
-    fresh_updates = load_fresh_segment_updates(fresh_payload) if fresh_payload else {}
+    payload = load_patch_payload(fresh_payload) if fresh_payload else None
+    fresh_updates = (
+        fresh_segment_updates_from_payload(payload)
+        if payload is not None and _payload_has_segments(payload)
+        else {}
+    )
     predicted_blocks = dict(report.segment_blocks)
 
     segments: dict[str, object] = {}
@@ -80,6 +151,26 @@ def build_output(assignment: str, feedback_path: Path, selectors: list[str], fre
         "saved_manual_review_required": report.segments_table.manual_review_required,
         "segments": segments,
     }
+    if payload is not None and "report" in payload:
+        saved_metadata = parse_preamble(report.preamble)
+        predicted_metadata = resolve_report_metadata(assignment, saved_metadata, payload)
+        output["predicted_report_metadata"] = {
+            "saved": _metadata_to_dict(saved_metadata),
+            "predicted": _metadata_to_dict(predicted_metadata),
+            "changes": _metadata_changes(saved_metadata, predicted_metadata),
+        }
+    if payload is not None and ("sections" in payload or any(key in payload for key in SECTION_BODY_KEYS)):
+        saved_sections = {
+            "summary": report.summary_body,
+            "strengths": report.strengths_body,
+            "main_issues_to_fix": report.main_issues_body,
+        }
+        predicted_sections = resolve_sections(payload, saved_sections)
+        output["predicted_report_sections"] = {
+            "saved": _sections_to_dict(saved_sections),
+            "predicted": _sections_to_dict(predicted_sections),
+            "changes": _section_changes(saved_sections, predicted_sections),
+        }
     if fresh_payload:
         impact = compute_report_impact(report, segment_defs, predicted_blocks)
         output["predicted_report_impact"] = {
@@ -120,6 +211,14 @@ def render_text(output: dict[str, object], selectors: list[str]) -> str:
                 lines.append(f"- Checked at: {fresh['checked_at']}")
             lines.extend(f"- Note: {note}" for note in fresh.get("notes", []))
 
+    metadata = output.get("predicted_report_metadata")
+    if isinstance(metadata, dict) and metadata.get("changes"):
+        lines.extend(["", "Predicted metadata changes:", *[f"- {change}" for change in metadata["changes"]]])
+
+    sections = output.get("predicted_report_sections")
+    if isinstance(sections, dict) and sections.get("changes"):
+        lines.extend(["", "Predicted section changes:", *[f"- {change}" for change in sections["changes"]]])
+
     impact = output.get("predicted_report_impact")
     if isinstance(impact, dict):
         lines.extend(
@@ -142,12 +241,16 @@ def main() -> None:
     parser.add_argument("--format", choices=("text", "json"), default="json")
     args = parser.parse_args()
 
-    output = build_output(
-        args.assignment,
-        Path(args.feedback_path),
-        args.segments,
-        Path(args.fresh_payload) if args.fresh_payload else None,
-    )
+    try:
+        output = build_output(
+            args.assignment,
+            Path(args.feedback_path),
+            args.segments,
+            Path(args.fresh_payload) if args.fresh_payload else None,
+        )
+    except (ValueError, OSError) as exc:
+        print(f"ERROR: {exc}")
+        raise SystemExit(2)
     print(render_text(output, args.segments) if args.format == "text" else json.dumps(output, indent=2))
 
 

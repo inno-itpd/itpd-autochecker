@@ -88,7 +88,6 @@ import argparse
 from collections.abc import Callable, Sequence
 import json
 from pathlib import Path
-import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -97,19 +96,23 @@ if str(ROOT) not in sys.path:
 
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
 from tools.grader_tools.feedback_report import (
+    REPOSITORY_URL_PATTERN,
+    SHA_PATTERN,
     SHORTFALL_STATUSES,
     STATUSES,
+    ReportMetadata,
     SegmentBlock,
     SegmentDefs,
+    bullet_list,
     parse_feedback_text,
+    render_preamble,
     render_report,
     render_segment_block,
     segment_selector_to_int,
 )
 from tools.grader_tools.validate import validate_report
 
-SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
-REPOSITORY_PATTERN = re.compile(r"^https://github\.com/[^/`\s]+/[^/`\s]+$")
+REPOSITORY_PATTERN = REPOSITORY_URL_PATTERN
 PAYLOAD_KEYS = {
     "output_path",
     "team",
@@ -150,25 +153,6 @@ def _optional_text(payload: dict[str, object], key: str) -> str | None:
     return value.strip()
 
 
-def _bullet_list(value: object, field_name: str, *, minimum: int = 0, maximum: int | None = None) -> list[str]:
-    if value is None:
-        raise ValueError(f"`{field_name}` is required as a list of one-line strings")
-    if not isinstance(value, list):
-        raise ValueError(f"`{field_name}` must be a list of one-line strings")
-    bullets: list[str] = []
-    for item in value:
-        if not isinstance(item, str) or not item.strip():
-            raise ValueError(f"`{field_name}` must be a list of non-empty one-line strings")
-        if "\n" in item:
-            raise ValueError(f"`{field_name}` bullets must be single lines")
-        bullets.append(item.strip())
-    if len(bullets) < minimum:
-        raise ValueError(f"`{field_name}` needs at least {minimum} bullet(s), got {len(bullets)}")
-    if maximum is not None and len(bullets) > maximum:
-        raise ValueError(f"`{field_name}` allows at most {maximum} bullet(s), got {len(bullets)}")
-    return bullets
-
-
 def _output_path(payload: dict[str, object]) -> Path:
     value = payload.get("output_path")
     if not isinstance(value, str) or not value.strip():
@@ -189,24 +173,18 @@ def _render_preamble(assignment: str, payload: dict[str, object]) -> str:
         raise ValueError("`snapshot` must be a full 40-character lowercase commit SHA")
     notes = _optional_text(payload, "snapshot_notes")
 
-    lines = [
-        f"# Assignment {assignment[1:]} Feedback Report",
-        "",
-        f"- Team: {team}",
-        f"- Repository reviewed: `{repository}`" if repository is not None else "- Repository reviewed: none",
-        f"- Snapshot reviewed: `{snapshot}`" if snapshot is not None else "- Snapshot reviewed: none",
-    ]
-    if repository is not None and snapshot is not None:
-        if notes is not None:
-            raise ValueError("`snapshot_notes` is only allowed when `repository` or `snapshot` is missing")
-        index = ASSIGNMENT_CONFIG[assignment]["primary_index"]
-        lines.append(f"- Primary index reviewed: [`{index}`]({repository}/blob/{snapshot}/{index})")
-    else:
-        if notes is None:
-            raise ValueError("`snapshot_notes` is required when `repository` or `snapshot` is missing")
-        lines.append("- Primary index reviewed: none")
-        lines.append(f"- Notes about the snapshot: {notes}")
-    return "\n".join(lines)
+    return render_preamble(
+        assignment,
+        ReportMetadata(
+            title=f"# Assignment {assignment[1:]} Feedback Report",
+            team=team,
+            repository=repository,
+            snapshot=snapshot,
+            primary_index=ASSIGNMENT_CONFIG[assignment]["primary_index"],
+            notes=notes,
+        ),
+        notes_field="snapshot_notes",
+    )
 
 
 def _placeholder_segment(seg_num: int, name: str) -> SegmentBlock:
@@ -257,9 +235,9 @@ def _parse_segment_updates(
         if not isinstance(evidence_gaps, bool):
             raise ValueError(f"`segment_updates.{selector}.evidence_gaps` must be a boolean")
 
-        evidence = _bullet_list(update.get("evidence"), f"segment_updates.{selector}.evidence", minimum=1)
-        verified = _bullet_list(update.get("verified_shortfalls", []), f"segment_updates.{selector}.verified_shortfalls")
-        unverified = _bullet_list(update.get("unverified_checks", []), f"segment_updates.{selector}.unverified_checks")
+        evidence = bullet_list(update.get("evidence"), f"segment_updates.{selector}.evidence", minimum=1)
+        verified = bullet_list(update.get("verified_shortfalls", []), f"segment_updates.{selector}.verified_shortfalls")
+        unverified = bullet_list(update.get("unverified_checks", []), f"segment_updates.{selector}.unverified_checks")
 
         if status in SHORTFALL_STATUSES and not verified:
             raise ValueError(
@@ -321,7 +299,7 @@ def _parse_unresolved(
             raise ValueError(f"`unresolved_evidence_gaps` repeats S{seg_num} under another spelling")
         if not blocks[seg_num].evidence_gaps:
             raise ValueError(f"`unresolved_evidence_gaps.{selector}` is only allowed for segments with `evidence_gaps: true`")
-        parsed[seg_num] = _bullet_list(bullets, f"unresolved_evidence_gaps.{selector}", minimum=1)
+        parsed[seg_num] = bullet_list(bullets, f"unresolved_evidence_gaps.{selector}", minimum=1)
 
     missing = sorted(seg_num for seg_num, block in blocks.items() if block.evidence_gaps and seg_num not in parsed)
     decided = [seg_num for seg_num in missing if seg_num not in placeholder_segments]
@@ -345,9 +323,9 @@ def render_feedback_report(assignment: str, payload: dict[str, object]) -> tuple
     preamble = _render_preamble(assignment, payload)
     blocks, placeholder_segments = _parse_segment_updates(payload, segment_defs)
     unresolved = _parse_unresolved(payload, segment_defs, blocks, placeholder_segments)
-    summary = _bullet_list(payload.get("summary"), "summary", minimum=3, maximum=5)
-    strengths = _bullet_list(payload.get("strengths"), "strengths", minimum=1)
-    main_issues = _bullet_list(payload.get("main_issues_to_fix"), "main_issues_to_fix", minimum=1)
+    summary = bullet_list(payload.get("summary"), "summary", minimum=3, maximum=5)
+    strengths = bullet_list(payload.get("strengths"), "strengths", minimum=1)
+    main_issues = bullet_list(payload.get("main_issues_to_fix"), "main_issues_to_fix", minimum=1)
 
     rendered = render_report(
         preamble=preamble,

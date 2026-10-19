@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import pytest
 
-from tests.report_builder import build_report
+from tests.report_builder import build_report, unresolved_preamble
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
 from tools.grader_tools.feedback_report import (
     NO_REVIEW_TEXT,
     apply_structured_segment_update,
     format_status_counts,
     parse_feedback_text,
+    parse_preamble,
     parse_unresolved_section,
+    render_preamble,
     render_report,
     segment_anchor,
     segment_selector_to_int,
@@ -82,3 +84,19 @@ def test_selector_parsing() -> None:
     assert segment_selector_to_int("s10") == 10
     with pytest.raises(ValueError):
         segment_selector_to_int("segment 1")
+
+
+def test_preamble_round_trip_is_stable() -> None:
+    report = parse_feedback_text(build_report("A1"), A1_DEFS)
+    metadata = parse_preamble(report.preamble)
+    assert render_preamble("A1", metadata) == report.preamble
+    assert metadata.team == 3
+
+
+def test_unresolved_preamble_round_trip_is_stable() -> None:
+    report = parse_feedback_text(build_report("A1", preamble_text=unresolved_preamble("A1")), A1_DEFS)
+    metadata = parse_preamble(report.preamble)
+    assert metadata.repository is None
+    assert metadata.snapshot is None
+    assert metadata.notes == "The PDF permalink could not be resolved."
+    assert render_preamble("A1", metadata) == report.preamble
