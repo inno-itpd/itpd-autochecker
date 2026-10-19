@@ -36,9 +36,28 @@
             ];
             shellHook = ''
               export BACKLOG_CWD="$PWD"
-              # Make uv use the pinned interpreter instead of downloading one.
+
+              # UV_PYTHON pins the interpreter so uv neither downloads one nor
+              # picks a different Python. UV_PYTHON_DOWNLOADS=never would break
+              # `uv python install`, so it is left alone.
               export UV_PYTHON="${python}/bin/python3"
-              export UV_PYTHON_DOWNLOADS=never
+
+              # Not needed for uv: with the variables unset, it reads the venv's
+              # pyvenv.cfg (which names this store Python) and never imports
+              # sysconfig. They only protect code that calls sysconfig
+              # directly, which is why the shell already exports them; do not
+              # drop them as "uv workaround".
+              if [ -z "''${_PYTHON_HOST_PLATFORM:-}" ]; then
+                export _PYTHON_HOST_PLATFORM=linux-x86_64
+              fi
+              if [ -z "''${_PYTHON_SYSCONFIGDATA_NAME:-}" ]; then
+                export _PYTHON_SYSCONFIGDATA_NAME=_sysconfigdata__linux_x86_64-linux-gnu
+              fi
+
+              # Do not pick UV_CACHE_DIR here: shellHook runs from the flake
+              # store, not the checkout, and the direnv cache does not refresh
+              # a cached shellHook. scripts/uv.sh resolves the cache at call
+              # time (creates a directory when the user cache is read-only).
             '';
           };
         };

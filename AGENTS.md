@@ -42,6 +42,13 @@
 - Nix flake dev shell: run `nix develop`, or `direnv allow` once and let `.envrc` load it.
   It provides Python 3.13, uv, gh, pdftotext, unzip, jq, ripgrep, markdownlint-cli2, lychee, and backlog.
 - Python with no runtime dependencies; `pytest` as the dev dependency, managed with `uv`.
+- `uv run` works when the default uv cache (`~/.cache/uv`) is writable.
+  When it is not, prefix it with the wrapper: `./scripts/uv.sh run ...`.
+  The wrapper points `UV_CACHE_DIR` at `.local/uv-cache` inside the checkout (gitignored); the `.envrc` shim does the same for `direnv` users.
+  `./scripts/uv.sh --migrate` additionally copies the default cache over, and skips the copy above 2 GiB unless `ITPD_UV_MIGRATE_ALLOW_LARGE=1`.
+- The dev shell pins `UV_PYTHON` to its Python, so no `uv.lock`-driven download or different interpreter is involved.
+  `UV_PYTHON_DOWNLOADS` may also be set to `never` in the shell (for example by direnv); it then comes from the environment, not from `flake.nix`.
+  It would block `uv python install` and is not needed for `uv run`.
 - `GITHUB_TOKEN` in `.env` (see `.env.example`), loaded by direnv.
   Agents never read `.env`.
 
@@ -161,6 +168,19 @@ Run `backlog` inside the dev shell so `BACKLOG_CWD` points at this repo.
 
 - `uv run pytest`
 - `markdownlint-cli2 "**/*.md"`
+
+## Troubleshooting
+
+- **`uv run` fails with `Could not acquire lock` / `Read-only file system (os error 30)` at `~/.cache/uv`:** the default cache is not writable; uv never reached the interpreter.
+  Use `./scripts/uv.sh run ...`, or export `UV_CACHE_DIR` to a writable directory (`.envrc` does this automatically).
+  `uv run --no-cache` is not a substitute: uv still creates its temp files in the cache directory.
+- **`uv run` fails with `Unknown operating system: ''`:** a Python calls `sysconfig` without its build data.
+  A Nix Python expects `_PYTHON_HOST_PLATFORM`/`_PYTHON_SYSCONFIGDATA_NAME` in its environment; when they are empty, `_get_sysconfigdata_name()` returns `''`, the initialization does `__import__('')`, and `sysconfig.get_platform()`/`HOSTTYPE` come out empty (the error text names uv's platform probe, but any caller of `sysconfig` is affected).
+  `uv run` avoids it: uv reads the venv's `pyvenv.cfg`, which names the store Python, and never imports `sysconfig`.
+  The dev shell exports both variables for the Python directly.
+  Fix the variables or the interpreter; a cache override cannot fix it.
+- **`direnv` does not pick up a `shellHook` change:** a cached development shell keeps the old hook until it is reloaded.
+  Use `scripts/uv.sh` when the exported environment looks stale.
 
 ## Git conventions
 
