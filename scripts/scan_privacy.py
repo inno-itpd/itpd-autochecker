@@ -2,8 +2,10 @@
 """Scan a fetched snapshot or one feedback report for private-only material.
 
 Findings are grouped by rule and printed as a path plus a kind; matched values
-never reach stdout.  The exit code is 0 when the scan is clean, 1 when it has
-findings, and 2 when the scan could not run.
+never reach stdout.  With ``--feedback --no-snapshot`` the report is scanned
+with tokens derived from the submission PDF, so a cleaned ``work/<team_dir>/``
+does not block the gate.  The exit code is 0 when the scan is clean, 1 when it
+has findings, and 2 when the scan could not run.
 """
 
 from __future__ import annotations
@@ -36,17 +38,32 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="Scan this finished report file instead of the fetched snapshot",
     )
+    parser.add_argument(
+        "--no-snapshot",
+        action="store_true",
+        help=(
+            "With --feedback, derive the privacy tokens from the submission PDF instead of "
+            "work/<team_dir>/pdf-info.json, so a cleaned work directory does not block the scan"
+        ),
+    )
     return parser
 
 
 def run(argv: Sequence[str], *, root: Path = ROOT, out: Callable[[str], None] = print) -> int:
     args = build_parser().parse_args(argv)
+    if args.no_snapshot and not args.feedback:
+        out(
+            "ERROR: --no-snapshot requires --feedback <path>; the report scan needs the submission PDF "
+            "for its privacy tokens"
+        )
+        return 2
     try:
         result = scan_privacy(
             args.assignment,
             args.team_dir,
             root,
             feedback_path=Path(args.feedback) if args.feedback else None,
+            no_snapshot=args.no_snapshot,
         )
     except PrivacyScanError as exc:
         out(f"ERROR: {exc}")

@@ -10,7 +10,9 @@ inside them.
 kind only; matched values never reach stdout.  The scanner reads
 ``itpd-assignments-feedback/<assignment>/work/<team_dir>/pdf-info.json``
 (written by ``scripts/fetch_team_snapshot.py``) for the snapshot directory, the
-recording link, and the member name and email tokens.
+recording link, the GitHub usernames, and the member name and email tokens.
+With ``no_snapshot`` it instead derives those tokens from the submission PDF,
+so a feedback report can still be scanned after ``work/<team_dir>/`` is cleaned.
 """
 
 from __future__ import annotations
@@ -24,10 +26,16 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
-from tools.grader_tools.submission_pdf import PDF_INFO_FILENAME, SNAPSHOT_DIRNAME
+from tools.grader_tools.submission_pdf import (
+    PDF_INFO_FILENAME,
+    SNAPSHOT_DIRNAME,
+    SubmissionPdfError,
+    select_submission_pdf,
+)
 
 BINARY_SNIFF_BYTES = 8192
 MAX_TEXT_BYTES = 5 * 1024 * 1024
+MIN_NAME_TOKEN_LENGTH = 4
 
 EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 IGNORED_EMAIL_DOMAINS = frozenset(
@@ -92,6 +100,7 @@ class PrivacyScanError(RuntimeError):
 class PrivacyTokens:
     name_tokens: tuple[str, ...]
     email_tokens: tuple[str, ...]
+    github_usernames: tuple[str, ...]
     recording_link: str | None
     snapshot_dir: str | None
     snapshot_fetched: bool | None
@@ -122,6 +131,8 @@ class PrivacyScanResult:
     skipped_binary: int
     skipped_large: int
     skipped_symlinks: int
+    ignored_short_name_tokens: int
+    skipped_name_matches: int
     summary_lines: tuple[str, ...]
 
     @property
@@ -136,6 +147,7 @@ class _Counts:
     large: int = 0
     symlinks: int = 0
     unreadable: int = 0
+    skipped_name_matches: int = 0
 
 
 def load_privacy_tokens(path: Path) -> PrivacyTokens:
@@ -157,9 +169,38 @@ def load_privacy_tokens(path: Path) -> PrivacyTokens:
     return PrivacyTokens(
         name_tokens=_token_tuple(tokens.get("name_tokens")),
         email_tokens=_token_tuple(tokens.get("email_tokens")),
+        github_usernames=_token_tuple(payload.get("github_usernames")),
         recording_link=recording_link if isinstance(recording_link, str) and recording_link else None,
         snapshot_dir=snapshot_dir if isinstance(snapshot_dir, str) and snapshot_dir else None,
         snapshot_fetched=snapshot_fetched if isinstance(snapshot_fetched, bool) else None,
+    )
+
+
+def load_submission_privacy_tokens(assignment: str, team_dir: str, root: Path = Path(".")) -> PrivacyTokens:
+    """Derive the privacy tokens from the submission PDF instead of pdf-info.json.
+
+    ``--no-snapshot`` uses this after ``work/<team_dir>/`` is cleaned; it reads
+    the same member table, recording link, and email tokens that
+    ``scripts/fetch_team_snapshot.py`` writes to pdf-info.json.
+    """
+    config = ASSIGNMENT_CONFIG[assignment]
+    submission_dir = root / FEEDBACK_ROOT / assignment / "submissions" / team_dir
+    if not submission_dir.is_dir():
+        raise PrivacyScanError(
+            f"missing submission directory {submission_dir}; --no-snapshot needs the submission PDF "
+            f"under {FEEDBACK_ROOT}/{assignment}/submissions/{team_dir}/"
+        )
+    try:
+        metadata = select_submission_pdf(submission_dir, str(config["primary_index"]))
+    except (SubmissionPdfError, OSError) as exc:
+        raise PrivacyScanError(f"cannot read the submission PDF in {submission_dir}: {exc}") from exc
+    return PrivacyTokens(
+        name_tokens=tuple(sorted({token for member in metadata.members for token in member.name_tokens})),
+        email_tokens=tuple(sorted(set(metadata.email_tokens))),
+        github_usernames=tuple(sorted({member.github_username for member in metadata.members})),
+        recording_link=metadata.recording_link,
+        snapshot_dir=None,
+        snapshot_fetched=None,
     )
 
 
@@ -170,11 +211,33 @@ def _token_tuple(value: object) -> tuple[str, ...]:
 
 
 def build_name_pattern(tokens: Iterable[str]) -> re.Pattern[str] | None:
-    ordered = sorted({token.casefold() for token in tokens if token}, key=len, reverse=True)
+    """Match name tokens of at least four characters as whole words.
+
+    Shorter fragments match too much ordinary prose (``max`` inside
+    ``max-smirnov`` or a three-letter prefix), so they are ignored entirely.
+    """
+    ordered = sorted(
+        {token.casefold() for token in tokens if len(token.casefold()) >= MIN_NAME_TOKEN_LENGTH},
+        key=len,
+        reverse=True,
+    )
     if not ordered:
         return None
     alternatives = "|".join(re.escape(token) for token in ordered)
     return re.compile(rf"(?<!\w)(?:{alternatives})(?!\w)", re.IGNORECASE)
+
+
+def build_username_pattern(usernames: Iterable[str]) -> re.Pattern[str] | None:
+    """Match known GitHub usernames case-insensitively, for fragment skips."""
+    ordered = sorted({username.casefold() for username in usernames if username}, key=len, reverse=True)
+    if not ordered:
+        return None
+    alternatives = "|".join(re.escape(username) for username in ordered)
+    return re.compile(rf"(?:{alternatives})", re.IGNORECASE)
+
+
+def count_ignored_short_name_tokens(tokens: Iterable[str]) -> int:
+    return sum(1 for token in tokens if len(token.casefold()) < MIN_NAME_TOKEN_LENGTH)
 
 
 def is_ignored_email(value: str, email_tokens: Iterable[str] = ()) -> bool:
@@ -258,16 +321,24 @@ def scan_privacy(
     root: Path = Path("."),
     *,
     feedback_path: Path | None = None,
+    no_snapshot: bool = False,
 ) -> PrivacyScanResult:
     if assignment not in ASSIGNMENT_CONFIG:
         raise PrivacyScanError(f"unknown assignment: {assignment}")
+    if no_snapshot and feedback_path is None:
+        raise PrivacyScanError("no_snapshot requires a feedback report path; pass --feedback <path>")
     info_path = root / FEEDBACK_ROOT / assignment / "work" / team_dir / PDF_INFO_FILENAME
-    tokens = load_privacy_tokens(info_path)
+    tokens = (
+        load_submission_privacy_tokens(assignment, team_dir, root)
+        if no_snapshot
+        else load_privacy_tokens(info_path)
+    )
     collector = _Collector()
     counts = _Counts()
     scan_args = _ScanArgs(
         collector=collector,
         name_pattern=build_name_pattern(tokens.name_tokens),
+        username_pattern=build_username_pattern(tokens.github_usernames),
         recording_link=tokens.recording_link,
         email_tokens=frozenset(tokens.email_tokens),
     )
@@ -308,12 +379,14 @@ def scan_privacy(
             )
 
     findings = tuple(collector.ordered())
+    ignored_short_name_tokens = count_ignored_short_name_tokens(tokens.name_tokens)
     summary = _summary_lines(
         assignment=assignment,
         team_dir=team_dir,
         target=target,
         mode=mode,
         tokens=tokens,
+        ignored_short_name_tokens=ignored_short_name_tokens,
         findings=findings,
         counts=counts,
     )
@@ -329,6 +402,8 @@ def scan_privacy(
         skipped_binary=counts.binary,
         skipped_large=counts.large,
         skipped_symlinks=counts.symlinks,
+        ignored_short_name_tokens=ignored_short_name_tokens,
+        skipped_name_matches=counts.skipped_name_matches,
         summary_lines=tuple(summary),
     )
 
@@ -337,6 +412,7 @@ def scan_privacy(
 class _ScanArgs:
     collector: _Collector
     name_pattern: re.Pattern[str] | None
+    username_pattern: re.Pattern[str] | None
     recording_link: str | None
     email_tokens: frozenset[str]
 
@@ -370,10 +446,10 @@ def _scan_file(
         return
     counts.scanned += 1
     text = data.decode("utf-8", errors="replace")
-    _scan_text(text, display_path, is_meeting, args)
+    _scan_text(text, display_path, is_meeting, args, counts)
 
 
-def _scan_text(text: str, path: str, is_meeting: bool, args: _ScanArgs) -> None:
+def _scan_text(text: str, path: str, is_meeting: bool, args: _ScanArgs, counts: _Counts) -> None:
     for line_number, line in enumerate(text.splitlines(), 1):
         for match in EMAIL_PATTERN.finditer(line):
             if not is_ignored_email(match.group(0), args.email_tokens):
@@ -386,8 +462,26 @@ def _scan_text(text: str, path: str, is_meeting: bool, args: _ScanArgs) -> None:
             for match in URL_PATTERN.finditer(line):
                 if is_recording_url(match.group(0), args.recording_link):
                     args.collector.add("recording", "recording link", path, line_number)
-        if args.name_pattern is not None and args.name_pattern.search(line):
-            args.collector.add("member-name", "member name token", path, line_number)
+        if args.name_pattern is not None:
+            username_spans = _pattern_spans(args.username_pattern, line)
+            reported = False
+            for match in args.name_pattern.finditer(line):
+                if _inside_spans(match.start(), match.end(), username_spans):
+                    counts.skipped_name_matches += 1
+                    continue
+                reported = True
+            if reported:
+                args.collector.add("member-name", "member name token", path, line_number)
+
+
+def _pattern_spans(pattern: re.Pattern[str] | None, line: str) -> tuple[tuple[int, int], ...]:
+    if pattern is None:
+        return ()
+    return tuple((match.start(), match.end()) for match in pattern.finditer(line))
+
+
+def _inside_spans(start: int, end: int, spans: tuple[tuple[int, int], ...]) -> bool:
+    return any(span_start <= start and end <= span_end for span_start, span_end in spans)
 
 
 def _summary_lines(
@@ -397,6 +491,7 @@ def _summary_lines(
     target: str,
     mode: str,
     tokens: PrivacyTokens,
+    ignored_short_name_tokens: int,
     findings: tuple[Finding, ...],
     counts: _Counts,
 ) -> list[str]:
@@ -405,6 +500,15 @@ def _summary_lines(
         f"  target: {target} ({mode})",
         f"  privacy tokens: {len(tokens.name_tokens)} name token(s), {len(tokens.email_tokens)} email token(s)",
     ]
+    if ignored_short_name_tokens:
+        lines.append(
+            f"  note: {ignored_short_name_tokens} name token(s) shorter than "
+            f"{MIN_NAME_TOKEN_LENGTH} characters ignored"
+        )
+    if counts.skipped_name_matches:
+        lines.append(
+            f"  note: {counts.skipped_name_matches} name-token match(es) inside known GitHub username(s) skipped"
+        )
     for rule, label in PRIVACY_RULES:
         rule_findings = [finding for finding in findings if finding.rule == rule]
         if not rule_findings:

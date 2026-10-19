@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
 
 import pytest
 
@@ -15,6 +16,12 @@ from tools.grader_tools.privacy_scan import (
 )
 
 TEAM = "Team 1_12345_assignsubmission_file"
+FIXTURES = Path(__file__).parent / "fixtures"
+
+requires_poppler = pytest.mark.skipif(
+    shutil.which("pdftotext") is None or shutil.which("pdftohtml") is None or shutil.which("pdfinfo") is None,
+    reason="poppler tools (pdftotext, pdftohtml, pdfinfo) are required",
+)
 
 
 def make_snapshot(
@@ -23,6 +30,7 @@ def make_snapshot(
     *,
     name_tokens: tuple[str, ...] = (),
     email_tokens: tuple[str, ...] = (),
+    github_usernames: tuple[str, ...] = (),
     recording_link: str | None = None,
     snapshot_fetched: bool = True,
 ) -> Path:
@@ -42,6 +50,7 @@ def make_snapshot(
         "recording_link": recording_link,
         "snapshot_fetched": snapshot_fetched,
         "snapshot_dir": f"itpd-assignments-feedback/A1/work/{TEAM}/snapshot",
+        "github_usernames": list(github_usernames),
         "privacy_tokens": {"name_tokens": list(name_tokens), "email_tokens": list(email_tokens)},
     }
     (work / "pdf-info.json").write_text(json.dumps(payload), encoding="utf-8")
@@ -179,6 +188,95 @@ def test_member_name_rule_matches_whole_words_case_insensitively(tmp_path: Path)
     assert "Ivanov" not in report
     assert "Petrova" not in report
     assert "subivanovsky" not in report
+
+
+def test_member_name_fragment_inside_a_github_username_is_skipped_with_note(tmp_path: Path) -> None:
+    make_snapshot(
+        tmp_path,
+        {
+            "reports/week-01/README.md": (
+                "GitHub: max-smirnov\n"
+                "Smirnov reviewed the vision.\n"
+            )
+        },
+        name_tokens=("smirnov",),
+        github_usernames=("max-smirnov",),
+    )
+    result = scan_privacy("A1", TEAM, tmp_path)
+    assert [(finding.rule, finding.kind, finding.line) for finding in result.findings] == [
+        ("member-name", "member name token", 2)
+    ]
+    assert result.skipped_name_matches == 1
+    report = "\n".join(result.summary_lines)
+    assert "note: 1 name-token match(es) inside known GitHub username(s) skipped" in report
+    assert "Smirnov" not in report
+    assert "max-smirnov" not in report
+
+
+def test_member_name_tokens_shorter_than_four_characters_are_ignored(tmp_path: Path) -> None:
+    make_snapshot(
+        tmp_path,
+        {"reports/week-01/README.md": "max wrote the notes; Ivanov reviewed them.\n"},
+        name_tokens=("max", "ivanov"),
+    )
+    result = scan_privacy("A1", TEAM, tmp_path)
+    assert [(finding.rule, finding.kind, finding.line) for finding in result.findings] == [
+        ("member-name", "member name token", 1)
+    ]
+    assert result.ignored_short_name_tokens == 1
+    report = "\n".join(result.summary_lines)
+    assert "note: 1 name token(s) shorter than 4 characters ignored" in report
+    assert "max" not in report.casefold()
+    assert "Ivanov" not in report
+
+
+def test_member_name_real_name_in_prose_is_still_reported(tmp_path: Path) -> None:
+    make_snapshot(
+        tmp_path,
+        {"reports/week-01/README.md": "Ivanov presented the plan.\n"},
+        name_tokens=("ivanov",),
+    )
+    result = scan_privacy("A1", TEAM, tmp_path)
+    assert [(finding.rule, finding.kind, finding.line) for finding in result.findings] == [
+        ("member-name", "member name token", 1)
+    ]
+    assert "Ivanov" not in "\n".join(result.summary_lines)
+
+
+@requires_poppler
+def test_no_snapshot_scans_the_report_with_tokens_from_the_submission_pdf(tmp_path: Path) -> None:
+    submissions = tmp_path / "itpd-assignments-feedback" / "A1" / "submissions" / TEAM
+    submissions.mkdir(parents=True)
+    shutil.copyfile(FIXTURES / "submission-text-only.pdf", submissions / "submission.pdf")
+    assert not (tmp_path / "itpd-assignments-feedback" / "A1" / "work" / TEAM).exists()
+
+    report = tmp_path / "report" / "agent-feedback.md"
+    report.parent.mkdir()
+    report.write_text("Mira Sample prepared the week report.\n", encoding="utf-8")
+
+    lines: list[str] = []
+    assert run(["A1", TEAM, "--feedback", str(report), "--no-snapshot"], root=tmp_path, out=lines.append) == 1
+    assert any("member name token: 1 finding(s)" in line for line in lines)
+    assert any("report/agent-feedback.md:1: member name token" in line for line in lines)
+    assert all("Mira" not in line and "Sample" not in line for line in lines)
+
+
+def test_run_no_snapshot_without_feedback_exits_2_with_a_clear_error(tmp_path: Path) -> None:
+    lines: list[str] = []
+    assert run(["A1", TEAM, "--no-snapshot"], root=tmp_path, out=lines.append) == 2
+    assert lines[0].startswith("ERROR:")
+    assert "--feedback" in lines[0]
+
+    with pytest.raises(PrivacyScanError, match="feedback"):
+        scan_privacy("A1", TEAM, tmp_path, no_snapshot=True)
+
+
+def test_run_no_snapshot_without_a_submission_pdf_exits_2(tmp_path: Path) -> None:
+    report = tmp_path / "agent-feedback.md"
+    report.write_text("A clean report.\n", encoding="utf-8")
+    lines: list[str] = []
+    assert run(["A1", TEAM, "--feedback", str(report), "--no-snapshot"], root=tmp_path, out=lines.append) == 2
+    assert lines[0].startswith("ERROR: missing submission directory")
 
 
 def test_binary_oversized_and_symlink_files_are_skipped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
