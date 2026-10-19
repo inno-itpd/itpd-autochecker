@@ -664,7 +664,10 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    Call the first value `SNAPSHOT_TIME`.
 
 5. Collect the live evidence once and keep it beside, not inside, the fetched snapshot.
-   Preferred: `uv run python scripts/collect_github_evidence.py A3 <team_dir> [--issues <n> ...] [--paths <path> ...]`, which reads `itpd-assignments-feedback/A3/work/<team_dir>/pdf-info.json` and writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json` there, printing counts and paths only.
+   Preferred: `uv run python scripts/collect_github_evidence.py A3 <team_dir> [--issues <n> ...] [--paths <path> ...]`, which reads `itpd-assignments-feedback/A3/work/<team_dir>/pdf-info.json` and writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, `tags.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, `paths/<path>.json`, and a bounded `summary.md` there, printing counts and paths only.
+   Read `summary.md` first: it carries the issue counts, the pull-request numbers, the failing runs, the tags, and each milestone's due date with its open and closed issue counts, in at most 60 lines.
+   Open a dump only through a bounded projection that prints at most about 40 lines (`head -n 40`, a `jq` projection, or an `rg` match); never `cat` a full dump, because `commits.json` reached 1.35 MB and `prs.json` 284 KB.
+   `--summary` rebuilds the digest from the saved dumps without calling `gh`.
    The raw fallback commands are:
 
    ```sh

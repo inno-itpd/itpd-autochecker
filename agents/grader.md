@@ -37,7 +37,10 @@ Follow the operator request to choose one of these modes:
 The helper scripts share two contracts; never edit those files by hand:
 
 - `scripts/fetch_team_snapshot.py` writes `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/pdf-info.json` (mode 0600) with keys `assignment`, `team_dir`, `pdf`, `pdf_path`, `page_count`, `recording_link`, `org`, `repo`, `sha`, `permalink`, `permalink_path`, `snapshot_time`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_fetched`, `snapshot_dir`, `github_usernames`, and `privacy_tokens` (`name_tokens`, `email_tokens`).
-- `scripts/collect_github_evidence.py` writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, and `commits.json` beside it, and, on request, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`.
+- `scripts/collect_github_evidence.py` writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json` beside it, plus the compact `summary.md` digest, and, on request, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`.
+- Read `summary.md` first: it carries the issue counts, the pull-request numbers, the failing runs, the tags, and each milestone's due date with its open and closed issue counts, in at most 60 lines.
+- Open a dump only through a bounded projection that prints at most about 40 lines (`head -n 40`, a `jq` projection, or `rg`), and never `cat` a full dump.
+  The dumps are large: `commits.json` reached 1.35 MB and `prs.json` 284 KB, and reading one whole has killed grader runs.
 - `scripts/scan_privacy.py` reads `pdf-info.json`, and `scripts/check_snapshot_links.py --issue-bodies` reads `issues.json`.
 
 ## Steps
@@ -108,8 +111,23 @@ The helper scripts share two contracts; never edit those files by hand:
     uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} [--issues <n> ...] [--paths <path> ...]
     ```
 
-    It reads `pdf-info.json` and writes the paginated dumps into the team work directory: `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, and, for each `--issues <n>`, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, and `issues/<n>.edits.json`, and, for each `--paths <path>`, `paths/<path>.json`.
-    Read those files instead of re-running `gh`; it prints counts and paths only.
+    It reads `pdf-info.json` and writes the paginated dumps into the team work directory: `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json`, and, for each `--issues <n>`, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, and `issues/<n>.edits.json`, and, for each `--paths <path>`, `paths/<path>.json`, plus the bounded `summary.md` digest.
+    Read `summary.md` first: it carries the issue counts, the pull-request numbers, the failing runs, the tags, and each milestone's due date with its open and closed issue counts.
+    Then open a dump only through a bounded projection that prints at most about 40 lines, for example:
+
+    ```console
+    head -n 40 "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/milestones.json"
+    rg -n '"number"|"state"|"title"' "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/issues.json" | head -n 40
+    ```
+
+    Never `cat` a full dump: `commits.json` reached 1.35 MB and `prs.json` 284 KB, and reading one whole can kill the run.
+    Regenerate the digest from the saved dumps without calling `gh`:
+
+    ```console
+    uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} --summary
+    ```
+
+    Work from `summary.md` and the bounded projections instead of re-running `gh`; the collector prints counts and paths only.
     Fallback: the raw `gh` and `jq` commands in `{ASSIGNMENT_DIR}/grading_prompt.md`, for fields the collector does not cover.
     Follow `docs/grader-policy.md#live-github-evidence`.
 12. For recordings and other consumer-hosted media, make one access check only.

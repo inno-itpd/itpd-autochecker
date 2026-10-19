@@ -13,16 +13,22 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.live_evidence import LiveEvidenceError, LiveEvidenceResult, collect_github_evidence
+from tools.grader_tools.live_evidence import (
+    LiveEvidenceError,
+    LiveEvidenceResult,
+    collect_github_evidence,
+    regenerate_evidence_summary,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Collect labels, issues, pull requests, runs, and commits for one team into "
-            "itpd-assignments-feedback/<assignment>/work/<team_dir>/ and print a compact summary. "
-            "A submission with no resolvable snapshot is a judged outcome: the script prints "
-            "'result: skipped (no snapshot)' and exits 0."
+            "Collect labels, issues, pull requests, runs, commits, milestones, releases, and tags for "
+            "one team into itpd-assignments-feedback/<assignment>/work/<team_dir>/, write a bounded "
+            "summary.md digest, and print a compact summary. A submission with no resolvable snapshot "
+            "is a judged outcome: the script prints 'result: skipped (no snapshot)' and exits 0. "
+            "With --summary it rebuilds and prints the digest from the saved dumps and never calls gh."
         )
     )
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
@@ -42,6 +48,11 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="Repository paths, from the repository root, to fetch commit histories for",
     )
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="Rebuild summary.md from the dumps already in the team work directory and print it; never calls gh",
+    )
     return parser
 
 
@@ -53,6 +64,15 @@ def run(
     collect: Callable[..., LiveEvidenceResult] = collect_github_evidence,
 ) -> int:
     args = build_parser().parse_args(argv)
+    if args.summary:
+        try:
+            _, digest = regenerate_evidence_summary(args.assignment, args.team_dir, root=root)
+        except LiveEvidenceError as exc:
+            out(f"ERROR: {exc}")
+            return 2
+        for line in digest.splitlines():
+            out(line)
+        return 0
     try:
         result = collect(
             args.assignment,

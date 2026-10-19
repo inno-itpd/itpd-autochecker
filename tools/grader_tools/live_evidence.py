@@ -9,13 +9,20 @@ The collector reads ``itpd-assignments-feedback/<assignment>/work/<team_dir>/pdf
 (written by ``scripts/fetch_team_snapshot.py``) for the repository and the
 snapshot SHA, writes JSON dumps beside it, and returns a compact summary of
 counts and paths. Raw dumps are only written to files, never printed.
+
+It also writes ``summary.md``, a bounded digest of the process evidence:
+issue counts, pull-request numbers, failing runs, tags, releases, and the
+milestones with their due dates and open and closed issue counts.  The digest
+is capped at ``SUMMARY_LINE_CAP`` lines, and each list is truncated visibly, so
+a grader can read it before opening any dump.  ``regenerate_evidence_summary``
+rebuilds it from the saved dumps without calling ``gh``.
 """
 
 from __future__ import annotations
 
 import json
 import os
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
@@ -64,6 +71,9 @@ RUN_FIELDS = ("databaseId", "workflowName", "headSha", "event", "status", "concl
 RUN_LIMIT = 100
 RUN_SHA_FIELDS = ("name", "event", "conclusion", "html_url")
 PATH_COMMIT_FIELDS = ("sha", "date", "message")
+MILESTONE_FIELDS = ("title", "due_on", "open_issues", "closed_issues")
+RELEASE_FIELDS = ("tag_name", "draft", "prerelease", "published_at")
+TAG_FIELDS = ("name",)
 EDIT_FIELDS = ("editedAt", "diff")
 USER_CONTENT_EDITS_QUERY = (
     "query($owner: String!, $name: String!, $n: Int!) {"
@@ -73,9 +83,28 @@ USER_CONTENT_EDITS_QUERY = (
     + " } } } } }"
 )
 
+SUMMARY_FILENAME = "summary.md"
+SUMMARY_LINE_CAP = 60
+SUMMARY_DUMP_FILES = (
+    "issues.json",
+    "prs.json",
+    "runs_main.json",
+    "runs_sha.json",
+    "milestones.json",
+    "releases.json",
+    "tags.json",
+)
+
+# A failing run concludes with a failure-like outcome; queued, in-progress,
+# neutral, skipped, and successful runs are not failing.
+FAILING_RUN_CONCLUSIONS = frozenset({"failure", "cancelled", "timed_out"})
+SUMMARY_MAX_TAGS = 12
+SUMMARY_MAX_MILESTONES = 40
+SUMMARY_MAX_FAILING_RUNS = 3
+
 
 class LiveEvidenceError(RuntimeError):
-    """The pdf-info metadata is missing or a gh call failed."""
+    """An evidence input is missing or malformed, or a gh call failed."""
 
 
 @dataclass(frozen=True)
@@ -95,6 +124,7 @@ class LiveEvidenceResult:
     files: tuple[EvidenceFile, ...]
     summary_lines: tuple[str, ...]
     skipped: bool = False
+    summary_path: Path | None = None
 
 
 def labels_command(repo: str) -> list[str]:
@@ -152,6 +182,18 @@ def runs_sha_command(repo: str, sha: str) -> list[str]:
 
 def commits_command(repo: str, sha: str) -> list[str]:
     return ["api", f"repos/{repo}/commits?sha={sha}&per_page=100", "--paginate"]
+
+
+def milestones_command(repo: str) -> list[str]:
+    return ["api", f"repos/{repo}/milestones?state=all&per_page=100", "--paginate"]
+
+
+def releases_command(repo: str) -> list[str]:
+    return ["api", f"repos/{repo}/releases?per_page=100", "--paginate"]
+
+
+def tags_command(repo: str) -> list[str]:
+    return ["api", f"repos/{repo}/tags?per_page=100", "--paginate"]
 
 
 def comments_command(repo: str, number: int) -> list[str]:
@@ -267,6 +309,28 @@ def project_path_commits(text: str) -> list[object]:
     return projected
 
 
+def project_list(text: str, fields: Sequence[str], kind: str) -> list[object]:
+    """Keep only the requested fields, so a dump stays small."""
+    projected: list[object] = []
+    for item in merge_list_pages(text):
+        if not isinstance(item, dict):
+            raise LiveEvidenceError(f"a {kind} is not a JSON object")
+        projected.append({field: item.get(field) for field in fields})
+    return projected
+
+
+def project_milestones(text: str) -> list[object]:
+    return project_list(text, MILESTONE_FIELDS, "milestone")
+
+
+def project_releases(text: str) -> list[object]:
+    return project_list(text, RELEASE_FIELDS, "release")
+
+
+def project_tags(text: str) -> list[object]:
+    return project_list(text, TAG_FIELDS, "tag")
+
+
 def normalize_repo_path(path: str) -> str:
     candidate = Path(path.strip())
     if not path.strip() or candidate.is_absolute() or any(part in ("", "..") for part in candidate.parts):
@@ -308,12 +372,251 @@ def stop_summary(assignment: str, team_dir: str, info_path: Path, root: Path) ->
     )
 
 
-def write_json_dump(path: Path, payload: object) -> None:
+def build_evidence_digest(
+    dumps: Mapping[str, object],
+    *,
+    assignment: str,
+    team_dir: str,
+    repo: str | None = None,
+    sha: str | None = None,
+    cap: int = SUMMARY_LINE_CAP,
+) -> str:
+    """Render the bounded digest of the saved dumps, capped at ``cap`` lines."""
+    lines = [f"# Evidence digest: {assignment} / {team_dir}"]
+    if repo and sha:
+        lines.append(f"- Repository: {repo} @ {sha}")
+    lines.extend(
+        [
+            f"- Regenerate from the saved dumps: "
+            f"`scripts/collect_github_evidence.py {assignment} <team_dir> --summary`.",
+            f"- Cap: {cap} lines.",
+            "- Failing run: `conclusion` is `failure`, `cancelled`, or `timed_out`.",
+            "",
+        ]
+    )
+    lines.extend(_issue_digest_lines(_dump_items(dumps, "issues.json")))
+    lines.extend(_pull_request_digest_lines(_dump_items(dumps, "prs.json")))
+    lines.extend(
+        _failing_run_digest_lines(
+            _dump_items(dumps, "runs_main.json"),
+            heading="Runs (main)",
+            name_field="workflowName",
+            url_field="url",
+            id_field="databaseId",
+            event_field=None,
+            source="runs_main.json",
+        )
+    )
+    lines.extend(
+        _failing_run_digest_lines(
+            _dump_items(dumps, "runs_sha.json"),
+            heading="Runs (snapshot SHA)",
+            name_field="name",
+            url_field="html_url",
+            id_field=None,
+            event_field="event",
+            source="runs_sha.json",
+        )
+    )
+    lines.extend(_tag_digest_lines(_dump_items(dumps, "tags.json")))
+    lines.extend(_release_digest_lines(_dump_items(dumps, "releases.json")))
+    lines.extend(_milestone_digest_lines(_dump_items(dumps, "milestones.json")))
+    return _cap_digest_lines(lines, cap)
+
+
+def _dump_items(dumps: Mapping[str, object], filename: str) -> list[dict[str, object]]:
+    value = dumps.get(filename)
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _int_field(item: Mapping[str, object], field: str) -> int:
+    value = item.get(field)
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def _issue_digest_lines(issues: Sequence[dict[str, object]]) -> list[str]:
+    if not issues:
+        return ["- Issues: none."]
+    open_count = sum(1 for issue in issues if str(issue.get("state") or "").lower() == "open")
+    return [f"- Issues: {len(issues)} total, {open_count} open, {len(issues) - open_count} closed."]
+
+
+def _pull_request_digest_lines(pull_requests: Sequence[dict[str, object]]) -> list[str]:
+    if not pull_requests:
+        return ["- Pull requests: none."]
+    numbers = sorted({_int_field(pull_request, "number") for pull_request in pull_requests} - {0})
+    if not numbers:
+        return [f"- Pull requests: {len(pull_requests)} total."]
+    if numbers[0] == numbers[-1]:
+        return [f"- Pull requests: {len(pull_requests)} total, number #{numbers[0]}."]
+    return [f"- Pull requests: {len(pull_requests)} total, numbers #{numbers[0]}-#{numbers[-1]}."]
+
+
+def _failing_run_digest_lines(
+    runs: Sequence[dict[str, object]],
+    *,
+    heading: str,
+    name_field: str,
+    url_field: str,
+    id_field: str | None,
+    event_field: str | None,
+    source: str,
+) -> list[str]:
+    failing = [run for run in runs if str(run.get("conclusion") or "").lower() in FAILING_RUN_CONCLUSIONS]
+    lines = [f"- {heading}: {len(failing)} failing of {len(runs)}."]
+    failing.sort(
+        key=lambda run: (
+            str(run.get("createdAt") or ""),
+            str(run.get(name_field) or ""),
+            str(run.get(url_field) or ""),
+        )
+    )
+    for run in failing[:SUMMARY_MAX_FAILING_RUNS]:
+        name = str(run.get(name_field) or "unknown workflow")
+        details: list[str] = []
+        if id_field is not None and run.get(id_field) is not None:
+            details.append(f"run {run.get(id_field)}")
+        if event_field is not None and run.get(event_field):
+            details.append(str(run.get(event_field)))
+        details.append(str(run.get("conclusion") or "unknown"))
+        suffix = f" — {run.get(url_field)}" if run.get(url_field) else ""
+        lines.append(f"  - {name} ({', '.join(details)}){suffix}")
+    hidden = len(failing) - SUMMARY_MAX_FAILING_RUNS
+    if hidden > 0:
+        lines.append(f"  - (+{hidden} more failing runs; see {source}.)")
+    return lines
+
+
+def _tag_digest_lines(tags: Sequence[dict[str, object]]) -> list[str]:
+    names = sorted(str(tag.get("name")) for tag in tags if tag.get("name"))
+    if not names:
+        return ["- Tags: none."]
+    shown = names[:SUMMARY_MAX_TAGS]
+    hidden = len(names) - len(shown)
+    suffix = f"; {hidden} more in tags.json" if hidden > 0 else ""
+    return [f"- Tags ({len(names)}): {', '.join(shown)}{suffix}."]
+
+
+def _release_digest_lines(releases: Sequence[dict[str, object]]) -> list[str]:
+    if not releases:
+        return ["- Releases: none."]
+    published = [
+        release
+        for release in releases
+        if release.get("published_at") and not release.get("draft") and not release.get("prerelease")
+    ]
+    if not published:
+        return [f"- Releases: {len(releases)} total; none published."]
+    latest = max(published, key=lambda release: str(release.get("published_at") or ""))
+    tag = latest.get("tag_name") or "untagged"
+    return [f"- Releases: {len(releases)} total; latest {tag} ({latest.get('published_at')})."]
+
+
+def _milestone_digest_lines(milestones: Sequence[dict[str, object]]) -> list[str]:
+    if not milestones:
+        return ["- Milestones: none."]
+    ordered = sorted(
+        milestones,
+        key=lambda milestone: (
+            milestone.get("due_on") is None,
+            str(milestone.get("due_on") or ""),
+            str(milestone.get("title") or ""),
+        ),
+    )
+    lines = [f"- Milestones: {len(ordered)}."]
+    for milestone in ordered[:SUMMARY_MAX_MILESTONES]:
+        title = str(milestone.get("title") or "untitled")
+        due = _due_date_label(milestone.get("due_on"))
+        due_text = f"due {due}" if due else "no due date"
+        lines.append(
+            f"  - {title}: {due_text}, "
+            f"{_int_field(milestone, 'open_issues')} open, "
+            f"{_int_field(milestone, 'closed_issues')} closed."
+        )
+    hidden = len(ordered) - SUMMARY_MAX_MILESTONES
+    if hidden > 0:
+        lines.append(f"  - (+{hidden} more milestones; see milestones.json.)")
+    return lines
+
+
+def _due_date_label(value: object) -> str | None:
+    text = str(value) if value else ""
+    return text.split("T", 1)[0] if text else None
+
+
+def _cap_digest_lines(lines: list[str], cap: int) -> str:
+    if cap < 1:
+        raise LiveEvidenceError(f"invalid summary line cap: {cap}")
+    if len(lines) > cap:
+        footer = f"- Truncated at the {cap}-line cap; read a bounded projection of the JSON dumps for the rest."
+        lines = [*lines[: cap - 1], footer]
+    return "\n".join(lines) + "\n"
+
+
+def _write_private_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f"{path.name}.tmp")
-    temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    temporary.write_text(text, encoding="utf-8")
     os.chmod(temporary, 0o600)
     temporary.replace(path)
+
+
+def write_json_dump(path: Path, payload: object) -> None:
+    _write_private_text(path, json.dumps(payload, indent=2) + "\n")
+
+
+def write_summary(work_dir: Path, digest: str) -> Path:
+    path = work_dir / SUMMARY_FILENAME
+    _write_private_text(path, digest)
+    return path
+
+
+def regenerate_evidence_summary(
+    assignment: str,
+    team_dir: str,
+    root: Path = Path("."),
+) -> tuple[Path, str]:
+    """Rebuild ``summary.md`` from the saved dumps; never calls ``gh``."""
+    if assignment not in ASSIGNMENT_CONFIG:
+        raise LiveEvidenceError(f"unknown assignment: {assignment}")
+    work_dir = root / FEEDBACK_ROOT / assignment / "work" / team_dir
+
+    dumps: dict[str, object] = {}
+    missing: list[str] = []
+    for filename in SUMMARY_DUMP_FILES:
+        path = work_dir / filename
+        if not path.is_file():
+            missing.append(filename)
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise LiveEvidenceError(f"cannot parse {path}: {exc}") from exc
+        if not isinstance(payload, list):
+            raise LiveEvidenceError(f"{path} does not hold a JSON array")
+        dumps[filename] = payload
+    if missing:
+        raise LiveEvidenceError(
+            f"missing {', '.join(missing)} in {work_dir}; run "
+            f"scripts/collect_github_evidence.py {assignment} {team_dir} first"
+        )
+
+    repo, sha = _stored_snapshot_target(work_dir)
+    digest = build_evidence_digest(dumps, assignment=assignment, team_dir=team_dir, repo=repo, sha=sha)
+    return write_summary(work_dir, digest), digest
+
+
+def _stored_snapshot_target(work_dir: Path) -> tuple[str | None, str | None]:
+    try:
+        payload = json.loads((work_dir / PDF_INFO_FILENAME).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None, None
+    if not isinstance(payload, dict):
+        return None, None
+    target = snapshot_target(payload)
+    return target if target is not None else (None, None)
 
 
 def collect_github_evidence(
@@ -360,12 +663,21 @@ def collect_github_evidence(
         ("runs (main)", "runs_main.json", runs_main_command(repo), merge_list_pages),
         ("runs (sha)", "runs_sha.json", runs_sha_command(repo, sha), project_runs),
         ("commits", "commits.json", commits_command(repo, sha), merge_list_pages),
+        ("milestones", "milestones.json", milestones_command(repo), project_milestones),
+        ("releases", "releases.json", releases_command(repo), project_releases),
+        ("tags", "tags.json", tags_command(repo), project_tags),
     )
+    dump_values: dict[str, object] = {}
     for label, filename, command, shape in collectors:
         value = shape(_run_gh(command, runner))
         dump_path = work_dir / filename
         write_json_dump(dump_path, value)
+        dump_values[filename] = value
         record(label, dump_path, _record_count(value))
+
+    digest = build_evidence_digest(dump_values, assignment=assignment, team_dir=team_dir, repo=repo, sha=sha)
+    digest_path = write_summary(work_dir, digest)
+    summary.append(f"  summary: {len(digest.splitlines())} lines -> {_display(digest_path, root)}")
 
     for number in issue_numbers:
         drilldowns: tuple[tuple[str, list[str], Callable[[str], object]], ...] = (
@@ -393,6 +705,7 @@ def collect_github_evidence(
         work_dir=work_dir,
         files=tuple(files),
         summary_lines=tuple(summary),
+        summary_path=digest_path,
     )
 
 

@@ -13,15 +13,21 @@ from tools.grader_tools.live_evidence import (
     ISSUE_LIMIT,
     LABEL_FIELDS,
     LABEL_LIMIT,
+    MILESTONE_FIELDS,
     PATH_COMMIT_FIELDS,
     PR_FIELDS,
     PR_LIMIT,
+    RELEASE_FIELDS,
     RUN_FIELDS,
     RUN_LIMIT,
     RUN_SHA_FIELDS,
+    SUMMARY_FILENAME,
+    SUMMARY_LINE_CAP,
+    TAG_FIELDS,
     USER_CONTENT_EDITS_QUERY,
     LiveEvidenceError,
     LiveEvidenceResult,
+    build_evidence_digest,
     collect_github_evidence,
 )
 from tools.grader_tools.live_evidence import (
@@ -30,10 +36,13 @@ from tools.grader_tools.live_evidence import (
     edits_command,
     issues_command,
     labels_command,
+    milestones_command,
     path_commits_command,
     prs_command,
+    releases_command,
     runs_main_command,
     runs_sha_command,
+    tags_command,
     timeline_command,
 )
 from tools.grader_tools.submission_pdf import CommandResult
@@ -72,7 +81,7 @@ def base_responses() -> dict[tuple[str, ...], str]:
         tuple(labels_command(REPO)): json.dumps(
             [{"name": "task", "description": "", "ignored": "x"}],
         ),
-        tuple(issues_command(REPO)): json.dumps([{"number": 50, "title": "Edit the root README"}]),
+        tuple(issues_command(REPO)): json.dumps([{"number": 50, "state": "OPEN", "title": "Edit the root README"}]),
         tuple(prs_command(REPO)): json.dumps([{"number": 51, "title": "Edit the root README"}]),
         tuple(runs_main_command(REPO)): json.dumps([{"databaseId": 1, "conclusion": "success"}]),
         tuple(runs_sha_command(REPO, SHA)): json.dumps(
@@ -90,6 +99,29 @@ def base_responses() -> dict[tuple[str, ...], str]:
             }
         ),
         tuple(commits_command(REPO, SHA)): json.dumps([{"sha": "a" * 40, "commit": {"message": "one"}}]),
+        tuple(milestones_command(REPO)): json.dumps(
+            [
+                {
+                    "title": "Sprint 1",
+                    "due_on": "2026-10-01T00:00:00Z",
+                    "open_issues": 2,
+                    "closed_issues": 3,
+                    "ignored": "x",
+                }
+            ]
+        ),
+        tuple(releases_command(REPO)): json.dumps(
+            [
+                {
+                    "tag_name": "v1.0.0",
+                    "draft": False,
+                    "prerelease": False,
+                    "published_at": "2026-10-05T12:00:00Z",
+                    "ignored": "x",
+                }
+            ]
+        ),
+        tuple(tags_command(REPO)): json.dumps([{"name": "v1.0.0", "commit": {"sha": "a" * 40}, "ignored": "x"}]),
     }
 
 
@@ -101,7 +133,7 @@ def test_collect_writes_the_base_dumps_and_a_compact_summary(tmp_path: Path) -> 
         {"name": "task", "description": "", "ignored": "x"}
     ]
     assert json.loads((scratch / "issues.json").read_text(encoding="utf-8")) == [
-        {"number": 50, "title": "Edit the root README"}
+        {"number": 50, "state": "OPEN", "title": "Edit the root README"}
     ]
     assert json.loads((scratch / "prs.json").read_text(encoding="utf-8")) == [
         {"number": 51, "title": "Edit the root README"}
@@ -125,6 +157,20 @@ def test_collect_writes_the_base_dumps_and_a_compact_summary(tmp_path: Path) -> 
     ]
     assert list(runs_sha[0]) == list(RUN_SHA_FIELDS)
 
+    milestones = json.loads((scratch / "milestones.json").read_text(encoding="utf-8"))
+    assert milestones == [
+        {"title": "Sprint 1", "due_on": "2026-10-01T00:00:00Z", "open_issues": 2, "closed_issues": 3}
+    ]
+    assert list(milestones[0]) == list(MILESTONE_FIELDS)
+    releases = json.loads((scratch / "releases.json").read_text(encoding="utf-8"))
+    assert releases == [
+        {"tag_name": "v1.0.0", "draft": False, "prerelease": False, "published_at": "2026-10-05T12:00:00Z"}
+    ]
+    assert list(releases[0]) == list(RELEASE_FIELDS)
+    tags = json.loads((scratch / "tags.json").read_text(encoding="utf-8"))
+    assert tags == [{"name": "v1.0.0"}]
+    assert list(tags[0]) == list(TAG_FIELDS)
+
     assert [file.label for file in result.files] == [
         "labels",
         "issues",
@@ -132,14 +178,34 @@ def test_collect_writes_the_base_dumps_and_a_compact_summary(tmp_path: Path) -> 
         "runs (main)",
         "runs (sha)",
         "commits",
+        "milestones",
+        "releases",
+        "tags",
     ]
-    assert [file.count for file in result.files] == [1, 1, 1, 1, 1, 1]
+    assert [file.count for file in result.files] == [1, 1, 1, 1, 1, 1, 1, 1, 1]
     summary = "\n".join(result.summary_lines)
     assert "itpd-assignments-feedback/A2/work/" in summary
     assert "labels: 1 -> itpd-assignments-feedback/A2/work/" in summary
     assert f"repo: {REPO} @ {SHA}" in summary
     assert '{"name"' not in summary
     assert '"workflow_runs"' not in summary
+
+    digest_path = scratch / SUMMARY_FILENAME
+    assert result.summary_path == digest_path
+    assert digest_path.stat().st_mode & 0o777 == 0o600
+    digest = digest_path.read_text(encoding="utf-8")
+    assert digest.count("\n") <= SUMMARY_LINE_CAP
+    assert f"summary: {len(digest.splitlines())} lines -> itpd-assignments-feedback/A2/work/" in summary
+    assert "# Evidence digest: A2 / " + TEAM in digest
+    assert f"- Repository: {REPO} @ {SHA}" in digest
+    assert "- Issues: 1 total, 1 open, 0 closed." in digest
+    assert "- Pull requests: 1 total, number #51." in digest
+    assert "- Runs (main): 0 failing of 1." in digest
+    assert "- Runs (snapshot SHA): 0 failing of 1." in digest
+    assert "- Tags (1): v1.0.0." in digest
+    assert "- Releases: 1 total; latest v1.0.0 (2026-10-05T12:00:00Z)." in digest
+    assert "- Milestones: 1." in digest
+    assert "  - Sprint 1: due 2026-10-01, 2 open, 3 closed." in digest
 
 
 def test_collect_uses_the_encoded_field_lists(tmp_path: Path) -> None:
@@ -220,6 +286,9 @@ def test_collect_issue_drilldowns(tmp_path: Path) -> None:
         "runs (main)",
         "runs (sha)",
         "commits",
+        "milestones",
+        "releases",
+        "tags",
         "issue 11 comments",
         "issue 11 timeline",
         "issue 11 edits",
@@ -339,6 +408,200 @@ def test_collect_reports_gh_exit_codes(tmp_path: Path) -> None:
             tmp_path,
             runner=lambda command: CommandResult(returncode=1, stdout="", stderr="HTTP 403"),
         )
+
+
+def test_digest_lists_counts_failing_runs_tags_and_milestones() -> None:
+    dumps = {
+        "issues.json": [
+            {"number": 1, "state": "OPEN"},
+            {"number": 2, "state": "CLOSED"},
+            {"number": 3, "state": "OPEN"},
+        ],
+        "prs.json": [{"number": 30}, {"number": 12}, {"number": 21}],
+        "runs_main.json": [
+            {
+                "databaseId": 1,
+                "workflowName": "Markdown check",
+                "conclusion": "success",
+                "createdAt": "2026-10-10T09:00:00Z",
+                "url": "https://example.com/run/1",
+            },
+            {
+                "databaseId": 2,
+                "workflowName": "Link check",
+                "conclusion": "failure",
+                "createdAt": "2026-10-10T10:00:00Z",
+                "url": "https://example.com/run/2",
+            },
+            {
+                "databaseId": 3,
+                "workflowName": "Tests",
+                "conclusion": "cancelled",
+                "createdAt": "2026-10-10T11:00:00Z",
+                "url": "https://example.com/run/3",
+            },
+            {
+                "databaseId": 4,
+                "workflowName": "Build",
+                "conclusion": "timed_out",
+                "createdAt": "2026-10-10T12:00:00Z",
+                "url": "https://example.com/run/4",
+            },
+            {
+                "databaseId": 5,
+                "workflowName": "Deploy",
+                "conclusion": "skipped",
+                "createdAt": "2026-10-10T13:00:00Z",
+                "url": "https://example.com/run/5",
+            },
+        ],
+        "runs_sha.json": [
+            {
+                "name": "Markdown check",
+                "event": "push",
+                "conclusion": "failure",
+                "html_url": "https://example.com/run/9",
+            },
+            {
+                "name": "Markdown check",
+                "event": "push",
+                "conclusion": "success",
+                "html_url": "https://example.com/run/10",
+            },
+        ],
+        "milestones.json": [
+            {"title": "Sprint 2", "due_on": "2026-10-15T00:00:00Z", "open_issues": 5, "closed_issues": 1},
+            {"title": "Sprint 1", "due_on": "2026-10-01T00:00:00Z", "open_issues": 0, "closed_issues": 7},
+            {"title": "Unscheduled", "due_on": None, "open_issues": 1, "closed_issues": 0},
+        ],
+        "releases.json": [
+            {
+                "tag_name": "v1.0.0",
+                "draft": False,
+                "prerelease": False,
+                "published_at": "2026-10-05T12:00:00Z",
+            },
+            {"tag_name": "v1.1.0", "draft": False, "prerelease": False, "published_at": None},
+        ],
+        "tags.json": [{"name": "v1.1.0"}, {"name": "v1.0.0"}],
+    }
+    digest = build_evidence_digest(dumps, assignment="A3", team_dir="Team 1", repo=REPO, sha=SHA)
+
+    assert "# Evidence digest: A3 / Team 1" in digest
+    assert f"- Repository: {REPO} @ {SHA}" in digest
+    assert f"- Cap: {SUMMARY_LINE_CAP} lines." in digest
+    assert "- Issues: 3 total, 2 open, 1 closed." in digest
+    assert "- Pull requests: 3 total, numbers #12-#30." in digest
+    assert "- Runs (main): 3 failing of 5." in digest
+    assert "  - Link check (run 2, failure) — https://example.com/run/2" in digest
+    assert "  - Tests (run 3, cancelled) — https://example.com/run/3" in digest
+    assert "  - Build (run 4, timed_out) — https://example.com/run/4" in digest
+    assert "Deploy" not in digest
+    assert "- Runs (snapshot SHA): 1 failing of 2." in digest
+    assert "  - Markdown check (push, failure) — https://example.com/run/9" in digest
+    assert "- Tags (2): v1.0.0, v1.1.0." in digest
+    assert "- Releases: 2 total; latest v1.0.0 (2026-10-05T12:00:00Z)." in digest
+    assert "- Milestones: 3." in digest
+    assert "  - Sprint 1: due 2026-10-01, 0 open, 7 closed." in digest
+    assert "  - Sprint 2: due 2026-10-15, 5 open, 1 closed." in digest
+    assert "  - Unscheduled: no due date, 1 open, 0 closed." in digest
+    assert digest.index("Sprint 1") < digest.index("Sprint 2") < digest.index("Unscheduled")
+    assert len(digest.splitlines()) <= SUMMARY_LINE_CAP
+
+
+def test_digest_caps_lines_and_makes_truncation_visible() -> None:
+    failing = [
+        {
+            "databaseId": number,
+            "workflowName": f"Workflow {number}",
+            "conclusion": "failure",
+            "createdAt": f"2026-10-{number + 1:02d}T00:00:00Z",
+            "url": f"https://example.com/run/{number}",
+        }
+        for number in range(10)
+    ]
+    dumps = {
+        "issues.json": [{"number": number, "state": "OPEN"} for number in range(1, 101)],
+        "prs.json": [{"number": number} for number in range(1, 51)],
+        "runs_main.json": failing,
+        "runs_sha.json": [
+            {**run, "name": run["workflowName"], "html_url": run["url"], "event": "push"} for run in failing
+        ],
+        "milestones.json": [
+            {
+                "title": f"Sprint {number}",
+                "due_on": f"2026-{number % 12 + 1:02d}-01T00:00:00Z",
+                "open_issues": number,
+                "closed_issues": number,
+            }
+            for number in range(100)
+        ],
+        "releases.json": [],
+        "tags.json": [{"name": f"v0.{number}.0"} for number in range(40)],
+    }
+    digest = build_evidence_digest(dumps, assignment="A3", team_dir="Team 1")
+
+    lines = digest.splitlines()
+    assert len(lines) == SUMMARY_LINE_CAP
+    assert lines[-1] == (
+        f"- Truncated at the {SUMMARY_LINE_CAP}-line cap; "
+        "read a bounded projection of the JSON dumps for the rest."
+    )
+    assert "- Tags (40): " in digest
+    assert "; 28 more in tags.json." in digest
+    assert "- Issues: 100 total, 100 open, 0 closed." in digest
+
+    milestone_only = build_evidence_digest(
+        {**dumps, "runs_main.json": [], "runs_sha.json": [], "tags.json": []},
+        assignment="A3",
+        team_dir="Team 1",
+    )
+    assert "  - (+60 more milestones; see milestones.json.)" in milestone_only
+    assert len(milestone_only.splitlines()) <= SUMMARY_LINE_CAP
+
+
+def test_summary_cli_regenerates_from_the_saved_dumps_without_gh(tmp_path: Path) -> None:
+    scratch = write_pdf_info(tmp_path)
+    collect_github_evidence("A2", TEAM, tmp_path, runner=FakeGh(base_responses()))
+    expected = (scratch / SUMMARY_FILENAME).read_text(encoding="utf-8")
+    (scratch / SUMMARY_FILENAME).unlink()
+
+    def forbidden_collect(*args: object, **kwargs: object) -> LiveEvidenceResult:
+        raise AssertionError("--summary must reuse the saved dumps instead of calling gh")
+
+    lines: list[str] = []
+    status = collect_run(["A2", TEAM, "--summary"], root=tmp_path, out=lines.append, collect=forbidden_collect)
+
+    assert status == 0
+    assert lines == expected.splitlines()
+    assert (scratch / SUMMARY_FILENAME).read_text(encoding="utf-8") == expected
+    assert (scratch / SUMMARY_FILENAME).stat().st_mode & 0o777 == 0o600
+
+
+def test_summary_cli_fails_cleanly_when_the_dumps_are_missing(tmp_path: Path) -> None:
+    write_pdf_info(tmp_path)
+
+    def forbidden_collect(*args: object, **kwargs: object) -> LiveEvidenceResult:
+        raise AssertionError("--summary must not call gh")
+
+    lines: list[str] = []
+    status = collect_run(["A2", TEAM, "--summary"], root=tmp_path, out=lines.append, collect=forbidden_collect)
+
+    assert status == 2
+    assert len(lines) == 1
+    assert lines[0].startswith("ERROR: missing ")
+    for filename in (
+        "issues.json",
+        "prs.json",
+        "runs_main.json",
+        "runs_sha.json",
+        "milestones.json",
+        "releases.json",
+        "tags.json",
+    ):
+        assert filename in lines[0]
+    assert f"scripts/collect_github_evidence.py A2 {TEAM}" in lines[0]
+    assert "Traceback" not in lines[0]
 
 
 def _a2_step5() -> str:
