@@ -14,6 +14,12 @@ the whole `agent-feedback.md` (metadata preamble, overall assessment, segments t
 unresolved gaps, summary, strengths, main issues, and segment details) in one
 pass.
 
+The payload may be incomplete, so the report can reach disk as soon as part of
+the review is decided: every segment that `segment_updates` does not cover is
+written as an explicit `unverified` placeholder with `Evidence gaps: yes`, and
+the report still validates.  A later render that supplies the segment replaces
+the placeholder.
+
 Payload shape (all keys are required unless marked optional):
 
 ```json
@@ -49,17 +55,31 @@ Rules:
   present.
 - `segment_updates` uses the same per-segment shape as
   `scripts/regrade_feedback_segments.py`, with an optional `name` that must
-  match the assignment.  It must cover every segment the assignment defines
-  and nothing else.
+  match the assignment.  It may cover any subset of the assignment's segments;
+  it must not contain a key that is not a segment of the assignment.
+  - Every omitted segment renders as a placeholder with `Status: unverified`
+    and `Evidence gaps: yes`, so an early or resumed render still validates.
+  - The placeholder `**Evidence:**` bullet reads `Not reviewed: the run stopped
+    before this segment was reviewed, so no evidence was checked.`
+  - The placeholder `**Why not met (unverified):**` bullet, reused as the
+    `## Unresolved evidence gaps` bullet for the segment, reads `The run
+    stopped before reviewing this segment; it stays unverified pending a later
+    review.`
+  - A placeholder is never `met` and is not a verified shortfall; supplying the
+    segment in a later payload replaces it.
 - `status` is one of `met`, `partial`, `missing`, `unverified`.  `partial` and
   `missing` need `verified_shortfalls` bullets, `met` must not have any, and
   `evidence_gaps: true` needs `unverified_checks` bullets.
 - `unresolved_evidence_gaps` (optional) must contain one non-empty bullet list
-  per segment with `evidence_gaps: true` and no other keys.
+  per decided segment with `evidence_gaps: true` and no other keys.
+  A bullet list for a segment with `evidence_gaps: false` is rejected.
+  An omitted placeholder segment gets the generated placeholder bullet;
+  supplying its bullet list replaces the placeholder.
 
 The report is validated against the shared contract before anything is
 written, so a malformed payload fails with `ERROR: ...` (exit code 2) and
-leaves no report file behind.
+leaves any existing report untouched.  An incomplete but well-formed payload
+renders, validates, and leaves the omitted segments as unverified placeholders.
 """
 
 from __future__ import annotations
@@ -103,6 +123,16 @@ PAYLOAD_KEYS = {
     "unresolved_evidence_gaps",
 }
 SEGMENT_UPDATE_KEYS = {"name", "status", "evidence_gaps", "evidence", "verified_shortfalls", "unverified_checks"}
+
+# Fixed wording for a segment that a partial payload does not cover yet.
+# It has to explain itself, so the placeholder stays visible in the report and
+# in the unresolved-gaps section instead of reading like a judged result.
+INCOMPLETE_SEGMENT_EVIDENCE = (
+    "Not reviewed: the run stopped before this segment was reviewed, so no evidence was checked."
+)
+INCOMPLETE_SEGMENT_PLACEHOLDER = (
+    "The run stopped before reviewing this segment; it stays unverified pending a later review."
+)
 
 
 def _unexpected_keys(seen: set[str], allowed: set[str], label: str) -> None:
@@ -179,10 +209,28 @@ def _render_preamble(assignment: str, payload: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
-def _parse_segment_updates(payload: dict[str, object], segment_defs: SegmentDefs) -> dict[int, SegmentBlock]:
+def _placeholder_segment(seg_num: int, name: str) -> SegmentBlock:
+    """Build the fail-safe block for a segment that the payload does not cover yet."""
+    evidence = [INCOMPLETE_SEGMENT_EVIDENCE]
+    unverified = [INCOMPLETE_SEGMENT_PLACEHOLDER]
+    return SegmentBlock(
+        seg_num=seg_num,
+        name=name,
+        markdown=render_segment_block(seg_num, name, "unverified", True, evidence, [], unverified),
+        status="unverified",
+        evidence_gaps=True,
+        evidence=evidence,
+        verified_shortfalls=[],
+        unverified_checks=unverified,
+    )
+
+
+def _parse_segment_updates(
+    payload: dict[str, object], segment_defs: SegmentDefs
+) -> tuple[dict[int, SegmentBlock], set[int]]:
     raw = payload.get("segment_updates")
-    if not isinstance(raw, dict) or not raw:
-        raise ValueError("`segment_updates` must be a non-empty object keyed by segment IDs such as S1")
+    if not isinstance(raw, dict):
+        raise ValueError("`segment_updates` must be an object keyed by segment IDs such as S1")
 
     blocks: dict[int, SegmentBlock] = {}
     for selector, update in raw.items():
@@ -242,13 +290,19 @@ def _parse_segment_updates(payload: dict[str, object], segment_defs: SegmentDefs
         )
 
     missing = sorted(set(segment_defs) - set(blocks))
-    if missing:
-        raise ValueError("`segment_updates` is missing: " + ", ".join(f"S{seg_num}" for seg_num in missing))
-    return blocks
+    placeholder_segments: set[int] = set()
+    for seg_num in missing:
+        name = segment_defs[seg_num]["name"]
+        blocks[seg_num] = _placeholder_segment(seg_num, name)
+        placeholder_segments.add(seg_num)
+    return blocks, placeholder_segments
 
 
 def _parse_unresolved(
-    payload: dict[str, object], segment_defs: SegmentDefs, blocks: dict[int, SegmentBlock]
+    payload: dict[str, object],
+    segment_defs: SegmentDefs,
+    blocks: dict[int, SegmentBlock],
+    placeholder_segments: set[int],
 ) -> dict[int, list[str]]:
     raw = payload.get("unresolved_evidence_gaps")
     if raw is None:
@@ -270,10 +324,13 @@ def _parse_unresolved(
         parsed[seg_num] = _bullet_list(bullets, f"unresolved_evidence_gaps.{selector}", minimum=1)
 
     missing = sorted(seg_num for seg_num, block in blocks.items() if block.evidence_gaps and seg_num not in parsed)
-    if missing:
+    decided = [seg_num for seg_num in missing if seg_num not in placeholder_segments]
+    if decided:
         raise ValueError(
-            "`unresolved_evidence_gaps` needs bullets for: " + ", ".join(f"S{seg_num}" for seg_num in missing)
+            "`unresolved_evidence_gaps` needs bullets for: " + ", ".join(f"S{seg_num}" for seg_num in decided)
         )
+    for seg_num in missing:
+        parsed[seg_num] = [INCOMPLETE_SEGMENT_PLACEHOLDER]
     return parsed
 
 
@@ -286,8 +343,8 @@ def render_feedback_report(assignment: str, payload: dict[str, object]) -> tuple
     segment_defs = ASSIGNMENT_CONFIG[assignment]["segment_defs"]
     output_path = _output_path(payload)
     preamble = _render_preamble(assignment, payload)
-    blocks = _parse_segment_updates(payload, segment_defs)
-    unresolved = _parse_unresolved(payload, segment_defs, blocks)
+    blocks, placeholder_segments = _parse_segment_updates(payload, segment_defs)
+    unresolved = _parse_unresolved(payload, segment_defs, blocks, placeholder_segments)
     summary = _bullet_list(payload.get("summary"), "summary", minimum=3, maximum=5)
     strengths = _bullet_list(payload.get("strengths"), "strengths", minimum=1)
     main_issues = _bullet_list(payload.get("main_issues_to_fix"), "main_issues_to_fix", minimum=1)

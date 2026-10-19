@@ -66,6 +66,31 @@ def test_overall_assessment_counts_must_match() -> None:
     assert any("Overall assessment" in error for error in errors_for(text))
 
 
+def test_overall_assessment_mismatch_quotes_declared_and_computed_counts() -> None:
+    text = build_report("A1", statuses={1: "partial"})
+    text = text.replace("- Met: `8/9`", "- Met: `9/9`").replace("- Partial: `1/9`", "- Partial: `0/9`")
+    errors = errors_for(text)
+    assert len(errors) == 1
+    error = errors[0]
+    assert "declared met 9/9" in error
+    assert "partial 0/9" in error
+    assert "missing 0/9" in error
+    assert "unverified 0/9" in error
+    assert error.endswith(
+        "computed met 8/9 · partial 1/9 · missing 0/9 · unverified 0/9"
+    )
+
+
+def test_overall_assessment_formatting_mismatch_still_quotes_counts() -> None:
+    text = build_report("A1").replace("- Automatic review status: `complete`", "- Automatic review status: `pending review`")
+    errors = errors_for(text)
+    assert len(errors) == 1
+    error = errors[0]
+    assert "declared met 9/9" in error
+    assert "computed met 9/9" in error
+    assert "the counts agree" in error
+
+
 def test_gap_segments_need_unresolved_bullets() -> None:
     text = build_report("A1", gaps={4}).replace("  - S4 gap detail.\n", "")
     assert any("nested bullets" in error for error in errors_for(text))

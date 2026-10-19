@@ -145,13 +145,19 @@ The helper scripts share two contracts; never edit those files by hand:
 
 ## Output
 
-- In `full review` mode, write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md` in the format from `docs/grading-feedback-format.md`, or render it from one structured payload:
+- In `full review` mode, write the validated report as soon as all segment statuses are decided — 13 for A3 — then run the gates below.
+  A crash must leave a validated report on disk, not a half-written one; refine the prose after that first write instead of deferring it.
+- Build the payload for that write incrementally: judge S1–S4, then S5–S8, then S9–S13 (stop at the assignment's last segment when it has fewer), and rewrite `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/payload.json` after each group, so a crash loses at most the group being reviewed.
+  Add the `summary`, `strengths`, and `main_issues_to_fix` bullets once the statuses are decided, then write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md` in the format from `docs/grading-feedback-format.md`, or render it from the payload:
 
   ```console
-  uv run python scripts/render_feedback_report.py {ASSIGNMENT_DIR} <payload.json>
+  uv run python scripts/render_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/payload.json"
   ```
 
   The payload shape is documented in the script docstring.
+  Render again after a later group, and re-run the gates below after every render.
+  A segment that the payload does not cover yet renders as an `unverified` placeholder with `Evidence gaps: yes` and a generated placeholder bullet in `**Why not met (unverified):**` and in `## Unresolved evidence gaps`, so even a partial payload writes a file that passes the validator.
+  The placeholder is never `met` and is not a verified shortfall; supplying the segment in a later payload replaces it.
 - Validate it, and fix it until it passes:
 
   ```console

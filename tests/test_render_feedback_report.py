@@ -8,11 +8,16 @@ import sys
 
 import pytest
 
-from scripts.render_feedback_report import render_feedback_report, run
+from scripts.render_feedback_report import (
+    INCOMPLETE_SEGMENT_EVIDENCE,
+    INCOMPLETE_SEGMENT_PLACEHOLDER,
+    render_feedback_report,
+    run,
+)
 from tests.conftest import ROOT
 from tests.report_builder import REPO, SHA, build_report
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.feedback_report import parse_feedback_text
+from tools.grader_tools.feedback_report import parse_feedback_text, parse_unresolved_section
 from tools.grader_tools.validate import validate_report
 
 A1_DEFS = ASSIGNMENT_CONFIG["A1"]["segment_defs"]
@@ -125,19 +130,100 @@ def test_missing_snapshot_uses_none_and_notes(tmp_path: Path) -> None:
     assert validate_report("A1", parse_feedback_text(rendered, A1_DEFS)) == []
 
 
+def test_partial_payload_renders_unverified_placeholders(tmp_path: Path) -> None:
+    payload = full_payload(tmp_path / "agent-feedback.md", statuses={4: "unverified"}, gaps={4})
+    updates = payload["segment_updates"]
+    assert isinstance(updates, dict)
+    for selector in ("S8", "S9"):
+        updates.pop(selector)
+
+    rendered, _ = render_feedback_report("A1", payload)
+    report = parse_feedback_text(rendered, A1_DEFS)
+    assert validate_report("A1", report) == []
+
+    for seg_num in (8, 9):
+        block = report.segment_blocks[seg_num]
+        assert block.status == "unverified"
+        assert block.evidence_gaps is True
+        assert block.verified_shortfalls == []
+        assert block.evidence == [INCOMPLETE_SEGMENT_EVIDENCE]
+        assert block.unverified_checks == [INCOMPLETE_SEGMENT_PLACEHOLDER]
+
+    assert report.segment_blocks[1].status == "met"
+    assert report.segment_blocks[4].status == "unverified"
+    assert "- Met: `6/9`" in report.assessment_body
+    assert "- Unverified: `3/9`" in report.assessment_body
+
+    unresolved = parse_unresolved_section(report.unresolved_body, A1_DEFS)
+    assert unresolved[4] == ["S4 gap detail."]
+    assert unresolved[8] == [INCOMPLETE_SEGMENT_PLACEHOLDER]
+    assert unresolved[9] == [INCOMPLETE_SEGMENT_PLACEHOLDER]
+
+
+def test_placeholder_segments_never_render_as_met(tmp_path: Path) -> None:
+    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload["segment_updates"].pop("S9")
+
+    rendered, _ = render_feedback_report("A1", payload)
+    report = parse_feedback_text(rendered, A1_DEFS)
+    row = next(line for line in rendered.splitlines() if line.startswith("| [S9:"))
+    assert row.endswith("| unverified | yes |")
+    assert report.segments_table.statuses[9] == "unverified"
+    assert report.segments_table.evidence_gaps[9] is True
+    assert report.segment_blocks[9].status != "met"
+    assert "| Manual review required | yes | |" in rendered
+
+
+def test_partial_payload_preserves_supplied_gap_bullets(tmp_path: Path) -> None:
+    payload = full_payload(tmp_path / "agent-feedback.md", statuses={4: "unverified"}, gaps={4})
+    payload["segment_updates"].pop("S9")
+    payload["unresolved_evidence_gaps"] = {"S4": ["A hand-written S4 bullet."]}
+
+    rendered, _ = render_feedback_report("A1", payload)
+    report = parse_feedback_text(rendered, A1_DEFS)
+    assert validate_report("A1", report) == []
+    unresolved = parse_unresolved_section(report.unresolved_body, A1_DEFS)
+    assert unresolved[4] == ["A hand-written S4 bullet."]
+    assert unresolved[9] == [INCOMPLETE_SEGMENT_PLACEHOLDER]
+
+
+def test_cli_writes_a_partial_report_that_passes_the_validator(tmp_path: Path) -> None:
+    output = tmp_path / "A1" / "feedback" / "Team 3_1_assignsubmission_file" / "agent-feedback.md"
+    payload = full_payload(output)
+    updates = payload["segment_updates"]
+    assert isinstance(updates, dict)
+    for selector in ("S5", "S6", "S7", "S8", "S9"):
+        updates.pop(selector)
+    payload_path = tmp_path / "payload.json"
+    payload_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    lines: list[str] = []
+    assert run(["A1", str(payload_path)], out=lines.append) == 0
+    assert lines == [f"Wrote {output}"]
+
+    validate = subprocess.run(
+        [sys.executable, "scripts/validate_feedback_report.py", "A1", str(output)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert validate.returncode == 0, validate.stdout + validate.stderr
+
+
 def test_failed_render_keeps_an_existing_report(tmp_path: Path) -> None:
     output = tmp_path / "agent-feedback.md"
     output.write_text("old report\n", encoding="utf-8")
     payload = full_payload(output)
     updates = payload["segment_updates"]
     assert isinstance(updates, dict)
-    updates.pop("S9")
+    updates["S1"]["status"] = "great"
     payload_path = tmp_path / "payload.json"
     payload_path.write_text(json.dumps(payload), encoding="utf-8")
 
     lines: list[str] = []
     assert run(["A1", str(payload_path)], out=lines.append) == 2
     assert lines[0].startswith("ERROR: ")
+    assert "status" in lines[0]
     assert output.read_text(encoding="utf-8") == "old report\n"
 
 
@@ -202,7 +288,11 @@ def test_requires_notes_when_snapshot_is_missing(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("mutate", "match"),
     [
-        pytest.param(lambda payload: payload["segment_updates"].pop("S9"), "missing: S9", id="missing-segment"),
+        pytest.param(
+            lambda payload: payload.__setitem__("segment_updates", ["S1"]),
+            "segment_updates",
+            id="segment-updates-not-an-object",
+        ),
         pytest.param(
             lambda payload: payload["segment_updates"].__setitem__("S10", full_update()),
             "not a segment",

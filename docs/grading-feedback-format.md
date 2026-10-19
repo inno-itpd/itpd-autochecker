@@ -169,6 +169,12 @@ Rules:
 - `**Why not met (unverified):**` is present with at least one bullet exactly when `Evidence gaps: yes`.
 - Instructor-provided evidence used in a regrade goes into `**Evidence:**` and is labelled as instructor-reviewed.
 
+A partial review may leave a segment unreviewed.
+Write it as `Status: unverified` with `Evidence gaps: yes`, an `**Evidence:**` bullet reading `Not reviewed: the run stopped before this segment was reviewed, so no evidence was checked.`, and one `**Why not met (unverified):**` bullet reading `The run stopped before reviewing this segment; it stays unverified pending a later review.`
+The same placeholder bullet appears under `## Unresolved evidence gaps`.
+A placeholder is never `met` and is not a verified shortfall: it records missing work, not a judged failure, and a later review replaces it.
+`scripts/render_feedback_report.py` generates this shape for every segment its payload omits, so a partial payload still renders a report that validates.
+
 ## Evidence and permalink rules
 
 - Every repository file reference must link to the snapshot commit, for example `https://github.com/<org>/<repo>/blob/<sha>/docs/decisions.md`.

@@ -11,6 +11,7 @@ from tools.grader_tools.feedback_report import (
     HEADING_VERIFIED,
     NO_REVIEW_TEXT,
     SHORTFALL_STATUSES,
+    STATUSES,
     ParsedFeedbackReport,
     SegmentDefs,
     has_subheading,
@@ -18,6 +19,7 @@ from tools.grader_tools.feedback_report import (
     parse_unresolved_section,
     render_overall_assessment,
     render_segments_table,
+    status_counts,
 )
 
 METADATA_PREFIXES = [
@@ -30,6 +32,28 @@ NOTES_PREFIX = "- Notes about the snapshot:"
 TEAM_LINE = re.compile(r"^- Team: \d+$")
 REPOSITORY_LINE = re.compile(r"^- Repository reviewed: (`https://github\.com/[^/`\s]+/[^/`\s]+`|none)$")
 SNAPSHOT_LINE = re.compile(r"^- Snapshot reviewed: (`[0-9a-f]{40}`|none)$")
+ASSESSMENT_COUNT_LINE = re.compile(
+    r"^-\s*(Met|Partial|Missing|Unverified):\s*`(\d+)/(\d+)`\s*$", re.MULTILINE | re.IGNORECASE
+)
+
+
+def _format_counts(counts: dict[str, int], total: int) -> str:
+    return " · ".join(f"{status} {counts[status]}/{total}" for status in STATUSES)
+
+
+def _declared_assessment_counts(body: str) -> tuple[dict[str, int], int] | None:
+    """Return the four declared counts and their total, or None when unreadable."""
+    declared: dict[str, int] = {}
+    totals: set[int] = set()
+    for match in ASSESSMENT_COUNT_LINE.finditer(body):
+        status = match.group(1).lower()
+        if status in declared:
+            return None
+        declared[status] = int(match.group(2))
+        totals.add(int(match.group(3)))
+    if set(declared) != set(STATUSES) or len(totals) != 1:
+        return None
+    return declared, totals.pop()
 
 
 def _validate_preamble(assignment: str, preamble: str, primary_index: str) -> list[str]:
@@ -125,9 +149,25 @@ def _validate_segments(report: ParsedFeedbackReport, segment_defs: SegmentDefs) 
         if report.segments_body.strip() != render_segments_table(segment_defs, blocks).strip():
             errors.append("`## Segments` must use the canonical table formatting")
         statuses = [blocks[seg_num].status for seg_num in sorted(segment_defs)]
+        computed_counts = status_counts(statuses)
         canonical_assessment = render_overall_assessment(statuses, expected_review == "yes")
         if report.assessment_body.strip() != canonical_assessment.strip():
-            errors.append("`## Overall assessment` must use the canonical formatting and match the segment statuses")
+            declared = _declared_assessment_counts(report.assessment_body)
+            if declared is None:
+                errors.append(
+                    "`## Overall assessment` must use the canonical formatting and match the segment statuses: "
+                    f"computed {_format_counts(computed_counts, len(statuses))}"
+                )
+            else:
+                declared_counts, declared_total = declared
+                message = (
+                    "`## Overall assessment` does not match the segment statuses: "
+                    f"declared {_format_counts(declared_counts, declared_total)}; "
+                    f"computed {_format_counts(computed_counts, len(statuses))}"
+                )
+                if declared_counts == computed_counts and declared_total == len(statuses):
+                    message += " (the counts agree; check the formatting and the automatic review status)"
+                errors.append(message)
     return errors
 
 
