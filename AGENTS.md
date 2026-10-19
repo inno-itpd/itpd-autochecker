@@ -63,19 +63,12 @@
 
 ## Workflow
 
-Every Python command in the workflow, the helper scripts, and the regrades uses the same invocation, chosen once with this probe from the repository root:
+Every Python command in the workflow, the helper scripts, and the regrades is `uv run python`, run from the repository root or any subdirectory of it.
 
-```console
-.venv/bin/python -c "import sys" >/dev/null 2>&1 && echo ".venv/bin/python" || echo "uv run python"
-```
-
-Two invocations are legitimate:
-
-- `.venv/bin/python` runs the prepared virtualenv in the checkout directly.
-- `uv run python` runs the same project environment through uv.
-
-Use the one the probe prints for all of them, and do not mix them.
-The workflow, helper, and regrade commands below show `uv run python`; when the probe prints `.venv/bin/python`, substitute it in every `uv run python` command.
+uv works only inside the checkout.
+`uv.toml` keeps uv's cache in `.local/uv-cache`, because the default `~/.cache/uv` is on a read-only mount in this environment.
+Outside the repository uv does not discover `uv.toml` and fails with `Could not acquire lock` / `Read-only file system (os error 30)` before it ever reaches the interpreter, so do not `cd` away from the repository to run these commands.
+If a command must run from elsewhere, pass `--config-file <repo>/uv.toml` or set `UV_CACHE_DIR` to a writable directory.
 
 1. Unpack the Moodle export into `itpd-assignments-feedback/A<N>/submissions/`, one directory per team.
 2. Run `uv run python scripts/preflight.py` before a grader batch; it checks `gh` auth, `pdftotext`, and `markdownlint-cli2`.
@@ -212,7 +205,8 @@ These are the failure modes the A3 batch produced, with the remedy for each.
 - **`uv` Cause 2 — broken Nix-Python `sysconfig`:** `uv run` fails with `Unknown operating system: ''`, because the Nix Python's `sysconfig` build data is broken: `_get_sysconfigdata_name()` returns `''`, its initialization does `__import__('')`, and `sysconfig.get_platform()`/`HOSTTYPE` come out empty.
   The error text names uv's platform probe, but any caller of `sysconfig` is affected.
   `uv run` does not avoid it: uv's platform probe runs against the same interpreter, so the failure persists even with a writable cache.
-  Use `.venv/bin/python`, which runs these scripts without touching `sysconfig`, or repair the Python and its `_PYTHON_HOST_PLATFORM`/`_PYTHON_SYSCONFIGDATA_NAME`; the dev shell exports both variables for the Python directly.
+  Repair the environment rather than reaching for a different interpreter: run inside the dev shell, which exports `_PYTHON_HOST_PLATFORM` and `_PYTHON_SYSCONFIGDATA_NAME` for the Python directly, and repair the Nix Python if those variables are missing.
+  The dev shell provides both, so `uv run` is healthy here.
 
 The two causes are independent: Cause 1 is about where uv keeps its cache, Cause 2 is about the interpreter's build data. A cache override fixes only Cause 1 and is never a complete fix.
 

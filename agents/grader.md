@@ -8,26 +8,15 @@ Run every command from the repository root.
 
 ## Environment
 
-Every Python command in the review uses the same invocation, chosen once with this probe:
+Every Python command in the review is `uv run python`, run from the repository root.
 
-```console
-.venv/bin/python -c "import sys" >/dev/null 2>&1 && echo ".venv/bin/python" || echo "uv run python"
-```
+uv works only inside the checkout: `uv.toml` keeps uv's cache in `.local/uv-cache`, because the default `~/.cache/uv` is on a read-only mount here.
+Outside the repository uv does not discover `uv.toml` and fails with `Could not acquire lock` / `Read-only file system (os error 30)` before it reaches the interpreter, so never `cd` away from the repository root.
+`uv run --no-cache` does not help: uv still creates its temporary files in the cache directory.
 
-- `.venv/bin/python` runs the repository virtualenv directly.
-- `uv run python` runs the same project environment through uv.
-
-Both are valid invocations for this project; use the one the probe prints, and do not mix them in one review.
-The command examples below show `.venv/bin/python`; when the probe prints `uv run python`, substitute it in every command for the whole review.
-
-`uv run` can fail for two independent reasons. Diagnose which one you have; the remedies differ:
-
-- **Read-only uv cache.** uv reports `Could not acquire lock` or `Read-only file system (os error 30)` under `~/.cache/uv`, and never reached the interpreter.
-  Run uv from the checkout, where `uv.toml` puts the cache in `.local/uv-cache`, or set `UV_CACHE_DIR` to a writable directory.
-  `uv run --no-cache` does not help: uv still creates its temporary files in the cache directory.
-- **Unreadable platform in the Nix Python.** uv reports `Unknown operating system: ''` from its platform probe, because the Nix Python's `sysconfig` build data is broken.
-  Use `.venv/bin/python`, or repair the Python and dev-shell variables (`_PYTHON_HOST_PLATFORM`, `_PYTHON_SYSCONFIGDATA_NAME`).
-  A cache override cannot fix this cause, so never present it as the complete fix.
+If uv instead reports `Unknown operating system: ''`, its platform probe hit broken Nix-Python `sysconfig` build data.
+Do not switch interpreters to work around it: the dev shell exports `_PYTHON_HOST_PLATFORM` and `_PYTHON_SYSCONFIGDATA_NAME`, so run inside the shell, and repair the Python if those variables are missing.
+A cache override cannot fix this cause, so never present it as the complete fix.
 
 ## Modes
 
@@ -40,8 +29,8 @@ Follow the operator request to choose one of these modes:
    - Read the existing `agent-feedback.md` first.
    - Refresh only the requested segments plus any segment whose status depends on the same newly checked artifact.
    - Apply instructor notes directly when the operator provides them.
-   - Patch with `.venv/bin/python scripts/regrade_feedback_segments.py` using a structured `segment_updates` payload.
-     Use `.venv/bin/python scripts/patch_feedback_report.py` as the low-level fallback.
+   - Patch with `uv run python scripts/regrade_feedback_segments.py` using a structured `segment_updates` payload.
+     Use `uv run python scripts/patch_feedback_report.py` as the low-level fallback.
 3. `segment inspect`
    - Used when the operator asks what the grader currently sees for specific segments.
    - Read the existing `agent-feedback.md` first and do not edit any files.
@@ -103,12 +92,12 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
 5. Read every file listed in its `## Authoritative sources` section.
    They live under `{ASSIGNMENT_DIR}/itpd/`, pinned at the commit the assignment is reviewed against.
 6. In `partial regrade` or `segment inspect` mode, read the current report.
-   For a structured view, run `.venv/bin/python scripts/inspect_feedback_segments.py {ASSIGNMENT_DIR} <agent-feedback.md> S<n> ...`.
+   For a structured view, run `uv run python scripts/inspect_feedback_segments.py {ASSIGNMENT_DIR} <agent-feedback.md> S<n> ...`.
    Add `--fresh-payload <payload.json> --format text` to compare saved and fresh state.
 7. Run the submission fetcher, which reads the PDF, checks the commit, and fetches the snapshot in one pass:
 
    ```console
-   .venv/bin/python scripts/fetch_team_snapshot.py {ASSIGNMENT_DIR} {TEAM_DIR}
+   uv run python scripts/fetch_team_snapshot.py {ASSIGNMENT_DIR} {TEAM_DIR}
    ```
 
    It prefers the PDF that carries the full-SHA permalink, records the team number, repository, permalink, full SHA, recording link, page count, and the member name/email tokens in `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/pdf-info.json`, checks that the commit exists and is on `main`, and refetches the snapshot into `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot/`.
@@ -144,7 +133,7 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
     Check the snapshot's relative links, heading anchors, and pre-cut research anchors:
 
     ```console
-    .venv/bin/python scripts/check_snapshot_links.py "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot"
+    uv run python scripts/check_snapshot_links.py "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot"
     ```
 
     After step 11, add `--issue-bodies "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/issues.json"` to check anchors referenced from issue bodies; it reports pre-cut `#(alt|gap|vp)-NN-` anchors separately.
@@ -153,7 +142,7 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
 11. Collect the live GitHub evidence the assignment prompt asks for:
 
     ```console
-    .venv/bin/python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} [--issues <n> ...] [--paths <path> ...]
+    uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} [--issues <n> ...] [--paths <path> ...]
     ```
 
     It reads `pdf-info.json` and writes the paginated dumps into the team work directory: `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json`, and, for each `--issues <n>`, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, and `issues/<n>.edits.json`, and, for each `--paths <path>`, `paths/<path>.json`, plus the bounded `summary.md` digest.
@@ -161,7 +150,7 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
     Regenerate the digest from the saved dumps without calling `gh`:
 
     ```console
-    .venv/bin/python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} --summary
+    uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} --summary
     ```
 
     Work from the saved evidence instead of re-running `gh`; the collector prints counts and paths only.
@@ -171,13 +160,13 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
     Scan the snapshot for private-only material:
 
     ```console
-    .venv/bin/python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR}
+    uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR}
     ```
 
     It reads `pdf-info.json`, checks emails, phone numbers, `.env` and key files, recording links outside meeting artifacts, and the PDF member name tokens, and reports each finding by path and kind only; exit code 1 means it found something.
     Fallback: `grep -rnE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'` and the assignment prompt's file-name checks.
 13. Judge each segment independently with the status guide in `{ASSIGNMENT_DIR}/grading_prompt.md`.
-    Use `.venv/bin/python scripts/image_info.py <files>` to read a screenshot's or diagram's dimensions, byte size, and PNG transparency when the assignment prompt makes it matter.
+    Use `uv run python scripts/image_info.py <files>` to read a screenshot's or diagram's dimensions, byte size, and PNG transparency when the assignment prompt makes it matter.
 14. Set `Evidence gaps` per segment, then derive `Manual review required` and the overall assessment counts.
 
 ## Output
@@ -188,7 +177,7 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
   Add the `summary`, `strengths`, and `main_issues_to_fix` bullets once the statuses are decided, then write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md` in the format from `docs/grading-feedback-format.md`, or render it from the payload:
 
   ```console
-  .venv/bin/python scripts/render_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/payload.json"
+  uv run python scripts/render_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/payload.json"
   ```
 
   The payload shape is documented in the script docstring.
@@ -198,21 +187,21 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
 - Validate it, and fix it until it passes:
 
   ```console
-  .venv/bin/python scripts/check_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
+  uv run python scripts/check_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
   ```
 
   It runs the report validator and `markdownlint-cli2` together.
-  Fallback: `.venv/bin/python scripts/validate_feedback_report.py {ASSIGNMENT_DIR} <agent-feedback.md>` and `markdownlint-cli2 <agent-feedback.md>`.
+  Fallback: `uv run python scripts/validate_feedback_report.py {ASSIGNMENT_DIR} <agent-feedback.md>` and `markdownlint-cli2 <agent-feedback.md>`.
 - Scan the finished report for private-only material:
 
   ```console
-  .venv/bin/python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR} --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
+  uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR} --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
   ```
 
 - In `partial regrade` mode, prefer:
 
   ```console
-  .venv/bin/python scripts/regrade_feedback_segments.py {ASSIGNMENT_DIR} <agent-feedback.md> <payload.json> S<n> ...
+  uv run python scripts/regrade_feedback_segments.py {ASSIGNMENT_DIR} <agent-feedback.md> <payload.json> S<n> ...
   ```
 
   The payload format is `{"segment_updates": {"S<n>": {"status", "evidence_gaps", "evidence", "verified_shortfalls", "unverified_checks"}}, "unresolved_evidence_gaps": {"S<n>": ["..."]}}`.
