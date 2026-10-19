@@ -6,8 +6,11 @@ member name tokens from the PDF table.  Recording links are only reported
 outside meeting artifacts, because the meeting segment owns personal data
 inside them.
 
-``scripts/scan_privacy.py`` prints findings grouped by rule with their path and
-kind only; matched values never reach stdout.  The scanner reads
+``scripts/scan_privacy.py`` prints one line per file with a hit count, grouped
+by rule, plus per-rule hit and file totals; matched values never reach stdout.
+Inline ``data:...;base64,`` payloads are stripped before matching, including
+payloads that wrap across lines, and a digit run right after a decimal point
+is not reported as a phone number.  The scanner reads
 ``itpd-assignments-feedback/<assignment>/work/<team_dir>/pdf-info.json``
 (written by ``scripts/fetch_team_snapshot.py``) for the snapshot directory, the
 recording link, the GitHub usernames, and the member name and email tokens.
@@ -21,7 +24,7 @@ import json
 import os
 import re
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
@@ -37,6 +40,8 @@ BINARY_SNIFF_BYTES = 8192
 MAX_TEXT_BYTES = 5 * 1024 * 1024
 MIN_NAME_TOKEN_LENGTH = 4
 
+BASE64_PAYLOAD_PATTERN = re.compile(r"data:[^\s,]*?;base64,[A-Za-z0-9+/=\s]*", re.IGNORECASE)
+
 EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 IGNORED_EMAIL_DOMAINS = frozenset(
     {
@@ -51,11 +56,13 @@ IGNORED_EMAIL_DOMAINS = frozenset(
 )
 IGNORED_EMAIL_DOMAIN_SUFFIXES = (".example",)
 
+# A dot before a digit-leading pattern marks a decimal coordinate, as in an
+# Excalidraw ``translate(663.83071091152 147.375)``, not a phone number.
 PHONE_PATTERNS = (
     re.compile(r"(?<![\w])\+[0-9]{1,3}(?:[\s.\-]?\([0-9]{2,4}\))?(?:[\s.\-]?[0-9]{2,4}){2,4}(?![\w])"),
     re.compile(r"(?<![\w])\([0-9]{3,5}\)(?:[\s.\-]?[0-9]{2,4}){1,3}(?![\w])"),
     re.compile(
-        r"(?<![\w])[78][\s.\-]?\(?[0-9]{3}\)?[\s.\-]?[0-9]{3}[\s.\-]?[0-9]{2}[\s.\-]?[0-9]{2}(?![\w])"
+        r"(?<![\w.])[78][\s.\-]?\(?[0-9]{3}\)?[\s.\-]?[0-9]{3}[\s.\-]?[0-9]{2}[\s.\-]?[0-9]{2}(?![\w])"
     ),
 )
 MIN_PHONE_DIGITS = 10
@@ -108,14 +115,13 @@ class PrivacyTokens:
 
 @dataclass(frozen=True)
 class Finding:
+    """One rule's hits in one file, with the hit count and matched line numbers."""
+
     rule: str
     kind: str
     path: str
-    line: int | None = None
-
-    @property
-    def location(self) -> str:
-        return f"{self.path}:{self.line}" if self.line is not None else self.path
+    count: int = 1
+    lines: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -298,21 +304,45 @@ def iter_snapshot_files(scan_root: Path) -> Iterator[Path]:
                 yield path
 
 
+@dataclass
+class _FindingGroup:
+    kind: str
+    lines: list[int] = field(default_factory=list)
+    line_set: set[int] = field(default_factory=set)
+    file_hits: int = 0
+
+
 class _Collector:
+    """Group hits by ``(rule, path)`` so each file is reported once per rule."""
+
     def __init__(self) -> None:
-        self.findings: list[Finding] = []
-        self._seen: set[tuple[str, str, int | None]] = set()
+        self._groups: dict[tuple[str, str], _FindingGroup] = {}
 
     def add(self, rule: str, kind: str, path: str, line: int | None = None) -> None:
-        key = (rule, path, line)
-        if key in self._seen:
-            return
-        self._seen.add(key)
-        self.findings.append(Finding(rule=rule, kind=kind, path=path, line=line))
+        key = (rule, path)
+        group = self._groups.get(key)
+        if group is None:
+            group = _FindingGroup(kind=kind)
+            self._groups[key] = group
+        if line is None:
+            group.file_hits += 1
+        elif line not in group.line_set:
+            group.line_set.add(line)
+            group.lines.append(line)
 
     def ordered(self) -> list[Finding]:
         rule_order = {rule: index for index, (rule, _) in enumerate(PRIVACY_RULES)}
-        return sorted(self.findings, key=lambda finding: (rule_order[finding.rule], finding.path, finding.line or 0))
+        findings = [
+            Finding(
+                rule=rule,
+                kind=group.kind,
+                path=path,
+                count=len(group.lines) + group.file_hits,
+                lines=tuple(group.lines),
+            )
+            for (rule, path), group in self._groups.items()
+        ]
+        return sorted(findings, key=lambda finding: (rule_order[finding.rule], finding.path))
 
 
 def scan_privacy(
@@ -449,8 +479,23 @@ def _scan_file(
     _scan_text(text, display_path, is_meeting, args, counts)
 
 
+def strip_base64_payloads(text: str) -> str:
+    """Blank inline ``data:...;base64,...`` payloads before any matching.
+
+    The payload may wrap across lines.  Removed characters become spaces and
+    existing newlines are kept, so reported line numbers still point at the
+    original file.  The run stops at the first character outside the base64
+    alphabet and whitespace, so text after the URI is still scanned.
+    """
+    return BASE64_PAYLOAD_PATTERN.sub(_blank_base64_payload, text)
+
+
+def _blank_base64_payload(match: re.Match[str]) -> str:
+    return "".join("\n" if character == "\n" else " " for character in match.group(0))
+
+
 def _scan_text(text: str, path: str, is_meeting: bool, args: _ScanArgs, counts: _Counts) -> None:
-    for line_number, line in enumerate(text.splitlines(), 1):
+    for line_number, line in enumerate(strip_base64_payloads(text).splitlines(), 1):
         for match in EMAIL_PATTERN.finditer(line):
             if not is_ignored_email(match.group(0), args.email_tokens):
                 args.collector.add("email", "email address", path, line_number)
@@ -514,15 +559,23 @@ def _summary_lines(
         if not rule_findings:
             lines.append(f"  {label}: none")
             continue
-        lines.append(f"  {label}: {len(rule_findings)} finding(s)")
+        rule_hits = sum(finding.count for finding in rule_findings)
+        lines.append(f"  {label}: {rule_hits} hit(s) in {len(rule_findings)} file(s)")
         for finding in rule_findings:
-            lines.append(f"    {finding.location}: {finding.kind}")
+            lines.append(f"    {finding.path}: {finding.kind} (x{finding.count})")
     lines.append(
         f"  files: {counts.scanned} scanned, {counts.binary} binary skipped, "
         f"{counts.large} oversized skipped, {counts.symlinks} symlink(s) skipped, "
         f"{counts.unreadable} unreadable"
     )
-    lines.append(f"  result: {len(findings)} finding(s)" if findings else "  result: no findings")
+    if findings:
+        total_hits = sum(finding.count for finding in findings)
+        file_count = len({finding.path for finding in findings})
+        lines.append(
+            f"  result: {len(findings)} finding(s), {total_hits} hit(s) in {file_count} file(s)"
+        )
+    else:
+        lines.append("  result: no findings")
     return lines
 
 

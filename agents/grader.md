@@ -166,7 +166,8 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
     uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR}
     ```
 
-    It reads `pdf-info.json`, checks emails, phone numbers, `.env` and key files, recording links outside meeting artifacts, and the PDF member name tokens, and reports each finding by path and kind only; exit code 1 means it found something.
+    It reads `pdf-info.json`, strips inline `data:...;base64,` payloads, and checks emails, phone numbers, `.env` and key files, recording links outside meeting artifacts, and the PDF member name tokens, including hits in meeting artifacts.
+    It reports one line per file with a count, such as `docs/setup.md: email address (x2)`, plus per-rule hit and file totals, and never prints a matched value; exit code 1 means it found something.
     Fallback: `grep -rnE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'` and the assignment prompt's file-name checks.
 13. Judge each segment independently with the status guide in `{ASSIGNMENT_DIR}/grading_prompt.md`.
     Use `uv run python scripts/image_info.py <files>` to read a screenshot's or diagram's dimensions, byte size, and PNG transparency when the assignment prompt makes it matter.

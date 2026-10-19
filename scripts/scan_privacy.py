@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Scan a fetched snapshot or one feedback report for private-only material.
 
-Findings are grouped by rule and printed as a path plus a kind; matched values
-never reach stdout.  With ``--feedback --no-snapshot`` the report is scanned
-with tokens derived from the submission PDF, so a cleaned ``work/<team_dir>/``
-does not block the gate.  The exit code is 0 when the scan is clean, 1 when it
-has findings, and 2 when the scan could not run.
+Findings are grouped by rule and by file, and printed as one line per file
+with a hit count plus per-rule hit and file totals; matched values never reach
+stdout.  Inline ``data:...;base64,`` payloads are stripped before matching.
+With ``--feedback --no-snapshot`` the report is scanned with tokens derived
+from the submission PDF, so a cleaned ``work/<team_dir>/`` does not block the
+gate.  The exit code is 0 when the scan is clean, 1 when it has findings, and 2
+when the scan could not run.
 """
 
 from __future__ import annotations

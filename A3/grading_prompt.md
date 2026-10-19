@@ -832,9 +832,10 @@ Recommended items and the What Good Looks Like points are quality notes for the 
     uv run python scripts/scan_privacy.py A3 <team_dir>
     ```
 
-    It reads `itpd-assignments-feedback/A3/work/<team_dir>/pdf-info.json` and checks email addresses, phone numbers, `.env` and key files, recording links outside meeting artifacts, and the real names from the PDF member table, reporting each finding by path and kind only; the exit code is 1 when it finds any.
+    It reads `itpd-assignments-feedback/A3/work/<team_dir>/pdf-info.json`, strips inline `data:...;base64,` payloads, and checks email addresses, phone numbers, `.env` and key files, recording links outside meeting artifacts, and the real names from the PDF member table, including hits in meeting artifacts.
+    It reports one line per file with a count, such as `docs/setup.md: email address (x2)`, plus per-rule hit and file totals; the exit code is 1 when it finds any.
     The raw fallback is email addresses with `grep -rnE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'`, phone numbers, the real names from the PDF member table, recording links in meeting files, and `.env` files.
-    Report each finding by path and kind only.
+    Report each finding by path and kind only, with the number of hits per file.
 
 15. Open the documentation site's default page and the recording link once each, per `docs/grader-policy.md#consumer-hosted-media`.
 
