@@ -53,7 +53,7 @@
 - The grader gets only the Moodle PDF; there is no ZIP.
   The PDF carries a permalink to `reports/week-NN/README.md` at the full SHA, and the grader fetches the snapshot from GitHub at that SHA.
 - `A<N>/itpd` pins the course repository (`inno-itpd/itpd`) at the commit the assignment is reviewed against.
-  A1 is pinned to `fe58ba7`, the version published at the Week 1 deadline.
+  A1 is pinned to `fe58ba7`, the version published at the Week 1 deadline; A2 to `a949e8d`, and A3 to `23b22a6`, the merge of `week-3` on 2026-10-14, before any Week 4 material landed.
 
 ## Workflow
 

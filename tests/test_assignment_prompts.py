@@ -41,8 +41,21 @@ def test_assignment_windows_match_the_published_schedule() -> None:
     assert ASSIGNMENT_CONFIG["A1"]["issue_cutoff"] == "2026-10-02T23:59:59+03:00"
     assert ASSIGNMENT_CONFIG["A2"]["week_window_start"] == "2026-10-02T00:00:00+03:00"
     assert ASSIGNMENT_CONFIG["A2"]["issue_cutoff"] == "2026-10-10T23:59:59+03:00"
+    assert ASSIGNMENT_CONFIG["A3"]["week_window_start"] == "2026-10-09T00:00:00+03:00"
+    assert ASSIGNMENT_CONFIG["A3"]["issue_cutoff"] == "2026-10-17T23:59:59+03:00"
 
 
 def test_a2_prompt_carries_the_config_issue_cutoff() -> None:
     text = (ROOT / "A2" / "grading_prompt.md").read_text(encoding="utf-8")
     assert ASSIGNMENT_CONFIG["A2"]["issue_cutoff"] in text
+
+
+def test_a3_prompt_carries_the_config_issue_cutoff() -> None:
+    text = (ROOT / "A3" / "grading_prompt.md").read_text(encoding="utf-8")
+    assert ASSIGNMENT_CONFIG["A3"]["issue_cutoff"] in text
+
+
+@pytest.mark.parametrize("assignment", sorted(ASSIGNMENT_CONFIG))
+def test_prompt_carries_the_pinned_course_commit(assignment: str) -> None:
+    text = (ROOT / assignment / "grading_prompt.md").read_text(encoding="utf-8")
+    assert ASSIGNMENT_CONFIG[assignment]["course_commit"] in text

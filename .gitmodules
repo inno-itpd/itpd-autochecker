@@ -7,3 +7,6 @@
 [submodule "itpd-assignments-feedback"]
 	path = itpd-assignments-feedback
 	url = https://github.com/inno-itpd/itpd-assignments-feedback
+[submodule "A3/itpd"]
+	path = A3/itpd
+	url = https://github.com/inno-itpd/itpd
