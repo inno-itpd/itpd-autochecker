@@ -75,7 +75,7 @@ If a command must run from elsewhere, pass `--config-file <repo>/uv.toml` or set
 3. Review teams with the grader agent (see below).
    **Keep every team's `work/<team_dir>/` until the batch has been extracted in step 6**, because the final `scripts/scan_privacy.py` run reads `pdf-info.json` and the fetched snapshot from it.
 4. Validate changed reports with `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>`, then run `markdownlint-cli2 --fix "itpd-assignments-feedback/A<N>/feedback/**/*.md"`.
-5. Check batch readiness before extraction: run `list_agents` and stop while any grader for the batch is still running, then run `uv run python scripts/check_batch_ready.py A<N> [--active <team_dir> ...]`, passing every team `list_agents` still reports as running or registered.
+5. Check batch readiness before extraction: run `list_agents` and stop while any grader for the batch is still running, then run `uv run python scripts/check_batch_ready.py A<N> [--active "<team_dir>" ...]`, passing every team `list_agents` still reports as running or registered.
    Refuse extraction while the gate exits non-zero.
 6. Run `uv run python A<N>/extract_feedback.py` to regenerate `dev.md` and `feedback_release.csv`.
 7. Review the extractor warnings and fix malformed reports.
@@ -83,7 +83,7 @@ If a command must run from elsewhere, pass `--config-file <repo>/uv.toml` or set
 ## Reviewing teams with the grader agent
 
 `agents/grader.md` is the executable prompt for one team.
-It uses `{ASSIGNMENT_DIR}` (for example `A1`) and `{TEAM_DIR}` (the submission directory name) as placeholders.
+It uses `{ASSIGNMENT_DIR}` (for example `A1`), `{TEAM_DIR}` (the exact submission directory name, including spaces and parentheses), and `{TEAM_WORK}` (the absolute path of `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}`) as placeholders.
 
 When the user asks to review or re-review teams:
 
@@ -94,7 +94,8 @@ When the user asks to review or re-review teams:
 4. For each batch, launch one subagent per team in parallel:
    - Claude Code: the `grader` agent (`.claude/agents/grader.md`).
    - opencode: the `grader` subagent (`.opencode/agents/grader.md`) via the `task` tool.
-   - Pass the assignment directory, the team directory, and the mode in the prompt.
+   - Pass the assignment directory, the exact team directory name, the absolute path of the team work directory (`itpd-assignments-feedback/A<N>/work/<team_dir>`), and the mode in the prompt.
+   - Tell the grader to quote the team directory name and every path built from it: team names contain spaces and parentheses.
    - Workers write disjoint paths (feedback and `work/` per team), so they need no coordination.
 5. When a grader run fails, do not launch a fresh subagent first.
    Check `list_agents`: if the team's session still exists and is resumable, continue it with `send_message`, telling it to read the saved report and payload and continue rather than start over.
@@ -109,11 +110,11 @@ All run from the repository root and print counts and paths only.
 `agents/grader.md` uses them in steps 7 to 13 and keeps the raw `gh` and `jq` commands as fallback.
 
 - `uv run python scripts/preflight.py` — checks `gh` auth, `pdftotext`, and `markdownlint-cli2` before a batch.
-- `uv run python scripts/check_batch_ready.py A<N> [--active <team_dir> ...]` — pre-extraction gate: refuses a team whose grader `list_agents` still reports as running or registered (pass each team on `--active`, because a script cannot call `list_agents`), a non-empty work directory with no report, and a report older than `work/<team_dir>/payload.json`; exit codes 0 ready, 1 not ready, 2 usage error.
-- `uv run python scripts/fetch_team_snapshot.py A<N> <team_dir> [--repo org/repo]` — PDF permalink (a bare SHA is resolved with `gh search commits`, or paired with `--repo` and recorded as `permalink_source=operator`), recording, page-count, and member-token extraction; commit and `main` check; snapshot refetch; writes `itpd-assignments-feedback/A<N>/work/<team_dir>/pdf-info.json`.
-- `uv run python scripts/collect_github_evidence.py A<N> <team_dir> [--issues <n> ...] [--paths <path> ...] [--issue-fields]` — paginated dumps (`labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`) in the same team work directory, and, with `--issue-fields`, `issue-fields.json` with every issue's `type`, `milestone`, `assignees`, and field values from one paginated REST list call.
+- `uv run python scripts/check_batch_ready.py A<N> [--active "<team_dir>" ...]` — pre-extraction gate: refuses a team whose grader `list_agents` still reports as running or registered (pass each team on `--active`, because a script cannot call `list_agents`), a non-empty work directory with no report, and a report older than `work/<team_dir>/payload.json`; exit codes 0 ready, 1 not ready, 2 usage error.
+- `uv run python scripts/fetch_team_snapshot.py A<N> "<team_dir>" [--repo org/repo]` — PDF permalink (a bare SHA is resolved with `gh search commits`, or paired with `--repo` and recorded as `permalink_source=operator`), recording, page-count, and member-token extraction; commit and `main` check; snapshot refetch; writes `itpd-assignments-feedback/A<N>/work/<team_dir>/pdf-info.json`.
+- `uv run python scripts/collect_github_evidence.py A<N> "<team_dir>" [--issues <n> ...] [--paths <path> ...] [--issue-fields]` — paginated dumps (`labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`) in the same team work directory, and, with `--issue-fields`, `issue-fields.json` with every issue's `type`, `milestone`, `assignees`, and field values from one paginated REST list call.
 - `uv run python scripts/check_snapshot_links.py <snapshot_dir> [--issue-bodies <issues.json>]` — broken relative links, missing anchors, and pre-cut research anchors.
-- `uv run python scripts/scan_privacy.py A<N> <team_dir> [--feedback <agent-feedback.md>] [--no-snapshot]` — privacy findings grouped per file with a hit count plus per-rule hit and file totals, by path and kind only; `--no-snapshot` with `--feedback` derives the tokens from the submission PDF after `work/<team_dir>/` is cleaned.
+- `uv run python scripts/scan_privacy.py A<N> "<team_dir>" [--feedback <agent-feedback.md>] [--no-snapshot]` — privacy findings grouped per file with a hit count plus per-rule hit and file totals, by path and kind only; `--no-snapshot` with `--feedback` derives the tokens from the submission PDF after `work/<team_dir>/` is cleaned.
 - `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>` — report validation plus `markdownlint-cli2` in one command.
 - `uv run python scripts/render_feedback_report.py A<N> <payload.json>` — renders a complete report from one structured payload.
 - `uv run python scripts/image_info.py <files>` — PNG and JPEG dimensions, byte size, and PNG transparency.
@@ -166,7 +167,7 @@ Decision rules:
    `scripts/fetch_team_snapshot.py`, `collect_github_evidence.py`, `scan_privacy.py`, `check_feedback_report.py`, and `render_feedback_report.py` all read this config.
 4. Copy `A1/extract_feedback.py` to `A<N>/` and change `ASSIGNMENT`.
 5. Create `itpd-assignments-feedback/A<N>/feedback/` (with a `.gitkeep`).
-6. Smoke-check the helpers against one submission: `uv run python scripts/preflight.py`, then `uv run python scripts/fetch_team_snapshot.py A<N> <team_dir>` and `uv run python scripts/collect_github_evidence.py A<N> <team_dir>`.
+6. Smoke-check the helpers against one submission: `uv run python scripts/preflight.py`, then `uv run python scripts/fetch_team_snapshot.py A<N> "<team_dir>"` and `uv run python scripts/collect_github_evidence.py A<N> "<team_dir>"`.
 
 ## Task tracking
 
@@ -204,10 +205,10 @@ These are the failure modes the A3 batch produced, with the remedy for each.
   Treat a 403 as a resumable session and follow the resume rules in `## Reviewing teams with the grader agent`; never start a new writer for a team that still has one.
 - **Bare-SHA PDF:** a submission PDF may carry only `Submission commit: <sha40>` and no GitHub URL.
   `scripts/fetch_team_snapshot.py` resolves it with `gh search commits <sha> --json repository --jq 'map(.repository.fullName) | unique'` and adopts the repository only when exactly one matches; zero or several matches keep the stop path and name the candidates and the command tried.
-  The operator override is `scripts/fetch_team_snapshot.py A<N> <team_dir> --repo org/repo`, recorded as `permalink_source=operator`.
+  The operator override is `scripts/fetch_team_snapshot.py A<N> "<team_dir>" --repo org/repo`, recorded as `permalink_source=operator`.
   When `repo` or `sha` is `null` in `pdf-info.json`, `scripts/collect_github_evidence.py` prints `result: skipped (no snapshot)` and exits 0, so a missing snapshot is a judged outcome, not a tool failure; in A3 the S12 shortfall still stands.
 - **Cleaned work directory:** `scripts/scan_privacy.py` needs `pdf-info.json` and the fetched snapshot by default, so deleting `work/<team_dir>/` early breaks the final privacy gate.
-  Keep `work/<team_dir>/` until the batch is extracted; when it was already cleaned, scan the report with tokens derived from the submission PDF: `scripts/scan_privacy.py A<N> <team_dir> --feedback <report> --no-snapshot`.
+  Keep `work/<team_dir>/` until the batch is extracted; when it was already cleaned, scan the report with tokens derived from the submission PDF: `scripts/scan_privacy.py A<N> "<team_dir>" --feedback <report> --no-snapshot`.
   `--no-snapshot` without `--feedback` is an error, because the report scan still needs the PDF for its tokens.
 - **`uv` Cause 1 — read-only cache:** `uv run` fails with `Could not acquire lock` / `Read-only file system (os error 30)` at `~/.cache/uv`, and uv never reached the interpreter.
   Run uv from inside the checkout, where `uv.toml` puts the cache in `.local/uv-cache`; outside it, pass `--config-file <repo>/uv.toml`, or set `UV_CACHE_DIR` to a writable directory.

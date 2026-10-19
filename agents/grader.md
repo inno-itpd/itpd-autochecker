@@ -3,8 +3,13 @@
 You are reviewing one ITPD assignment team submission.
 
 `{ASSIGNMENT_DIR}` is the assignment directory, for example `A1` or `A2`.
-`{TEAM_DIR}` is the team's submission directory name, for example `Team 3_12345_assignsubmission_file`.
-Run every command from the repository root.
+`{TEAM_DIR}` is the team's exact submission directory name, for example `Team 5 - TmpTeam_12345_assignsubmission_file (1)`.
+It contains spaces and parentheses.
+It stays a name rather than an absolute path because every helper script takes it as the directory name and joins it under `submissions/` or `work/`, so pass it quoted.
+`{TEAM_WORK}` is the absolute path of the team work directory, for example `/home/<user>/itpd-autochecker/itpd-assignments-feedback/A3/work/Team 5 - TmpTeam_12345_assignsubmission_file (1)`; the operator supplies it, and its last component is the exact `{TEAM_DIR}` name.
+
+A grader never changes directory and runs every command from the repository root, and it quotes every path that contains a team directory name or `{TEAM_DIR}`, including `{TEAM_WORK}` and every path built from it.
+Do not assemble a team path with `cd`; use the absolute `{TEAM_WORK}` path the operator supplies.
 
 ## Environment
 
@@ -39,16 +44,16 @@ Follow the operator request to choose one of these modes:
 ## Paths
 
 - Submission: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/submissions/{TEAM_DIR}/` (the Moodle PDF report)
-- Team work directory: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/` (gitignored by the feedback repository).
-  Write every intermediate file here: API dumps, commit lists, fetched pages, images, payloads.
+- Team work directory: `{TEAM_WORK}`, the absolute path of `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/` (gitignored by the feedback repository).
+  The operator supplies it; use it for every intermediate file: API dumps, commit lists, fetched pages, images, payloads.
   Other graders run in parallel, so never write to a shared scratchpad, to `/tmp` directly, or into another team's directory, and never read another team's files.
-- Snapshot working copy, fetched from GitHub at the permalink SHA: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot/`.
+- Snapshot working copy, fetched from GitHub at the permalink SHA: `{TEAM_WORK}/snapshot/`.
   It is disposable: every review rebuilds it, and it can be deleted after grading.
 - Report: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md`
 
 The helper scripts share two contracts; never edit those files by hand:
 
-- `scripts/fetch_team_snapshot.py` writes `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/pdf-info.json` (mode 0600) with keys `assignment`, `team_dir`, `pdf`, `pdf_path`, `page_count`, `recording_link`, `org`, `repo`, `sha`, `permalink`, `permalink_path`, `snapshot_time`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_fetched`, `snapshot_dir`, `github_usernames`, and `privacy_tokens` (`name_tokens`, `email_tokens`).
+- `scripts/fetch_team_snapshot.py` writes `{TEAM_WORK}/pdf-info.json` (mode 0600) with keys `assignment`, `team_dir`, `pdf`, `pdf_path`, `page_count`, `recording_link`, `org`, `repo`, `sha`, `permalink`, `permalink_path`, `snapshot_time`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_fetched`, `snapshot_dir`, `github_usernames`, and `privacy_tokens` (`name_tokens`, `email_tokens`).
 - `scripts/collect_github_evidence.py` writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json` beside it, plus the compact `summary.md` digest, and, on request, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`, and, with `--issue-fields`, `issue-fields.json` with each issue's `type`, `milestone`, `assignees`, and `field_values`.
 - `scripts/scan_privacy.py` reads `pdf-info.json`, and `scripts/check_snapshot_links.py --issue-bodies` reads `issues.json`.
 
@@ -56,7 +61,7 @@ The helper scripts share two contracts; never edit those files by hand:
 
 These rules override any step that would otherwise read a whole dump or emit unbounded output.
 
-Start with the bounded digest: read `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/summary.md` first.
+Start with the bounded digest: read `{TEAM_WORK}/summary.md` first.
 It carries the issue counts, the pull-request numbers, the failing runs, the tags, and each milestone's due date with its open and closed issue counts, in at most 60 lines.
 
 The dumps are large: `commits.json` reached 1.35 MB and `prs.json` 284 KB, and reading one whole has killed grader runs.
@@ -64,8 +69,8 @@ Never read a whole dump into context.
 Open one only through a bounded projection that prints at most about 40 lines, for example:
 
 ```console
-head -n 40 "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/milestones.json"
-rg -n '"number"|"state"|"title"' "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/issues.json" | head -n 40
+head -n 40 "{TEAM_WORK}/milestones.json"
+rg -n '"number"|"state"|"title"' "{TEAM_WORK}/issues.json" | head -n 40
 ```
 
 A `jq` projection works too, but end it with `| head -n 40`: a filter over a large dump can still print thousands of lines.
@@ -82,8 +87,8 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
 1. Empty the team work directory, so no files from an earlier run remain:
 
    ```console
-   rm -rf "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
-   mkdir -p "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
+   rm -rf "{TEAM_WORK}"
+   mkdir -p "{TEAM_WORK}"
    ```
 
 2. Read `docs/grader-policy.md`.
@@ -97,17 +102,18 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
 7. Run the submission fetcher, which reads the PDF, checks the commit, and fetches the snapshot in one pass:
 
    ```console
-   uv run python scripts/fetch_team_snapshot.py {ASSIGNMENT_DIR} {TEAM_DIR}
+   uv run python scripts/fetch_team_snapshot.py {ASSIGNMENT_DIR} "{TEAM_DIR}"
    ```
 
-   It prefers the PDF that carries the full-SHA permalink, records the team number, repository, permalink, full SHA, recording link, page count, and the member name/email tokens in `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/pdf-info.json`, checks that the commit exists and is on `main`, and refetches the snapshot into `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot/`.
+   The fetcher takes the exact submission directory name, not an absolute path: it joins `{TEAM_DIR}` under `submissions/` and `work/` itself, so pass the quoted name and use `{TEAM_WORK}` only for files.
+   It prefers the PDF that carries the full-SHA permalink, records the team number, repository, permalink, full SHA, recording link, page count, and the member name/email tokens in `{TEAM_WORK}/pdf-info.json`, checks that the commit exists and is on `main`, and refetches the snapshot into `{TEAM_WORK}/snapshot/`.
    It prints counts and paths only, so real names and emails never leave the work directory.
    Do not copy real names or emails into any output.
 
    Fallback when the fetcher cannot read the PDF:
 
    ```console
-   pdftotext -layout itpd-assignments-feedback/{ASSIGNMENT_DIR}/submissions/{TEAM_DIR}/*.pdf -
+   pdftotext -layout "itpd-assignments-feedback/{ASSIGNMENT_DIR}/submissions/{TEAM_DIR}"/*.pdf -
    ```
 
    Read the PDF with the file-reading tool when `pdftotext` fails, and extract:
@@ -123,9 +129,9 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
 9. Only when the fetcher could not fetch the snapshot, do it by hand into an empty directory, so files from an earlier fetch do not remain:
 
    ```console
-   rm -rf "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot"
-   mkdir -p "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot"
-   gh api "repos/<org>/<repo>/tarball/<sha>" | tar -xz --strip-components=1 -C "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot"
+   rm -rf "{TEAM_WORK}/snapshot"
+   mkdir -p "{TEAM_WORK}/snapshot"
+   gh api "repos/<org>/<repo>/tarball/<sha>" | tar -xz --strip-components=1 -C "{TEAM_WORK}/snapshot"
    ```
 
 10. Review the files offline in the fetched snapshot.
@@ -133,17 +139,17 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
     Check the snapshot's relative links, heading anchors, and pre-cut research anchors:
 
     ```console
-    uv run python scripts/check_snapshot_links.py "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot"
+    uv run python scripts/check_snapshot_links.py "{TEAM_WORK}/snapshot"
     ```
 
-    After step 11, add `--issue-bodies "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/issues.json"` to check anchors referenced from issue bodies; it reports pre-cut `#(alt|gap|vp)-NN-` anchors separately.
+    After step 11, add `--issue-bodies "{TEAM_WORK}/issues.json"` to check anchors referenced from issue bodies; it reports pre-cut `#(alt|gap|vp)-NN-` anchors separately.
     Fallback when the checker cannot run: inspect relative targets and heading slugs with `rg`.
     Build evidence links as `https://github.com/<org>/<repo>/blob/<sha>/<path>`.
 11. Collect the live GitHub evidence the assignment prompt asks for:
 
     ```console
-    uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} [--issues <n> ...] [--paths <path> ...]
-    uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} --issue-fields
+    uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} "{TEAM_DIR}" [--issues <n> ...] [--paths <path> ...]
+    uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --issue-fields
     ```
 
     It reads `pdf-info.json` and writes the paginated dumps into the team work directory: `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json`, and, for each `--issues <n>`, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, and `issues/<n>.edits.json`, and, for each `--paths <path>`, `paths/<path>.json`, plus the bounded `summary.md` digest.
@@ -153,7 +159,7 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
     Regenerate the digest from the saved dumps without calling `gh`:
 
     ```console
-    uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} --summary
+    uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --summary
     ```
 
     Work from the saved evidence instead of re-running `gh`; the collector prints counts and paths only.
@@ -163,7 +169,7 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
     Scan the snapshot for private-only material:
 
     ```console
-    uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR}
+    uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} "{TEAM_DIR}"
     ```
 
     It reads `pdf-info.json`, strips inline `data:...;base64,` payloads, and checks emails, phone numbers, `.env` and key files, recording links outside meeting artifacts, and the PDF member name tokens, including hits in meeting artifacts.
@@ -177,11 +183,11 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
 
 - In `full review` mode, write the validated report as soon as all segment statuses are decided — 13 for A3 — then run the gates below.
   A crash must leave a validated report on disk, not a half-written one; refine the prose after that first write instead of deferring it.
-- Build the payload for that write incrementally: judge S1–S4, then S5–S8, then S9–S13 (stop at the assignment's last segment when it has fewer), and rewrite `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/payload.json` after each group, so a crash loses at most the group being reviewed.
+- Build the payload for that write incrementally: judge S1–S4, then S5–S8, then S9–S13 (stop at the assignment's last segment when it has fewer), and rewrite `{TEAM_WORK}/payload.json` after each group, so a crash loses at most the group being reviewed.
   Add the `summary`, `strengths`, and `main_issues_to_fix` bullets once the statuses are decided, then write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md` in the format from `docs/grading-feedback-format.md`, or render it from the payload:
 
   ```console
-  uv run python scripts/render_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/payload.json"
+  uv run python scripts/render_feedback_report.py {ASSIGNMENT_DIR} "{TEAM_WORK}/payload.json"
   ```
 
   The payload shape is documented in the script docstring.
@@ -199,7 +205,7 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
 - Scan the finished report for private-only material:
 
   ```console
-  uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR} --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
+  uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
   ```
 
 - In `partial regrade` mode, prefer:
