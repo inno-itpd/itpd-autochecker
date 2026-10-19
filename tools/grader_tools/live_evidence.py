@@ -439,7 +439,7 @@ def normalize_repo_path(path: str) -> str:
 def load_pdf_info(path: Path) -> dict[str, object]:
     if not path.is_file():
         raise LiveEvidenceError(
-            f"missing {path}; run scripts/fetch_team_snapshot.py <assignment> <team_dir> first"
+            f"missing {path}; run scripts/fetch_team_snapshot.py <assignment> \"<team_dir>\" first"
         )
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -466,7 +466,7 @@ def stop_summary(assignment: str, team_dir: str, info_path: Path, root: Path) ->
         f"  {_display(info_path, root)} has no repository and SHA; "
         "repository-dependent checks are stopped per docs/grader-policy.md#submission-and-snapshot-rules",
         "  result: skipped (no snapshot)",
-        "  hint: pair the PDF's SHA by hand with scripts/fetch_team_snapshot.py <assignment> <team_dir> --repo org/repo",
+        "  hint: pair the PDF's SHA by hand with scripts/fetch_team_snapshot.py <assignment> \"<team_dir>\" --repo org/repo",
     )
 
 
@@ -486,7 +486,7 @@ def build_evidence_digest(
     lines.extend(
         [
             f"- Regenerate from the saved dumps: "
-            f"`scripts/collect_github_evidence.py {assignment} <team_dir> --summary`.",
+            f"`scripts/collect_github_evidence.py {assignment} \"<team_dir>\" --summary`.",
             f"- Cap: {cap} lines.",
             "- Failing run: `conclusion` is `failure`, `cancelled`, or `timed_out`.",
             "",

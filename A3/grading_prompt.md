@@ -643,7 +643,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 2. Read the Moodle PDF with the submission fetcher, which prefers the PDF that carries the full-SHA permalink to `reports/week-03/README.md` when there are several:
 
    ```console
-   uv run python scripts/fetch_team_snapshot.py A3 <team_dir>
+   uv run python scripts/fetch_team_snapshot.py A3 "<team_dir>"
    ```
 
    It records the extracted metadata in `itpd-assignments-feedback/A3/work/<team_dir>/pdf-info.json`: the team number, repository, permalink, full SHA, recording link, page count, GitHub usernames, and the member name/email tokens for the step 12 privacy scan.
@@ -670,11 +670,11 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    Call the first value `SNAPSHOT_TIME`.
 
 5. Collect the live evidence once and keep it beside, not inside, the fetched snapshot.
-   Preferred: `uv run python scripts/collect_github_evidence.py A3 <team_dir> [--issues <n> ...] [--paths <path> ...]`, which reads `itpd-assignments-feedback/A3/work/<team_dir>/pdf-info.json` and writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, `tags.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, `paths/<path>.json`, and a bounded `summary.md` there, printing counts and paths only.
+   Preferred: `uv run python scripts/collect_github_evidence.py A3 "<team_dir>" [--issues <n> ...] [--paths <path> ...]`, which reads `itpd-assignments-feedback/A3/work/<team_dir>/pdf-info.json` and writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, `tags.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, `paths/<path>.json`, and a bounded `summary.md` there, printing counts and paths only.
    Read `summary.md` first: it carries the issue counts, the pull-request numbers, the failing runs, the tags, and each milestone's due date with its open and closed issue counts, in at most 60 lines.
    Open a dump only through a bounded projection that prints at most about 40 lines (`head -n 40`, a `jq` projection, or an `rg` match); never `cat` a full dump, because `commits.json` reached 1.35 MB and `prs.json` 284 KB.
    `--summary` rebuilds the digest from the saved dumps without calling `gh`.
-   The issue fields are their own mode: `uv run python scripts/collect_github_evidence.py A3 <team_dir> --issue-fields` writes `issue-fields.json` there with every issue's `type`, `milestone`, `assignees`, and `field_values`, from one paginated REST list call and without its pull requests.
+   The issue fields are their own mode: `uv run python scripts/collect_github_evidence.py A3 "<team_dir>" --issue-fields` writes `issue-fields.json` there with every issue's `type`, `milestone`, `assignees`, and `field_values`, from one paginated REST list call and without its pull requests.
    It is not combined with `--summary`, `--issues`, or `--paths`.
    The raw fallback commands are:
 
@@ -829,7 +829,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 14. Scan the snapshot for private-only material:
 
     ```console
-    uv run python scripts/scan_privacy.py A3 <team_dir>
+    uv run python scripts/scan_privacy.py A3 "<team_dir>"
     ```
 
     It reads `itpd-assignments-feedback/A3/work/<team_dir>/pdf-info.json`, strips inline `data:...;base64,` payloads, and checks email addresses, phone numbers, `.env` and key files, recording links outside meeting artifacts, and the real names from the PDF member table, including hits in meeting artifacts.

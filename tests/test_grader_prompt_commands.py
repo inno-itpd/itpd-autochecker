@@ -18,6 +18,13 @@ WRAPPERS = (
 TEAM_DIR = "Team 5 - TmpTeam_12345_assignsubmission_file (1)"
 ASSIGNMENT_DIR = "A3"
 TEAM_WORK = f"/repo/itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
+ASSIGNMENT_PROMPTS = tuple(
+    ROOT / assignment / "grading_prompt.md" for assignment in ("A1", "A2", "A3")
+)
+POLICY = ROOT / "docs" / "grader-policy.md"
+TEAM_DIR_PLACEHOLDER = "<team_dir>"
+SCRIPT_COMMAND = re.compile(r"(?:^|[\s`])(?:uv run python\s+)?scripts/[\w.]+\.py\b")
+INLINE_CODE = re.compile(r"`([^`\n]+)`")
 
 FENCED_COMMAND = re.compile(
     r"^[ \t]*```(?:console|bash)[ \t]*\n(?P<body>.*?)^[ \t]*```[ \t]*$",
@@ -87,6 +94,26 @@ def _team_path_violations(text: str) -> list[str]:
     return violations
 
 
+def _placeholder_command_violations(path: Path) -> list[str]:
+    """Return command lines and code spans that pass an unquoted ``<team_dir>``."""
+    violations: list[str] = []
+    text = path.read_text(encoding="utf-8")
+    display = path.relative_to(ROOT) if ROOT in path.parents else path
+
+    def check(line_number: int, command: str) -> None:
+        if TEAM_DIR_PLACEHOLDER not in command or SCRIPT_COMMAND.search(command) is None:
+            return
+        if _has_unquoted(command, TEAM_DIR_PLACEHOLDER):
+            violations.append(f"{display}:{line_number}: {command.strip()}")
+
+    for line_number, line in _command_lines(text):
+        check(line_number, line)
+    for match in INLINE_CODE.finditer(text):
+        line_number = text.count("\n", 0, match.start()) + 1
+        check(line_number, match.group(1))
+    return violations
+
+
 def test_command_parser_reads_console_and_bash_blocks() -> None:
     text = "```console\necho one\n```\n\n```bash\necho two\n```\n"
     assert [line.strip() for _, line in _command_lines(text)] == ["echo one", "echo two"]
@@ -143,6 +170,30 @@ def test_quoting_check_fails_on_an_unquoted_absolute_work_path() -> None:
     violations = _team_path_violations(block)
     assert len(violations) == 1
     assert "head -n 40" in violations[0]
+
+
+def test_assignment_prompts_quote_team_dir_in_helper_commands() -> None:
+    violations = [
+        violation
+        for path in (*ASSIGNMENT_PROMPTS, POLICY)
+        for violation in _placeholder_command_violations(path)
+    ]
+    assert violations == []
+
+
+def test_placeholder_check_fails_on_an_unquoted_prompt_command(tmp_path: Path) -> None:
+    prompt = tmp_path / "grading_prompt.md"
+    prompt.write_text(
+        "```console\n"
+        "uv run python scripts/scan_privacy.py A3 <team_dir>\n"
+        'uv run python scripts/scan_privacy.py A3 "<team_dir>"\n'
+        "```\n",
+        encoding="utf-8",
+    )
+    violations = _placeholder_command_violations(prompt)
+    assert len(violations) == 1
+    assert "<team_dir>" in violations[0]
+    assert 'A3 "<team_dir>"' not in violations[0]
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required")

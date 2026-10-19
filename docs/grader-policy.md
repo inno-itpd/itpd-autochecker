@@ -87,7 +87,7 @@ Process evidence lives on GitHub, not in the snapshot files: branch protection, 
 - Do not mark down a team for keeping private material out of the repository when the course requires or allows that.
 - Do mark down a team for committing private material that the course forbids in the repository.
   Describe the problem without repeating the private data.
-- After `work/<team_dir>/` is cleaned, run `scripts/scan_privacy.py A<N> <team_dir> --feedback <path> --no-snapshot`.
+- After `work/<team_dir>/` is cleaned, run `scripts/scan_privacy.py A<N> "<team_dir>" --feedback <path> --no-snapshot`.
   It derives the privacy tokens from the submission PDF instead of `pdf-info.json`.
 
 ## Deviations

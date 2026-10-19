@@ -540,7 +540,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 2. Read the Moodle PDF with the submission fetcher, which prefers the PDF that carries the full-SHA permalink when there are several:
 
    ```console
-   uv run python scripts/fetch_team_snapshot.py A2 <team_dir>
+   uv run python scripts/fetch_team_snapshot.py A2 "<team_dir>"
    ```
 
    It records the extracted metadata in `itpd-assignments-feedback/A2/work/<team_dir>/pdf-info.json`: the team number, repository, permalink, full SHA, recording link, page count, GitHub usernames, and the member name/email tokens for the step 12 privacy scan.
@@ -566,7 +566,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    A status of `identical` or `ahead` puts the commit on `main`; `behind` or `diverged` does not, which is an S9 shortfall.
    Call the first value `SNAPSHOT_TIME`.
 5. Collect the live evidence once and keep it beside, not inside, the fetched snapshot.
-   Preferred: `uv run python scripts/collect_github_evidence.py A2 <team_dir> [--issues <n> ...] [--paths <path> ...]`, which reads `itpd-assignments-feedback/A2/work/<team_dir>/pdf-info.json` and writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json` there, printing counts and paths only.
+   Preferred: `uv run python scripts/collect_github_evidence.py A2 "<team_dir>" [--issues <n> ...] [--paths <path> ...]`, which reads `itpd-assignments-feedback/A2/work/<team_dir>/pdf-info.json` and writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json` there, printing counts and paths only.
    The raw fallback commands are:
 
    ```sh
@@ -661,7 +661,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 12. Scan the snapshot for private-only material:
 
     ```console
-    uv run python scripts/scan_privacy.py A2 <team_dir>
+    uv run python scripts/scan_privacy.py A2 "<team_dir>"
     ```
 
     It reads `itpd-assignments-feedback/A2/work/<team_dir>/pdf-info.json` and checks email addresses, phone numbers, `.env` and key files, recording links outside meeting artifacts, and the real names from the PDF member table, reporting each finding by path and kind only; the exit code is 1 when it finds any.

@@ -159,7 +159,7 @@ class _Counts:
 def load_privacy_tokens(path: Path) -> PrivacyTokens:
     if not path.is_file():
         raise PrivacyScanError(
-            f"missing {path}; run scripts/fetch_team_snapshot.py <assignment> <team_dir> first"
+            f"missing {path}; run scripts/fetch_team_snapshot.py <assignment> \"<team_dir>\" first"
         )
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
