@@ -8,14 +8,28 @@ import pytest
 from tests.conftest import ROOT
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
 
+SEGMENT_LINE = re.compile(r"^- S(\d+): (.+)$", re.MULTILINE)
+STATUS_HEADING = re.compile(r"^### S(\d+) — (.+)$", re.MULTILINE)
+
 
 @pytest.mark.parametrize("assignment", sorted(ASSIGNMENT_CONFIG))
 def test_prompt_segments_match_config(assignment: str) -> None:
     text = (ROOT / assignment / "grading_prompt.md").read_text(encoding="utf-8")
+    expected = {
+        num: definition["name"]
+        for num, definition in ASSIGNMENT_CONFIG[assignment]["segment_defs"].items()
+    }
     params = text.split("## Assignment parameters", 1)[1].split("\n## ", 1)[0]
-    found = {int(num): name.strip() for num, name in re.findall(r"^- S(\d+): (.+)$", params, re.MULTILINE)}
-    assert found == {num: d["name"] for num, d in ASSIGNMENT_CONFIG[assignment]["segment_defs"].items()}
+    found = {int(num): name.strip() for num, name in SEGMENT_LINE.findall(params)}
+    assert found == expected
+    assert len(found) == len(expected)
     assert ASSIGNMENT_CONFIG[assignment]["primary_index"] in params
+
+    guide = text.split("## Status guide", 1)[1].split("\n## ", 1)[0]
+    headings = {int(num): name.strip() for num, name in STATUS_HEADING.findall(guide)}
+    assert headings == expected
+    assert len(headings) == len(expected)
+    assert len(SEGMENT_LINE.findall(params)) == len(expected)
 
 
 @pytest.mark.parametrize("assignment", sorted(ASSIGNMENT_CONFIG))

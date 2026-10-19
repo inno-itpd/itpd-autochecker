@@ -121,6 +121,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - A goal added later has a first `**Changed:**` bullet saying it was added and citing the customer's `DEC-nnn`; a `Dropped` goal's `**Dropped:**` gives the date, the reason, and the customer's `DEC-nnn`.
 - Below the goals, `## Failure And Success Statements` holds one table with the columns `Goal`, `Success statement`, and `Failure statement`, in that order, rows grouped by their first goal in `TOS-nn` order with the rows no goal covers last.
 - Every `Goal` cell links its goal as `[TOS-nn](#tos-nn)` or `—`, every row is one failure statement with its conversion, and every `TOS-nn` is linked from at least one row.
+- The failure statement's wording is the session's and is never judged; only the table's shape and its tracing are.
 - `docs/product-vision.md` states its goal in one sentence in `## Goal` and links `docs/threshold-of-success.md` from that section.
 - The goal's link to the threshold is one-way: a threshold that links the vision's goal in prose is a quality note, and a milestone reaches the threshold through `**Advances:**`, per [Milestones](../A3/itpd/requirements/planning-requirements.md#milestones).
 
@@ -138,7 +139,6 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - "A threshold that could fail" is a quality note: record a goal nobody could miss in `**Evidence:**` for the instructor, and name the goal.
 - 3 to 5 goals is Recommended; more than 5 is a quality note, and fewer than 3 is the shortfall.
 - Do not re-grade the Week 2 product vision content; judge only the goal's one sentence and its link to the threshold.
-- The statements' wording is the session's and is never judged; only the table's shape and its tracing are.
 
 ### S2 — Project plan and sprint milestones
 
@@ -196,7 +196,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 **met:**
 
 - `docs/risks.md` holds at least 3 `## RISK-nn` sections in identifier order, each headed by the bare identifier.
-- The register opens with a summary table above the sections, with the columns `ID`, `Status`, `Impact`, `Likelihood`, and `Risk`, in that order, each `ID` linked to its section such as `[RISK-02](#risk-02)`, each `Status` and rating matching the section, and each `Risk` quoting the section's first line.
+- The register opens with a summary table above the first `## RISK-nn` section, with the columns `ID`, `Status`, `Impact`, `Likelihood`, and `Risk`, in that order, each `ID` linked to its section such as `[RISK-02](#risk-02)`, each `Status` and rating matching the section, and each `Risk` quoting the section's first line.
 - The table lists the `Open` risks first, sorted by `Impact` then `Likelihood`, both `High` to `Low`, then the settled risks in identifier order, with ties in identifier order.
 - Each risk's first line is one sentence stating the cause that sets it off, the event it may trigger, and the impact of that event.
 - Each risk's fields are bulleted in the order `**Status:**`, `**Impact:**`, `**Likelihood:**`, `**Trigger:**`, `**Window:**`, `**Mitigation:**`, `**Contingency:**`, then `**Outcome:**` only on `Mitigated` or `Realized` and `**Dropped:**` only on `Dropped`.
@@ -211,7 +211,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 **partial:**
 
 - `docs/risks.md` exists with `RISK-nn` sections, and at least one other `met` criterion fails.
-- Typical shortfalls: a missing summary table or a column out of order; open risks not sorted by rating; a first line that states only a worry, with no cause, event, or impact; a rating word spelled into the reason so the bullet has two colons; a `**Trigger:**` nobody could watch; a contingency that offers two options; a settled risk with no `**Outcome:**`.
+- Typical shortfalls: a missing summary table, a column out of order, or a summary table that sits below the first `## RISK-nn` section or after the risk sections; open risks not sorted by rating; a first line that states only a worry, with no cause, event, or impact; a rating word spelled into the reason so the bullet has two colons; a `**Trigger:**` nobody could watch; a contingency that offers two options; a settled risk with no `**Outcome:**`.
 
 **missing:**
 
@@ -719,6 +719,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    - Take its body from the last edit at or before `ISSUE_CUTOFF` when the edit history allows it; otherwise judge the current body and say so in `**Evidence:**`.
    - Take its milestone from the `milestoned` and `demilestoned` events when the issue has them, and its current milestone otherwise, noting in `**Evidence:**` which was read.
    - A comment or edit made after `ISSUE_CUTOFF` is a caveat, never a shortfall.
+   - Post-cutoff file state is a caveat and never a status change, except in a segment that judges the snapshot, which reads the file at `SNAPSHOT_TIME`.
    - Set `Evidence gaps: yes` only when the state at `ISSUE_CUTOFF` cannot be read and the difference could change the status.
    - Pull requests, Actions runs, repository files, tags, and releases stay judged as of `ISSUE_CUTOFF`, and the snapshot stays the evidence for files.
 
