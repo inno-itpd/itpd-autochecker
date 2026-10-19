@@ -7,11 +7,10 @@ __pycache__/
 .venv/
 .pytest_cache/
 
-# Local uv fallback directories (see scripts/uv.sh): a cache inside the
-# checkout for when the default cache is not writable, migrated uv caches,
-# and downloaded interpreters. None of them belong in version control.
+# uv keeps its cache here (cache-dir in uv.toml, relative to the project root),
+# so `uv run` also works where the default ~/.cache/uv is read-only. None of it
+# belongs in version control.
 .local/
-.uv-cache/
 
 # Nix / direnv
 .direnv/

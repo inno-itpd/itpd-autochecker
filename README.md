@@ -24,7 +24,7 @@ uv run pytest
 - `agents/grader.md`: the one-team grader prompt, used through `.claude/agents/` and `.opencode/agents/`.
 - `docs/`: the grading policy and the feedback report format.
 - `scripts/`: validate, inspect, patch, and regrade feedback reports.
-  `scripts/uv.sh` runs uv with a cache inside the checkout for environments where `~/.cache/uv` is read-only: `./scripts/uv.sh run pytest`.
+- `uv.toml`: keeps uv's cache inside the checkout (`.local/uv-cache`), so `uv run` also works where `~/.cache/uv` is read-only.
 - `itpd-assignments-feedback/`: the submodule holding submission PDFs, feedback, and exports.
 - `backlog/`: Backlog.md tasks for this repo.
 

@@ -55,9 +55,9 @@
               fi
 
               # Do not pick UV_CACHE_DIR here: shellHook runs from the flake
-              # store, not the checkout, and the direnv cache does not refresh
-              # a cached shellHook. scripts/uv.sh resolves the cache at call
-              # time (creates a directory when the user cache is read-only).
+              # store, not the checkout, and a static path would break a moved
+              # checkout. uv.toml at the repository root sets
+              # cache-dir = ".local/uv-cache" relative to the project instead.
             '';
           };
         };

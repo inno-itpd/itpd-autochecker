@@ -1,0 +1,21 @@
+# Keep uv's cache inside the checkout so a plain `uv run` works everywhere.
+#
+# The default cache (~/.cache/uv) is on a read-only mount in some environments
+# (containers, sandboxes, CI images), and uv touches its cache before it does
+# anything else: even `uv run --no-cache` and an explicit `--python` fail with
+#
+#     error: Could not acquire lock
+#       cause: Could not create temporary file
+#       cause: Read-only file system (os error 30) at ... ~/.cache/uv/.tmpXXXX
+#
+# upstream of the interpreter. `UV_CACHE_DIR` cannot fix this from a tracked
+# file (a static value would make the cache path relative to the current
+# directory), but uv resolves a relative `cache-dir` against the project root,
+# so this one path works from any subdirectory of the repository.
+#
+# The directory is gitignored (.local/); uv writes it with its own
+# CACHEDIR.TAG and .gitignore. An explicit UV_CACHE_DIR still wins when set on
+# purpose, since uv lets the environment override the config file.
+#
+# See the Stack and Troubleshooting sections of AGENTS.md.
+cache-dir = ".local/uv-cache"

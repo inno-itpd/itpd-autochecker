@@ -4,7 +4,7 @@ title: Make uv run work with a read-only uv cache
 status: Done
 assignee: []
 created_date: '2026-10-19 10:44'
-updated_date: '2026-10-19 10:44'
+updated_date: '2026-10-19 11:06'
 labels: []
 dependencies: []
 ordinal: 29000
@@ -36,5 +36,5 @@ In some environments (and inside the dev shell of this repo, as of 2026-10-19) t
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Diagnosis, measured in-session: (1) ~/.cache/uv is on a read-only mount, so uv fails at 'Could not acquire lock -> Could not create temporary file -> Read-only file system (os error 30)'; uv run --no-cache and uv run --python /usr/bin/python3 fail the same way, so the cache is always touched first. (2) The 'Unknown operating system: Empty module name' error is the Nix Python's sysconfig with an empty _PYTHON_SYSCONFIGDATA_NAME; with the variables the dev shell exports, uv run works, and uv itself reads pyvenv.cfg rather than importing sysconfig. Changes: scripts/uv.sh probes the default cache by writing a file and reruns uv with UV_CACHE_DIR=<repo>/.local/uv-cache (fallback .uv-cache) when it is unwritable; it works from any directory, leaves an existing UV_CACHE_DIR alone, and --migrate copies the default cache, skipping copies above 2 GiB unless ITPD_UV_MIGRATE_ALLOW_LARGE=1 (the default cache here is 7.9 GiB). .envrc exports UV_CACHE_DIR to the in-checkout cache only when no usable cache exists, so it refreshes the environment once instead of on every reload; the shim lives in .envrc because shellHook runs from the flake store and a cached dev shell does not refresh it. flake.nix drops the UV_CACHE_DIR shellHook fallback and guards the _PYTHON_* exports with ${VAR:-} under set -u. Validation: ./scripts/uv.sh run pytest 187 passed; scripts/preflight.py ready; scripts/uv.sh sync up to date; wrapper works from /tmp and with direnv variables cleared; nix develop with XDG_CACHE_HOME in /tmp runs a wrapped uv; markdownlint-cli2 clean on AGENTS.md and README.md. Not committed: waiting for the model identity to fill the Model: line.
+Superseded by TASK-030: the uv.toml cache-dir replaces the wrapper and the .envrc shim. scripts/uv.sh was removed; uv run now works without any wrapper, and an exported UV_CACHE_DIR still overrides the file. Kept in Done history because the diagnosis of the two distinct uv failure causes (read-only cache vs sysconfig) still holds in AGENTS.md.
 <!-- SECTION:NOTES:END -->
