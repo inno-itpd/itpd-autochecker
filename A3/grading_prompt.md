@@ -300,8 +300,9 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 **Check:**
 
 - The per-issue field values first: from `issue-fields.json` (the collector's `--issue-fields` mode), from the REST `issue_field_values` in `gh api "repos/$REPO/issues/<n>"`, or from the GraphQL `issueFieldValues` query, per [procedure step 12](#assignment-specific-procedure-deltas).
-- The fields' names, data types, options, issue-type pinning, and visibility from each issue's sidebar and from the project's fields, per [procedure step 12](#assignment-specific-procedure-deltas).
-- The organization's GitHub projects, from `gh project list --owner <org> --format json` and `gh project field-list`, `gh project view`, and the project's page for its items and views.
+- The fields' names, data types, options, issue-type pinning, and visibility from each issue's sidebar and from the project's fields, with `gh project field-list <number> --owner <org> --format json`, per [procedure step 12](#assignment-specific-procedure-deltas).
+- The organization's GitHub projects, from `gh project list --owner <org> --format json`, `gh project field-list <number> --owner <org> --format json`, and `gh project view <number> --owner <org> --format json`, plus the project's page and the GraphQL `items` and `views` query in [procedure step 12](#assignment-specific-procedure-deltas) for its items and views.
+- The project's description from `gh project view`'s `shortDescription`, or from the project page and its README; say in `**Evidence:**` which route answered.
 - Every open issue and every issue the plan schedules, from `issue-fields.json` or `issues.json`, with its `milestone`, `assignees`, and field values.
 - The repository's GitHub milestones, from the milestone list in S2.
 
@@ -311,7 +312,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - Each field's options are one per team member, named by the member's GitHub username, and every member from the PDF's member table has an option, from the issue sidebar's option list or the project's fields.
 - Each field is pinned to the issue types the team uses for story and task issues, or to `Issues without a type` when the team uses none, from the fields the sidebar offers on an issue of each type.
 - Each field's visibility is `Public`, from the issue sidebar or the project's fields, or the team declares a deviation and carries the two roles as the labels `responsible:<username>` and `accountable:<username>`.
-- One GitHub project exists per team, in the organization, titled after the product or the repository, and its description links the repository.
+- One GitHub project exists per team, in the organization, titled after the product or the repository, and its description links the repository, from `gh project view`'s `shortDescription` or the project page and README.
 - The project's visibility is `Public`.
 - The project holds every open issue of the repository at or before `ISSUE_CUTOFF`.
 - The project carries at least one table view whose columns include the `Responsible` and `Accountable` fields, the built-in `Assignees`, and the built-in `Milestone`, grouped or sorted by `Milestone`.
@@ -332,13 +333,14 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 - Public issues and their field values are readable by everyone, including non-organization-members, so read each issue's `issue_field_values` from REST or `issueFieldValues` from GraphQL, or the values in its sidebar.
 - An empty `organization { issueFields }` result or a `totalCount` of `0` is never evidence that a field is absent, because that list needs organization membership the review token may not have.
+- The project type has no plain description field: read the description from `shortDescription`, the project page, or the README, and read fields and options with `gh project field-list`, because a direct `fields` selection on the project type is a union and raises `selectionMismatch`.
 - S6 is never `missing` on the organization field list alone: the per-issue values and the project settle the segment.
 - A team that cannot create issue fields and declares the label fallback is judged on the fallback, and its absence of fields is never a shortfall.
 - The project's auto-add workflow and adding items by hand both count.
 - An issue the team has not scheduled is not a shortfall: only issues the plan schedules carry the two values and a milestone, and the `SPRINT-03` set is the floor.
 - An already closed issue needs no values or milestone, and the values stay on it after it closes; do not require values on issues closed before Week 3.
 - When the project cannot be queried with the token, say which endpoint failed, judge the rest from the issues, and set `Evidence gaps: yes` only when the answer could change the status.
-- `**Evidence:**` names the route that answered: `issue-fields.json`, the REST `issue_field_values`, the GraphQL `issueFieldValues`, or the issue sidebar.
+- `**Evidence:**` names the route that answered: `issue-fields.json`, the REST `issue_field_values`, the GraphQL `issueFieldValues`, the issue sidebar, `gh project view`, `gh project field-list`, the project page, or the GraphQL project query.
 - Whether a work item closed by a pull request followed the workflow belongs to S7; this segment judges only that the work item is scheduled.
 
 ### S7 — Minimum usable product on main
@@ -815,7 +817,51 @@ Recommended items and the What Good Looks Like points are quality notes for the 
     ```
 
     The organization `issueFields` list is not evidence: it needs organization membership the token may not have, and an empty list or `totalCount: 0` never means a field is absent.
-    Read each project's visibility from `gh project view`, and the table views and their columns from the project's page and `gh project field-list`.
+    When the project page or `gh project view` cannot answer, read the project's items and views from one GraphQL query:
+
+    ```sh
+    gh api graphql -F owner='<org>' -F number=<n> -f query='
+      query($owner: String!, $number: Int!) {
+        organization(login: $owner) {
+          projectV2(number: $number) {
+            number
+            title
+            shortDescription
+            public
+            readme
+            items(first: 100) {
+              totalCount
+              nodes {
+                content {
+                  ... on Issue { number title state }
+                  ... on PullRequest { number title state }
+                }
+                fieldValues(first: 20) {
+                  nodes {
+                    ... on ProjectV2ItemFieldSingleSelectValue {
+                      name
+                      field { ... on ProjectV2SingleSelectField { name } }
+                    }
+                    ... on ProjectV2ItemFieldTextValue {
+                      text
+                      field { ... on ProjectV2FieldCommon { name } }
+                    }
+                  }
+                }
+              }
+            }
+            views(first: 20) {
+              nodes { name layout }
+            }
+          }
+        }
+      }'
+    ```
+
+    The project type has no plain description field: read the description from `shortDescription` in the query or `gh project view`, or from the project page and README, and say in `**Evidence:**` which route answered.
+    A direct `fields` selection on the project type is a union and raises `selectionMismatch`, so read the field names, options, and data types from `gh project field-list` instead.
+    The `fieldValues` connection returns one node per value type, so filter the nodes that carry a field name.
+    Read each project's visibility from `gh project view` or the query above, and the table views and their columns from the project's page, `gh project field-list`, or the `views` connection.
     Say in `**Evidence:**` which route answered.
 
 13. Check that every `**Sprint Backlog:**` link in `docs/project-plan.md` resolves, and that the milestone it names is the sprint's own milestone and lists the issues scheduled into that sprint:
