@@ -54,7 +54,8 @@ Follow the operator request to choose one of these modes:
 The helper scripts share two contracts; never edit those files by hand:
 
 - `scripts/fetch_team_snapshot.py` writes `{TEAM_WORK}/pdf-info.json` (mode 0600) with keys `assignment`, `team_dir`, `pdf`, `pdf_path`, `page_count`, `recording_link`, `org`, `repo`, `sha`, `permalink`, `permalink_path`, `snapshot_time`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_fetched`, `snapshot_dir`, `github_usernames`, and `privacy_tokens` (`name_tokens`, `email_tokens`).
-- `scripts/collect_github_evidence.py` writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json` beside it, plus the compact `summary.md` digest, and, on request, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`, and, with `--issue-fields`, `issue-fields.json` with each issue's `type`, `milestone`, `assignees`, and `field_values`.
+- `scripts/collect_github_evidence.py` writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json` beside it, plus the compact `summary.md` digest and the `evidence.sqlite` SQL projection, and, on request, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`, and, with `--issue-fields`, `issue-fields.json` with each issue's `type`, `milestone`, `assignees`, and `field_values`.
+  Every collection rebuilds `evidence.sqlite`, and `--summary` rebuilds it and `summary.md` from the saved dumps without calling `gh`.
 - `scripts/scan_privacy.py` reads `pdf-info.json`, and `scripts/check_snapshot_links.py --issue-bodies` reads `issues.json`.
 
 ## Context budget
@@ -74,6 +75,17 @@ rg -n '"number"|"state"|"title"' "{TEAM_WORK}/issues.json" | head -n 40
 ```
 
 A `jq` projection works too, but end it with `| head -n 40`: a filter over a large dump can still print thousands of lines.
+A field that should be an array is sometimes `null`, and `jq` then stops with `Cannot iterate over null (null)`; append `// []` before iterating.
+Each guard below applies to a different dump, and the evidence database after this section answers the same questions in SQL:
+
+```console
+# closingIssuesReferences: each pull request in prs.json
+jq '.[] | {number, closes: [(.closingIssuesReferences // [])[].number]}' "{TEAM_WORK}/prs.json" | head -n 40
+# assignees: each issue row in issue-fields.json (plain login strings)
+jq '.[] | {number, assignees: [(.assignees // [])[]]}' "{TEAM_WORK}/issue-fields.json" | head -n 40
+# fieldValues.nodes: the GraphQL connection on a project item, in a saved project query response
+jq '.data.organization.projectV2.items.nodes[] | {title: .content.title, values: [(.fieldValues.nodes // [])[]]}' "<saved-project-graphql.json>" | head -n 40
+```
 
 - Prefer four small projections over one large read: ask a narrow question, project only the fields that answer it, cap the output, and move on.
 - Crash-safe rule: if a command's output is unexpectedly large, stop, narrow the command, and continue.
@@ -81,6 +93,44 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
 - Never re-read a file you already summarized.
   Rely on `summary.md` or your own notes and projections; re-reading spends the same budget twice.
 - The helper scripts print counts and paths only, so they are safe to run and re-run.
+
+## Evidence database
+
+`{TEAM_WORK}/evidence.sqlite` projects the saved dumps into SQLite with the Python standard library only.
+Every collection writes it, `--issue-fields` refreshes it, and `--summary` rebuilds it from the saved dumps and `issue-fields.json` without calling `gh`.
+Use it instead of `jq` for the S6 and S7 questions: the `issue_projection` view is one row per issue with `number`, `state`, `title`, `type`, `milestone`, `milestone_due_on`, `labels`, `assignees`, and `closing_pull_requests`, and the multi-valued columns are `''` rather than NULL when the dump held no array.
+
+Open it with the standard-library CLI, which runs SQL statements rather than the `sqlite3` shell's dot commands:
+
+```console
+uv run python -m sqlite3 "{TEAM_WORK}/evidence.sqlite"
+uv run python -m sqlite3 "{TEAM_WORK}/evidence.sqlite" "SELECT number, state, title FROM issues ORDER BY number;"
+```
+
+The documented queries for S6 and S7:
+
+```sql
+-- S6: the issue-field values (Responsible and Accountable) for every issue
+SELECT issue_number, name, value FROM issue_field_values ORDER BY issue_number, name;
+
+-- S6: sprint milestones with due dates and open and closed issue counts
+SELECT title, due_on, open_issues, closed_issues FROM milestones ORDER BY due_on;
+
+-- S6 and S7: one issue per row, with assignees and the pull requests that close it
+SELECT number, state, title, type, milestone, assignees, closing_pull_requests
+FROM issue_projection ORDER BY number;
+
+-- S7: approving reviews and the issues each pull request closes
+SELECT p.number, r.author_login, r.submitted_at, c.issue_number
+FROM pull_requests AS p
+JOIN pr_reviews AS r ON r.pull_request_number = p.number AND lower(r.state) = 'approved'
+LEFT JOIN pr_closing_references AS c ON c.pull_request_number = p.number
+ORDER BY p.number;
+```
+
+Tables: `issues`, `labels`, `issue_labels`, `milestones`, `issue_assignees`, `issue_closing_references`, `issue_field_values`, `pull_requests`, `pr_reviews`, `pr_files`, and `pr_closing_references`.
+When `issue-fields.json` was never collected, `type`, `milestone`, and assignees are NULL or empty, and the issue and pull-request questions still answer.
+Runs, commits, tags, releases, comments, timelines, and edit history are not in the database; use the bounded projections in `## Context budget` for those.
 
 ## Steps
 
@@ -152,11 +202,11 @@ A `jq` projection works too, but end it with `| head -n 40`: a filter over a lar
     uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --issue-fields
     ```
 
-    It reads `pdf-info.json` and writes the paginated dumps into the team work directory: `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json`, and, for each `--issues <n>`, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, and `issues/<n>.edits.json`, and, for each `--paths <path>`, `paths/<path>.json`, plus the bounded `summary.md` digest.
-    `--issue-fields` is its own mode: it writes `issue-fields.json` with every issue's `type`, `milestone`, `assignees`, and `field_values` from one paginated REST list call, skips pull requests, and does not rewrite the other dumps.
+    It reads `pdf-info.json` and writes the paginated dumps into the team work directory: `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json`, and, for each `--issues <n>`, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, and `issues/<n>.edits.json`, and, for each `--paths <path>`, `paths/<path>.json`, plus the bounded `summary.md` digest and the `evidence.sqlite` SQL projection.
+    `--issue-fields` is its own mode: it writes `issue-fields.json` with every issue's `type`, `milestone`, `assignees`, and `field_values` from one paginated REST list call, skips pull requests, does not rewrite the other dumps, and refreshes `evidence.sqlite`.
     It cannot be combined with `--summary`, `--issues`, or `--paths`.
-    Read `summary.md` first, then open a dump only through the bounded projections in `## Context budget`.
-    Regenerate the digest from the saved dumps without calling `gh`:
+    Read `summary.md` first, then use the SQL in `## Evidence database` for the issue, milestone, assignee, closing-reference, and review questions, and open another dump only through the bounded projections in `## Context budget`.
+    Regenerate the digest and the database from the saved dumps without calling `gh`:
 
     ```console
     uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --summary

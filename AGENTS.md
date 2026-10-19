@@ -32,6 +32,7 @@
         ├── work/<team_dir>/   # (gitignored, disposable) per-team grader work, so parallel workers never collide
         │   ├── pdf-info.json  # PDF metadata, permalink, member tokens (mode 0600)
         │   ├── *.json         # GitHub evidence dumps: labels, issues, prs, runs, commits
+        │   ├── evidence.sqlite # SQLite projection of the dumps, rebuilt by --summary
         │   └── snapshot/      # repository fetched from GitHub at the permalink SHA
         ├── feedback/<team_dir>/agent-feedback.md
         ├── dev.md             # Instructor triage table
@@ -112,7 +113,7 @@ All run from the repository root and print counts and paths only.
 - `uv run python scripts/preflight.py` — checks `gh` auth, `pdftotext`, and `markdownlint-cli2` before a batch.
 - `uv run python scripts/check_batch_ready.py A<N> [--active "<team_dir>" ...]` — pre-extraction gate: refuses a team whose grader `list_agents` still reports as running or registered (pass each team on `--active`, because a script cannot call `list_agents`), a non-empty work directory with no report, and a report older than `work/<team_dir>/payload.json`; exit codes 0 ready, 1 not ready, 2 usage error.
 - `uv run python scripts/fetch_team_snapshot.py A<N> "<team_dir>" [--repo org/repo]` — PDF permalink (a bare SHA is resolved with `gh search commits`, or paired with `--repo` and recorded as `permalink_source=operator`), recording, page-count, and member-token extraction; commit and `main` check; snapshot refetch; writes `itpd-assignments-feedback/A<N>/work/<team_dir>/pdf-info.json`.
-- `uv run python scripts/collect_github_evidence.py A<N> "<team_dir>" [--issues <n> ...] [--paths <path> ...] [--issue-fields]` — paginated dumps (`labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`) in the same team work directory, and, with `--issue-fields`, `issue-fields.json` with every issue's `type`, `milestone`, `assignees`, and field values from one paginated REST list call.
+- `uv run python scripts/collect_github_evidence.py A<N> "<team_dir>" [--issues <n> ...] [--paths <path> ...] [--issue-fields]` — paginated dumps (`labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`) in the same team work directory, and, with `--issue-fields`, `issue-fields.json` with every issue's `type`, `milestone`, `assignees`, and field values from one paginated REST list call; every write mode also rebuilds the `evidence.sqlite` projection, and `--summary` rebuilds it and the digest from the saved dumps without calling `gh`.
 - `uv run python scripts/check_snapshot_links.py <snapshot_dir> [--issue-bodies <issues.json>]` — broken relative links, missing anchors, and pre-cut research anchors.
 - `uv run python scripts/scan_privacy.py A<N> "<team_dir>" [--feedback <agent-feedback.md>] [--no-snapshot]` — privacy findings grouped per file with a hit count plus per-rule hit and file totals, by path and kind only; `--no-snapshot` with `--feedback` derives the tokens from the submission PDF after `work/<team_dir>/` is cleaned.
 - `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>` — report validation plus `markdownlint-cli2` in one command.
@@ -120,6 +121,43 @@ All run from the repository root and print counts and paths only.
 - `uv run python scripts/image_info.py <files>` — PNG and JPEG dimensions, byte size, and PNG transparency.
 
 The `pdf-info.json` keys and the dump file names are documented under Paths in `agents/grader.md`.
+
+## Evidence database
+
+`scripts/collect_github_evidence.py` writes `evidence.sqlite` beside the JSON dumps in `itpd-assignments-feedback/<assignment>/work/<team_dir>/`, using only the Python standard library `sqlite3`.
+It is disposable like the rest of the work directory: collection rebuilds it from the saved dumps, and `--summary` rebuilds it from those dumps and `issue-fields.json` without calling `gh`.
+Open it with the standard-library CLI, which runs SQL statements rather than the `sqlite3` shell's dot commands:
+
+```console
+uv run python -m sqlite3 "itpd-assignments-feedback/A3/work/<team_dir>/evidence.sqlite"
+uv run python -m sqlite3 "<path>" "SELECT number, state, title FROM issues ORDER BY number;"
+```
+
+Tables: `issues`, `labels`, `issue_labels`, `milestones`, `issue_assignees`, `issue_closing_references`, `issue_field_values`, `pull_requests`, `pr_reviews`, `pr_files`, and `pr_closing_references`.
+The `issue_projection` view joins them into one row per issue with `number`, `state`, `title`, `type`, `milestone`, `milestone_due_on`, `labels`, `assignees`, and `closing_pull_requests`.
+Multi-valued columns are comma-separated and empty (`''`) when the dump held no array, and states are lowercase.
+`issue-fields.json` supplies `type`, `milestone`, and the assignees, so those columns stay NULL or empty when it was never collected.
+The JSON keys the database reads are the collector's `ISSUE_FIELDS` and `PR_FIELDS` plus the issue-fields projection, and a test keeps them equal.
+
+Concrete queries for the S6 and S7 evidence:
+
+```console
+# S6: issue-field values (Responsible and Accountable) for every issue
+uv run python -m sqlite3 "<path>" \
+  "SELECT issue_number, name, value FROM issue_field_values ORDER BY issue_number, name;"
+
+# S6: sprint milestones with due dates and open and closed issue counts
+uv run python -m sqlite3 "<path>" \
+  "SELECT title, due_on, open_issues, closed_issues FROM milestones ORDER BY due_on;"
+
+# S6 and S7: one issue per row, with assignees and the pull requests that close it
+uv run python -m sqlite3 "<path>" \
+  "SELECT number, state, title, type, milestone, assignees, closing_pull_requests FROM issue_projection ORDER BY number;"
+
+# S7: approving reviews and the issues each pull request closes
+uv run python -m sqlite3 "<path>" \
+  "SELECT p.number, r.author_login, r.submitted_at, c.issue_number FROM pull_requests AS p JOIN pr_reviews AS r ON r.pull_request_number = p.number AND lower(r.state) = 'approved' LEFT JOIN pr_closing_references AS c ON c.pull_request_number = p.number ORDER BY p.number;"
+```
 
 ## Segment inspection and targeted regrades
 

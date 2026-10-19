@@ -22,6 +22,10 @@ through one paginated REST list call, skips pull requests, and writes
 ``issue-fields.json`` with each issue's number, state, title, type, milestone,
 assignees, and issue-field values.  It never rewrites the other dumps, and it
 is not combined with ``--summary`` or the drill-down options.
+
+Every mode that writes dumps also rebuilds ``evidence.sqlite`` from the saved
+files through ``tools.grader_tools.evidence_sqlite``, so a grader can query the
+same evidence with SQL; ``--summary`` rebuilds it without calling ``gh``.
 """
 
 from __future__ import annotations
@@ -34,6 +38,10 @@ from pathlib import Path
 from urllib.parse import quote
 
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
+from tools.grader_tools.evidence_sqlite import (
+    EvidenceDatabaseError,
+    write_evidence_database,
+)
 from tools.grader_tools.submission_pdf import (
     PDF_INFO_FILENAME,
     CommandResult,
@@ -132,6 +140,17 @@ class LiveEvidenceResult:
     summary_lines: tuple[str, ...]
     skipped: bool = False
     summary_path: Path | None = None
+    database_path: Path | None = None
+
+
+def _write_database(work_dir: Path, summary: list[str], root: Path) -> Path:
+    """Rebuild ``evidence.sqlite`` and record its one-line summary."""
+    try:
+        database = write_evidence_database(work_dir)
+    except EvidenceDatabaseError as exc:
+        raise LiveEvidenceError(str(exc)) from exc
+    summary.append(database.summary_line(root))
+    return database.path
 
 
 def labels_command(repo: str) -> list[str]:
@@ -743,6 +762,7 @@ def collect_github_evidence(
         dump_path = work_dir / ISSUE_FIELDS_FILENAME
         write_json_dump(dump_path, value)
         record("issue fields", dump_path, len(value))
+        database_path = _write_database(work_dir, summary, root)
         return LiveEvidenceResult(
             assignment=assignment,
             team_dir=team_dir,
@@ -751,6 +771,7 @@ def collect_github_evidence(
             work_dir=work_dir,
             files=tuple(files),
             summary_lines=tuple(summary),
+            database_path=database_path,
         )
 
     collectors: tuple[tuple[str, str, list[str], Callable[[str], object]], ...] = (
@@ -775,6 +796,7 @@ def collect_github_evidence(
     digest = build_evidence_digest(dump_values, assignment=assignment, team_dir=team_dir, repo=repo, sha=sha)
     digest_path = write_summary(work_dir, digest)
     summary.append(f"  summary: {len(digest.splitlines())} lines -> {_display(digest_path, root)}")
+    database_path = _write_database(work_dir, summary, root)
 
     for number in issue_numbers:
         drilldowns: tuple[tuple[str, list[str], Callable[[str], object]], ...] = (
@@ -803,6 +825,7 @@ def collect_github_evidence(
         files=tuple(files),
         summary_lines=tuple(summary),
         summary_path=digest_path,
+        database_path=database_path,
     )
 
 

@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import re
+import sqlite3
 
 import pytest
 
 from scripts.collect_github_evidence import run as collect_run
+from tools.grader_tools.evidence_sqlite import EVIDENCE_DB_FILENAME, SCHEMA_TABLES
 from tools.grader_tools.live_evidence import (
     EDIT_FIELDS,
     ISSUE_FIELDS,
@@ -300,6 +302,27 @@ def test_collect_writes_the_base_dumps_and_a_compact_summary(tmp_path: Path) -> 
     assert "  - Sprint 1: due 2026-10-01, 2 open, 3 closed." in digest
 
 
+def test_collect_writes_the_sqlite_projection(tmp_path: Path) -> None:
+    scratch = write_pdf_info(tmp_path)
+    result = collect_github_evidence("A2", TEAM, tmp_path, runner=FakeGh(base_responses()))
+
+    database = scratch / EVIDENCE_DB_FILENAME
+    assert result.database_path == database
+    assert database.is_file()
+    assert database.stat().st_mode & 0o777 == 0o600
+    summary = "\n".join(result.summary_lines)
+    assert (
+        f"  evidence.sqlite: {len(SCHEMA_TABLES)} tables, 1 issue, 1 pull request -> "
+        f"itpd-assignments-feedback/A2/work/{TEAM}/{EVIDENCE_DB_FILENAME}"
+    ) in summary
+    with sqlite3.connect(database) as connection:
+        rows = connection.execute(
+            "SELECT number, state, title, type, milestone, assignees, closing_pull_requests "
+            "FROM issue_projection ORDER BY number"
+        ).fetchall()
+    assert rows == [(50, "open", "Edit the root README", None, None, "", "")]
+
+
 def test_collect_uses_the_encoded_field_lists(tmp_path: Path) -> None:
     write_pdf_info(tmp_path)
     runner = FakeGh(base_responses())
@@ -510,11 +533,19 @@ def test_issue_fields_skips_pull_requests(tmp_path: Path) -> None:
 def test_issue_fields_leaves_the_existing_dumps_unchanged(tmp_path: Path) -> None:
     scratch = write_pdf_info(tmp_path)
     collect_github_evidence("A2", TEAM, tmp_path, runner=FakeGh(base_responses()))
-    before = {path.name: path.read_bytes() for path in scratch.iterdir() if path.is_file()}
+    before = {
+        path.name: path.read_bytes()
+        for path in scratch.iterdir()
+        if path.is_file() and path.name != EVIDENCE_DB_FILENAME
+    }
 
     collect_github_evidence("A2", TEAM, tmp_path, issue_fields=True, runner=FakeGh(issue_fields_responses()))
 
-    after = {path.name: path.read_bytes() for path in scratch.iterdir() if path.is_file()}
+    after = {
+        path.name: path.read_bytes()
+        for path in scratch.iterdir()
+        if path.is_file() and path.name != EVIDENCE_DB_FILENAME
+    }
     assert set(after) == set(before) | {ISSUE_FIELDS_FILENAME}
     for name, content in before.items():
         assert after[name] == content
@@ -538,6 +569,8 @@ def test_issue_fields_cli_writes_the_dump_and_prints_its_path(tmp_path: Path) ->
         f"A2 / {TEAM}",
         f"  repo: {REPO} @ {SHA}",
         f"  issue fields: 3 -> itpd-assignments-feedback/A2/work/{TEAM}/{ISSUE_FIELDS_FILENAME}",
+        f"  evidence.sqlite: {len(SCHEMA_TABLES)} tables, 3 issues, 0 pull requests -> "
+        f"itpd-assignments-feedback/A2/work/{TEAM}/{EVIDENCE_DB_FILENAME}",
     ]
 
 
@@ -750,6 +783,7 @@ def test_summary_cli_regenerates_from_the_saved_dumps_without_gh(tmp_path: Path)
     collect_github_evidence("A2", TEAM, tmp_path, runner=FakeGh(base_responses()))
     expected = (scratch / SUMMARY_FILENAME).read_text(encoding="utf-8")
     (scratch / SUMMARY_FILENAME).unlink()
+    (scratch / EVIDENCE_DB_FILENAME).unlink()
 
     def forbidden_collect(*args: object, **kwargs: object) -> LiveEvidenceResult:
         raise AssertionError("--summary must reuse the saved dumps instead of calling gh")
@@ -758,9 +792,14 @@ def test_summary_cli_regenerates_from_the_saved_dumps_without_gh(tmp_path: Path)
     status = collect_run(["A2", TEAM, "--summary"], root=tmp_path, out=lines.append, collect=forbidden_collect)
 
     assert status == 0
-    assert lines == expected.splitlines()
+    assert lines == expected.splitlines() + [
+        f"  evidence.sqlite: {len(SCHEMA_TABLES)} tables, 1 issue, 1 pull request -> "
+        f"itpd-assignments-feedback/A2/work/{TEAM}/{EVIDENCE_DB_FILENAME}"
+    ]
     assert (scratch / SUMMARY_FILENAME).read_text(encoding="utf-8") == expected
     assert (scratch / SUMMARY_FILENAME).stat().st_mode & 0o777 == 0o600
+    assert (scratch / EVIDENCE_DB_FILENAME).is_file()
+    assert (scratch / EVIDENCE_DB_FILENAME).stat().st_mode & 0o777 == 0o600
 
 
 def test_summary_cli_fails_cleanly_when_the_dumps_are_missing(tmp_path: Path) -> None:

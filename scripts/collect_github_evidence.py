@@ -13,6 +13,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
+from tools.grader_tools.evidence_sqlite import (
+    EvidenceDatabaseError,
+    write_evidence_database,
+)
 from tools.grader_tools.live_evidence import (
     LiveEvidenceError,
     LiveEvidenceResult,
@@ -26,12 +30,13 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Collect labels, issues, pull requests, runs, commits, milestones, releases, and tags for "
             "one team into itpd-assignments-feedback/<assignment>/work/<team_dir>/, write a bounded "
-            "summary.md digest, and print a compact summary. A submission with no resolvable snapshot "
-            "is a judged outcome: the script prints 'result: skipped (no snapshot)' and exits 0. "
-            "With --issue-fields it instead writes issue-fields.json, one row per issue with its type, "
-            "milestone, assignees, and field values, from one paginated REST list call; that mode is "
-            "not combined with --summary, --issues, or --paths. With --summary it rebuilds and prints "
-            "the digest from the saved dumps and never calls gh."
+            "summary.md digest and an evidence.sqlite projection, and print a compact summary. A "
+            "submission with no resolvable snapshot is a judged outcome: the script prints 'result: "
+            "skipped (no snapshot)' and exits 0. With --issue-fields it instead writes issue-fields.json, "
+            "one row per issue with its type, milestone, assignees, and field values, from one paginated "
+            "REST list call; that mode is not combined with --summary, --issues, or --paths. With "
+            "--summary it rebuilds and prints the digest and evidence.sqlite from the saved dumps and "
+            "never calls gh."
         )
     )
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
@@ -58,13 +63,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Write issue-fields.json: one row per issue with its type, milestone, assignees, and field "
             "values from one paginated REST list call, skipping pull requests; does not rewrite the "
-            "other dumps"
+            "other dumps, then rebuild evidence.sqlite from the saved dumps"
         ),
     )
     mode.add_argument(
         "--summary",
         action="store_true",
-        help="Rebuild summary.md from the dumps already in the team work directory and print it; never calls gh",
+        help=(
+            "Rebuild summary.md and evidence.sqlite from the dumps already in the team work directory "
+            "and print the digest; never calls gh"
+        ),
     )
     return parser
 
@@ -79,12 +87,14 @@ def run(
     args = build_parser().parse_args(argv)
     if args.summary:
         try:
-            _, digest = regenerate_evidence_summary(args.assignment, args.team_dir, root=root)
-        except LiveEvidenceError as exc:
+            summary_path, digest = regenerate_evidence_summary(args.assignment, args.team_dir, root=root)
+            database = write_evidence_database(summary_path.parent)
+        except (LiveEvidenceError, EvidenceDatabaseError) as exc:
             out(f"ERROR: {exc}")
             return 2
         for line in digest.splitlines():
             out(line)
+        out(database.summary_line(root))
         return 0
     if args.issue_fields and (args.issues or args.paths):
         out("ERROR: --issue-fields cannot be combined with --issues or --paths")
