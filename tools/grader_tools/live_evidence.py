@@ -46,6 +46,7 @@ from tools.grader_tools.submission_pdf import (
     PDF_INFO_FILENAME,
     CommandResult,
     run_gh,
+    week_mismatch_warning,
 )
 
 LABEL_FIELDS = ("name", "description")
@@ -459,6 +460,30 @@ def snapshot_target(payload: dict[str, object]) -> tuple[str, str] | None:
     return None
 
 
+def _stored_int(payload: Mapping[str, object], key: str) -> int | None:
+    value = payload.get(key)
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    return None
+
+
+def permalink_week_warning(payload: Mapping[str, object], assignment: str) -> str | None:
+    """The ``warn:`` line when a saved ``pdf-info.json`` records a week mismatch."""
+    if payload.get("permalink_week_mismatch") is not True:
+        return None
+    expected = _stored_int(payload, "expected_week")
+    if expected is None:
+        config_week = ASSIGNMENT_CONFIG.get(assignment, {}).get("week")
+        expected = config_week if isinstance(config_week, int) else None
+    path = payload.get("permalink_path")
+    return week_mismatch_warning(
+        assignment,
+        _stored_int(payload, "permalink_week"),
+        expected,
+        path if isinstance(path, str) and path else None,
+    )
+
+
 def stop_summary(assignment: str, team_dir: str, info_path: Path, root: Path) -> tuple[str, ...]:
     """The judged outcome for a submission with no resolvable snapshot."""
     return (
@@ -478,11 +503,14 @@ def build_evidence_digest(
     repo: str | None = None,
     sha: str | None = None,
     cap: int = SUMMARY_LINE_CAP,
+    permalink_warning: str | None = None,
 ) -> str:
     """Render the bounded digest of the saved dumps, capped at ``cap`` lines."""
     lines = [f"# Evidence digest: {assignment} / {team_dir}"]
     if repo and sha:
         lines.append(f"- Repository: {repo} @ {sha}")
+    if permalink_warning:
+        lines.append(permalink_warning)
     lines.extend(
         [
             f"- Regenerate from the saved dumps: "
@@ -702,19 +730,39 @@ def regenerate_evidence_summary(
         )
 
     repo, sha = _stored_snapshot_target(work_dir)
-    digest = build_evidence_digest(dumps, assignment=assignment, team_dir=team_dir, repo=repo, sha=sha)
+    warning = _stored_permalink_warning(work_dir, assignment)
+    digest = build_evidence_digest(
+        dumps,
+        assignment=assignment,
+        team_dir=team_dir,
+        repo=repo,
+        sha=sha,
+        permalink_warning=warning,
+    )
     return write_summary(work_dir, digest), digest
 
 
-def _stored_snapshot_target(work_dir: Path) -> tuple[str | None, str | None]:
+def _stored_pdf_info(work_dir: Path) -> dict[str, object] | None:
     try:
         payload = json.loads((work_dir / PDF_INFO_FILENAME).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return None, None
-    if not isinstance(payload, dict):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _stored_snapshot_target(work_dir: Path) -> tuple[str | None, str | None]:
+    payload = _stored_pdf_info(work_dir)
+    if payload is None:
         return None, None
     target = snapshot_target(payload)
     return target if target is not None else (None, None)
+
+
+def _stored_permalink_warning(work_dir: Path, assignment: str) -> str | None:
+    payload = _stored_pdf_info(work_dir)
+    if payload is None:
+        return None
+    return permalink_week_warning(payload, assignment)
 
 
 def collect_github_evidence(
@@ -736,7 +784,8 @@ def collect_github_evidence(
 
     work_dir = root / FEEDBACK_ROOT / assignment / "work" / team_dir
     info_path = work_dir / PDF_INFO_FILENAME
-    target = snapshot_target(load_pdf_info(info_path))
+    pdf_info = load_pdf_info(info_path)
+    target = snapshot_target(pdf_info)
     if target is None:
         return LiveEvidenceResult(
             assignment=assignment,
@@ -749,6 +798,7 @@ def collect_github_evidence(
             skipped=True,
         )
     repo, sha = target
+    permalink_warning = permalink_week_warning(pdf_info, assignment)
 
     files: list[EvidenceFile] = []
     summary = [f"{assignment} / {team_dir}", f"  repo: {repo} @ {sha}"]
@@ -793,7 +843,14 @@ def collect_github_evidence(
         dump_values[filename] = value
         record(label, dump_path, _record_count(value))
 
-    digest = build_evidence_digest(dump_values, assignment=assignment, team_dir=team_dir, repo=repo, sha=sha)
+    digest = build_evidence_digest(
+        dump_values,
+        assignment=assignment,
+        team_dir=team_dir,
+        repo=repo,
+        sha=sha,
+        permalink_warning=permalink_warning,
+    )
     digest_path = write_summary(work_dir, digest)
     summary.append(f"  summary: {len(digest.splitlines())} lines -> {_display(digest_path, root)}")
     database_path = _write_database(work_dir, summary, root)

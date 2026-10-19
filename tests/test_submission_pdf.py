@@ -26,6 +26,7 @@ from tools.grader_tools.submission_pdf import (
     parse_member_table,
     parse_pdf_uri_annotations,
     parse_pdftohtml_links,
+    permalink_week,
     read_pdf_metadata,
     rejoin_wrapped_urls,
     resolve_bare_sha_repo,
@@ -261,6 +262,8 @@ def test_fetch_team_snapshot_stops_cleanly_without_a_full_sha(tmp_path: Path) ->
     assert result.pdf_info["sha"] is None
     assert result.pdf_info["commit_exists"] is None
     assert result.pdf_info["snapshot_fetched"] is False
+    assert result.pdf_info["permalink_week"] is None
+    assert result.pdf_info["permalink_week_mismatch"] is False
     assert result.snapshot_dir.exists()
     assert list(result.snapshot_dir.iterdir()) == []
     payload = json.loads(result.pdf_info_path.read_text(encoding="utf-8"))
@@ -273,7 +276,7 @@ def test_fetch_team_snapshot_stops_cleanly_without_a_full_sha(tmp_path: Path) ->
 
 
 def test_fetch_team_snapshot_fetches_the_tarball(tmp_path: Path) -> None:
-    root = build_assignment_root(tmp_path, "A1", "submission-with-links.pdf")
+    root = build_assignment_root(tmp_path, "A2", "submission-with-links.pdf")
     calls: list[tuple[str, str]] = []
 
     def fake_check(repo: str, sha: str) -> CommitCheck:
@@ -285,22 +288,27 @@ def test_fetch_team_snapshot_fetches_the_tarball(tmp_path: Path) -> None:
         (snapshot_dir / "README.md").write_text("snapshot", encoding="utf-8")
 
     result = fetch_team_snapshot(
-        "A1",
+        "A2",
         "Team 1_x_assignsubmission_file",
         root,
         check_commit_fn=fake_check,
         fetch_snapshot_fn=fake_fetch,
     )
     assert calls == [("check", "example-org/example-repo"), ("fetch", "example-org/example-repo")]
+    assert result.week_mismatch is False
+    assert result.snapshot_fetched is True
     assert result.pdf_info["repo"] == "example-org/example-repo"
     assert result.pdf_info["sha"] == SHA
+    assert result.pdf_info["permalink_week"] == 2
+    assert result.pdf_info["expected_week"] == 2
+    assert result.pdf_info["permalink_week_mismatch"] is False
     assert result.pdf_info["snapshot_time"] == "2026-10-02T20:21:43Z"
     assert result.pdf_info["on_main"] is True
     assert result.pdf_info["snapshot_fetched"] is True
-    work_dir = root / "itpd-assignments-feedback" / "A1" / "work" / "Team 1_x_assignsubmission_file"
+    work_dir = root / "itpd-assignments-feedback" / "A2" / "work" / "Team 1_x_assignsubmission_file"
     assert result.snapshot_dir == work_dir / "snapshot"
     assert result.pdf_info_path == work_dir / "pdf-info.json"
-    assert result.pdf_info["snapshot_dir"] == "itpd-assignments-feedback/A1/work/Team 1_x_assignsubmission_file/snapshot"
+    assert result.pdf_info["snapshot_dir"] == "itpd-assignments-feedback/A2/work/Team 1_x_assignsubmission_file/snapshot"
     assert (result.snapshot_dir / "README.md").read_text(encoding="utf-8") == "snapshot"
     summary = "\n".join(result.summary_lines)
     assert "commit: exists; on_main=yes (ahead)" in summary
@@ -309,13 +317,13 @@ def test_fetch_team_snapshot_fetches_the_tarball(tmp_path: Path) -> None:
 
 
 def test_fetch_team_snapshot_skips_fetch_when_commit_is_missing(tmp_path: Path) -> None:
-    root = build_assignment_root(tmp_path, "A1", "submission-with-links.pdf")
+    root = build_assignment_root(tmp_path, "A2", "submission-with-links.pdf")
 
     def fail_fetch(*args, **kwargs):  # pragma: no cover - must not be called
         raise AssertionError("the tarball must not be fetched when the commit does not exist")
 
     result = fetch_team_snapshot(
-        "A1",
+        "A2",
         "Team 1_x_assignsubmission_file",
         root,
         check_commit_fn=lambda repo, sha: CommitCheck(False, None, None, None),
@@ -323,6 +331,7 @@ def test_fetch_team_snapshot_skips_fetch_when_commit_is_missing(tmp_path: Path) 
     )
     assert result.pdf_info["commit_exists"] is False
     assert result.pdf_info["snapshot_fetched"] is False
+    assert result.week_mismatch is False
     assert list(result.snapshot_dir.iterdir()) == []
     assert "commit: missing" in "\n".join(result.summary_lines)
 
@@ -502,9 +511,9 @@ def test_fetch_team_snapshot_repo_override_pairs_the_bare_sha(tmp_path: Path, mo
 
 
 def test_fetch_team_snapshot_ignores_the_override_when_the_pdf_names_a_repo(tmp_path: Path) -> None:
-    root = build_assignment_root(tmp_path, "A1", "submission-with-links.pdf")
+    root = build_assignment_root(tmp_path, "A2", "submission-with-links.pdf")
     result = fetch_team_snapshot(
-        "A1",
+        "A2",
         "Team 1_x_assignsubmission_file",
         root,
         repo="other/repo",
@@ -516,9 +525,9 @@ def test_fetch_team_snapshot_ignores_the_override_when_the_pdf_names_a_repo(tmp_
 
 
 def test_fetch_team_snapshot_rejects_a_malformed_repo_override(tmp_path: Path) -> None:
-    root = build_assignment_root(tmp_path, "A1", "submission-with-links.pdf")
+    root = build_assignment_root(tmp_path, "A2", "submission-with-links.pdf")
     with pytest.raises(SubmissionPdfError, match="org/repo"):
-        fetch_team_snapshot("A1", "Team 1_x_assignsubmission_file", root, repo="not-a-repo")
+        fetch_team_snapshot("A2", "Team 1_x_assignsubmission_file", root, repo="not-a-repo")
 
 
 def test_fetch_team_snapshot_cli_rejects_a_malformed_repo_option() -> None:
@@ -526,3 +535,184 @@ def test_fetch_team_snapshot_cli_rejects_a_malformed_repo_option() -> None:
 
     with pytest.raises(SystemExit):
         build_parser().parse_args(["A1", "Team 1_x_assignsubmission_file", "--repo", "not-a-repo"])
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("/reports/week-02/README.md", 2),
+        ("/reports/week-02", 2),
+        ("/reports/week-2/README.md", 2),
+        ("/reports/week-12/README.md", 12),
+        ("/reports/week-02/README.md#summary", 2),
+        ("/reports/README.md", None),
+        ("/reports/week-two/README.md", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_permalink_week_reads_the_week_segment(path: str | None, expected: int | None) -> None:
+    assert permalink_week(path) == expected
+
+
+TEAM_DIR = "Team 1_x_assignsubmission_file"
+WEEK_01_PERMALINK = f"https://github.com/override-org/override-repo/blob/{SHA}/reports/week-01/README.md"
+WEEK_02_PERMALINK = f"https://github.com/override-org/override-repo/blob/{SHA}/reports/week-02/README.md"
+
+
+def test_fetch_team_snapshot_stops_on_a_permalink_week_mismatch(tmp_path: Path) -> None:
+    root = build_assignment_root(tmp_path, "A1", "submission-with-links.pdf")
+
+    def fail(*args, **kwargs):  # pragma: no cover - must not be called
+        raise AssertionError("a wrong-week permalink must not reach the commit check or the snapshot fetch")
+
+    result = fetch_team_snapshot("A1", TEAM_DIR, root, check_commit_fn=fail, fetch_snapshot_fn=fail)
+    assert result.week_mismatch is True
+    assert result.snapshot_fetched is False
+    assert result.pdf_info["permalink_week"] == 2
+    assert result.pdf_info["expected_week"] == 1
+    assert result.pdf_info["permalink_week_mismatch"] is True
+    assert result.pdf_info["snapshot_fetched"] is False
+    assert result.pdf_info["commit_exists"] is None
+    summary = "\n".join(result.summary_lines)
+    assert "warn:" in summary
+    assert "week 2" in summary
+    assert "week 1" in summary
+    assert "week-report-and-submission" in summary
+    assert "--permalink" in summary
+    assert "reports/week-01/README.md" in summary
+    assert "commit: exists" not in summary
+    assert list(result.snapshot_dir.iterdir()) == []
+    work_dir = root / "itpd-assignments-feedback" / "A1" / "work" / TEAM_DIR
+    summary_path = work_dir / "summary.md"
+    assert summary_path.is_file()
+    summary_text = summary_path.read_text(encoding="utf-8")
+    assert summary_text.startswith("# Submission fetch: A1 / ")
+    assert "warn:" in summary_text
+    assert "week 2" in summary_text
+    assert "week 1" in summary_text
+    assert "--permalink" in summary_text
+    assert "reports/week-01/README.md" in summary_text
+    assert os.stat(result.pdf_info_path).st_mode & 0o777 == 0o600
+    assert os.stat(summary_path).st_mode & 0o777 == 0o600
+    payload = json.loads(result.pdf_info_path.read_text(encoding="utf-8"))
+    assert payload["permalink_week"] == 2
+    assert payload["expected_week"] == 1
+    assert payload["permalink_week_mismatch"] is True
+    assert payload["snapshot_fetched"] is False
+
+
+def test_fetch_team_snapshot_cli_returns_1_on_a_permalink_week_mismatch(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from scripts.fetch_team_snapshot import run as fetch_run
+
+    root = build_assignment_root(tmp_path, "A1", "submission-with-links.pdf")
+    status = fetch_run(["A1", TEAM_DIR], root=root)
+
+    captured = capsys.readouterr()
+    assert status == 1
+    assert "warn:" in captured.out
+    assert "week 2" in captured.out
+    assert "week 1" in captured.out
+    assert "--permalink" in captured.out
+
+
+def test_fetch_team_snapshot_permalink_override_proceeds(tmp_path: Path) -> None:
+    root = build_assignment_root(tmp_path, "A1", "submission-with-links.pdf")
+    calls: list[tuple[str, str]] = []
+
+    result = fetch_team_snapshot(
+        "A1",
+        TEAM_DIR,
+        root,
+        permalink=WEEK_01_PERMALINK,
+        check_commit_fn=lambda repo, sha: (
+            calls.append(("check", repo))
+            or CommitCheck(True, "2026-10-02T20:21:43Z", True, "ahead")
+        ),
+        fetch_snapshot_fn=lambda repo, sha, snapshot_dir: (
+            calls.append(("fetch", repo)),
+            (snapshot_dir / "README.md").write_text("snapshot", encoding="utf-8"),
+        ),
+    )
+    assert calls == [("check", "override-org/override-repo"), ("fetch", "override-org/override-repo")]
+    assert result.week_mismatch is False
+    assert result.snapshot_fetched is True
+    assert result.pdf_info["permalink"] == WEEK_01_PERMALINK
+    assert result.pdf_info["permalink_source"] == "operator"
+    assert result.pdf_info["permalink_week"] == 1
+    assert result.pdf_info["expected_week"] == 1
+    assert result.pdf_info["permalink_week_mismatch"] is False
+    assert result.pdf_info["repo"] == "override-org/override-repo"
+    assert result.pdf_info["snapshot_fetched"] is True
+    summary = "\n".join(result.summary_lines)
+    assert "source=operator (from --permalink)" in summary
+    assert "warn:" not in summary
+
+
+def test_fetch_team_snapshot_permalink_override_ignores_repo_with_a_note(tmp_path: Path) -> None:
+    root = build_assignment_root(tmp_path, "A1", "submission-with-links.pdf")
+    result = fetch_team_snapshot(
+        "A1",
+        TEAM_DIR,
+        root,
+        repo="other/repo",
+        permalink=WEEK_01_PERMALINK,
+        check_commit_fn=lambda repo, sha: CommitCheck(True, "2026-10-02T20:21:43Z", True, "ahead"),
+        fetch_snapshot_fn=lambda repo, sha, snapshot_dir: (snapshot_dir / "README.md").write_text("snapshot"),
+    )
+    assert result.pdf_info["repo"] == "override-org/override-repo"
+    assert result.pdf_info["permalink_source"] == "operator"
+    assert (
+        "note: --repo other/repo ignored; the permalink override names override-org/override-repo"
+        in "\n".join(result.summary_lines)
+    )
+
+
+def test_fetch_team_snapshot_wrong_week_permalink_override_still_stops(tmp_path: Path) -> None:
+    root = build_assignment_root(tmp_path, "A1", "submission-with-links.pdf")
+
+    def fail(*args, **kwargs):  # pragma: no cover - must not be called
+        raise AssertionError("the override still names the wrong week, so nothing may be fetched")
+
+    result = fetch_team_snapshot(
+        "A1",
+        TEAM_DIR,
+        root,
+        permalink=WEEK_02_PERMALINK,
+        check_commit_fn=fail,
+        fetch_snapshot_fn=fail,
+    )
+    assert result.week_mismatch is True
+    assert result.snapshot_fetched is False
+    assert result.pdf_info["permalink_source"] == "operator"
+    assert result.pdf_info["permalink_week"] == 2
+    assert result.pdf_info["expected_week"] == 1
+    assert result.pdf_info["snapshot_fetched"] is False
+    assert "warn:" in "\n".join(result.summary_lines)
+
+
+def test_fetch_team_snapshot_rejects_a_malformed_permalink_override(tmp_path: Path) -> None:
+    root = build_assignment_root(tmp_path, "A1", "submission-with-links.pdf")
+    with pytest.raises(SubmissionPdfError, match="--permalink"):
+        fetch_team_snapshot(
+            "A1",
+            TEAM_DIR,
+            root,
+            permalink=f"https://github.com/override-org/override-repo/blob/abc1234/reports/week-01/README.md",
+        )
+
+
+def test_fetch_team_snapshot_cli_returns_2_on_a_malformed_permalink_override(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from scripts.fetch_team_snapshot import run as fetch_run
+
+    root = build_assignment_root(tmp_path, "A1", "submission-with-links.pdf")
+    status = fetch_run(["A1", TEAM_DIR, "--permalink", "not-a-url"], root=root)
+
+    captured = capsys.readouterr()
+    assert status == 2
+    assert "ERROR:" in captured.out
+    assert "--permalink" in captured.out

@@ -70,11 +70,11 @@ class FakeGh:
         return CommandResult(returncode=0, stdout=self.responses[key], stderr="")
 
 
-def write_pdf_info(tmp_path: Path, repo: object = REPO, sha: object = SHA) -> Path:
+def write_pdf_info(tmp_path: Path, repo: object = REPO, sha: object = SHA, **extra: object) -> Path:
     scratch = tmp_path / "itpd-assignments-feedback" / "A2" / "work" / TEAM
     scratch.mkdir(parents=True)
     (scratch / "pdf-info.json").write_text(
-        json.dumps({"assignment": "A2", "team_dir": TEAM, "repo": repo, "sha": sha}),
+        json.dumps({"assignment": "A2", "team_dir": TEAM, "repo": repo, "sha": sha, **extra}),
         encoding="utf-8",
     )
     return scratch
@@ -777,6 +777,17 @@ def test_digest_caps_lines_and_makes_truncation_visible() -> None:
     assert "  - (+60 more milestones; see milestones.json.)" in milestone_only
     assert len(milestone_only.splitlines()) <= SUMMARY_LINE_CAP
 
+    warned = build_evidence_digest(
+        dumps,
+        assignment="A3",
+        team_dir="Team 1",
+        permalink_warning="warn: test week mismatch",
+    )
+    assert len(warned.splitlines()) == SUMMARY_LINE_CAP
+    assert "warn: test week mismatch" in warned.splitlines()
+    assert warned.splitlines()[1] == "warn: test week mismatch"
+    assert warned.splitlines()[-1].startswith("- Truncated at the ")
+
 
 def test_summary_cli_regenerates_from_the_saved_dumps_without_gh(tmp_path: Path) -> None:
     scratch = write_pdf_info(tmp_path)
@@ -800,6 +811,42 @@ def test_summary_cli_regenerates_from_the_saved_dumps_without_gh(tmp_path: Path)
     assert (scratch / SUMMARY_FILENAME).stat().st_mode & 0o777 == 0o600
     assert (scratch / EVIDENCE_DB_FILENAME).is_file()
     assert (scratch / EVIDENCE_DB_FILENAME).stat().st_mode & 0o777 == 0o600
+
+
+def test_summary_cli_repeats_a_permalink_week_mismatch(tmp_path: Path) -> None:
+    scratch = write_pdf_info(
+        tmp_path,
+        permalink_path="/reports/week-01/README.md",
+        permalink_week=1,
+        expected_week=2,
+        permalink_week_mismatch=True,
+    )
+    for filename in (
+        "issues.json",
+        "prs.json",
+        "runs_main.json",
+        "runs_sha.json",
+        "milestones.json",
+        "releases.json",
+        "tags.json",
+    ):
+        (scratch / filename).write_text("[]\n", encoding="utf-8")
+
+    lines: list[str] = []
+    status = collect_run(["A2", TEAM, "--summary"], root=tmp_path, out=lines.append)
+
+    digest = (scratch / SUMMARY_FILENAME).read_text(encoding="utf-8")
+    assert status == 0
+    assert any(line.startswith("warn:") for line in digest.splitlines())
+    assert "week 1" in digest
+    assert "week 2" in digest
+    assert "week-report-and-submission" in digest
+    assert digest.index("warn:") < digest.index("- Issues:")
+    assert lines == digest.splitlines() + [
+        f"  evidence.sqlite: {len(SCHEMA_TABLES)} tables, 0 issues, 0 pull requests -> "
+        f"itpd-assignments-feedback/A2/work/{TEAM}/{EVIDENCE_DB_FILENAME}"
+    ]
+    assert len(digest.splitlines()) <= SUMMARY_LINE_CAP
 
 
 def test_summary_cli_fails_cleanly_when_the_dumps_are_missing(tmp_path: Path) -> None:

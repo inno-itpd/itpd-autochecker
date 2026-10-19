@@ -53,7 +53,7 @@ Follow the operator request to choose one of these modes:
 
 The helper scripts share two contracts; never edit those files by hand:
 
-- `scripts/fetch_team_snapshot.py` writes `{TEAM_WORK}/pdf-info.json` (mode 0600) with keys `assignment`, `team_dir`, `pdf`, `pdf_path`, `page_count`, `recording_link`, `org`, `repo`, `sha`, `permalink`, `permalink_path`, `snapshot_time`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_fetched`, `snapshot_dir`, `github_usernames`, and `privacy_tokens` (`name_tokens`, `email_tokens`).
+- `scripts/fetch_team_snapshot.py` writes `{TEAM_WORK}/pdf-info.json` (mode 0600) with keys `assignment`, `team_dir`, `pdf`, `pdf_path`, `page_count`, `recording_link`, `org`, `repo`, `sha`, `permalink`, `permalink_path`, `permalink_week`, `expected_week`, `permalink_week_mismatch`, `permalink_source`, `snapshot_time`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_fetched`, `snapshot_dir`, `github_usernames`, and `privacy_tokens` (`name_tokens`, `email_tokens`).
 - `scripts/collect_github_evidence.py` writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json` beside it, plus the compact `summary.md` digest and the `evidence.sqlite` SQL projection, and, on request, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`, and, with `--issue-fields`, `issue-fields.json` with each issue's `type`, `milestone`, `assignees`, and `field_values`.
   Every collection rebuilds `evidence.sqlite`, and `--summary` rebuilds it and `summary.md` from the saved dumps without calling `gh`.
 - `scripts/scan_privacy.py` reads `pdf-info.json`, and `scripts/check_snapshot_links.py --issue-bodies` reads `issues.json`.
@@ -173,8 +173,20 @@ Runs, commits, tags, releases, comments, timelines, and edit history are not in 
    - the recording link;
    - the privacy confirmation;
    - anything else the assignment prompt asks for.
-8. Resolve the authoritative snapshot with `docs/grader-policy.md#submission-and-snapshot-rules`, reading `sha`, `repo`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_time`, and `snapshot_fetched` from `pdf-info.json`.
+
+   Operator override: when the fetcher stops on a wrong-week permalink, or the PDF carries a stale or broken link, rerun it with the right full GitHub permalink:
+
+   ```console
+   uv run python scripts/fetch_team_snapshot.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --permalink "https://github.com/<org>/<repo>/blob/<40-character-sha>/reports/week-NN/README.md"
+   ```
+
+   `--permalink` replaces the PDF permalink, requires a 40-character SHA, records `permalink_source=operator`, and lets the run continue; it does not repair a mismatch, because an override that still names the wrong week stops the same way.
+   When `--repo` is also given, the override's repository wins and the fetcher prints a note.
+8. Resolve the authoritative snapshot with `docs/grader-policy.md#submission-and-snapshot-rules`, reading `sha`, `repo`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_time`, `snapshot_fetched`, `permalink_week`, `expected_week`, and `permalink_week_mismatch` from `pdf-info.json`.
    - When `sha` is `null`, `commit_exists` is false, or `snapshot_fetched` is false, stop repository-dependent checks and say so.
+   - When `permalink_week_mismatch` is true, the PDF permalink names a different week than `expected_week`.
+     That is a submission shortfall in S12 (the week-report-and-submission segment; S8 in A1 and S9 in A2), and the fetcher has already stopped before the commit check and the snapshot fetch.
+     The snapshot still governs every file check once it is fetched, so request the right permalink from the operator and rerun the fetcher with `--permalink` instead of grading the wrong-week target.
    - Fallback check: `gh api repos/<org>/<repo>/commits/<sha> --jq .sha`.
 9. Only when the fetcher could not fetch the snapshot, do it by hand into an empty directory, so files from an earlier fetch do not remain:
 

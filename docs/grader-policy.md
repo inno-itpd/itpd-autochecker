@@ -49,6 +49,9 @@ There is no ZIP.
 
 - The PDF must carry a permalink to `reports/week-NN/README.md` at a full 40-character commit SHA.
   A 7-character abbreviation is not a permalink.
+- The permalink must name the assignment's week.
+  A wrong-week permalink stops the fetch instead of grading a wrong-week target: `scripts/fetch_team_snapshot.py` prints a `warn:` line, repeats it in `work/<team_dir>/summary.md`, records `permalink_week_mismatch`, skips the commit check and the snapshot fetch, and exits 1.
+  Judge the mismatch as a submission shortfall in the week-report-and-submission segment (S12 in A3, S9 in A2, S8 in A1), and request the right permalink with `scripts/fetch_team_snapshot.py A<N> "<team_dir>" --permalink <url>`; the snapshot fetched from that permalink still governs every file check.
 - The authoritative snapshot is that full SHA.
 - Fetch the snapshot from GitHub at that SHA (`gh api repos/<org>/<repo>/tarball/<sha>`) and use it as the offline evidence.
 - Do not require or report on a ZIP.

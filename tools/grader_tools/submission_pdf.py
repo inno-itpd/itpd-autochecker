@@ -25,6 +25,7 @@ from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROO
 
 PDF_INFO_FILENAME = "pdf-info.json"
 SNAPSHOT_DIRNAME = "snapshot"
+WORK_SUMMARY_FILENAME = "summary.md"
 PDF_SUFFIX = ".pdf"
 PAGE_NUMBER_PATTERN = re.compile(r'<page\s+number="(\d+)"')
 PDFINFO_PAGES_PATTERN = re.compile(r"^Pages:\s+(\d+)\s*$", re.MULTILINE)
@@ -38,6 +39,7 @@ GITHUB_PERMALINK_PATTERN = re.compile(
 )
 GITHUB_REPO_PATTERN = re.compile(r"https?://github\.com/(?P<org>[^/\s]+)/(?P<repo>[^/\s]+)")
 BARE_SHA_PATTERN = re.compile(r"(?<![0-9a-fA-F])(?P<sha>[0-9a-f]{40})(?![0-9a-fA-F])")
+WEEK_SEGMENT_PATTERN = re.compile(r"(?:^|/)week-(?P<week>\d{1,2})(?:/|$)")
 REPO_AT_SHA_PATTERN = re.compile(r"(?P<org>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)\s+at\s+(?P<sha>[0-9a-f]{40})")
 EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 RECORDING_HINT_PATTERN = re.compile(r"record|kickoff|meeting|validation|drive|zoom|youtu", re.IGNORECASE)
@@ -122,6 +124,8 @@ class SnapshotFetchResult:
     pdf_info_path: Path
     snapshot_dir: Path
     summary_lines: tuple[str, ...]
+    week_mismatch: bool = False
+    snapshot_fetched: bool = False
 
 
 def run_command(command: list[str], *, input_bytes: bytes | None = None) -> CommandResult:
@@ -326,6 +330,91 @@ def _path_score(path: str, primary_index: str) -> int:
     if clean == directory or clean.startswith(f"{directory}/"):
         return 2
     return 1 if clean else 0
+
+
+def permalink_week(path: str | None) -> int | None:
+    """Return the week named by a permalink path, or ``None`` when it names none.
+
+    ``/reports/week-02/README.md`` and ``/reports/week-02`` both yield ``2``;
+    a path without a ``week-NN`` segment, or no path at all, yields ``None``.
+    """
+    if not path:
+        return None
+    match = WEEK_SEGMENT_PATTERN.search(path.split("#", 1)[0])
+    return int(match.group("week")) if match is not None else None
+
+
+def parse_permalink_override(value: str) -> PdfPermalink:
+    """Parse the operator's full GitHub permalink, rejecting a malformed URL or SHA."""
+    cleaned = value.strip()
+    match = GITHUB_PERMALINK_PATTERN.fullmatch(cleaned)
+    if match is None:
+        raise SubmissionPdfError(
+            "--permalink must be a full GitHub permalink with a 40-character SHA, for example "
+            "https://github.com/org/repo/blob/<40-character-sha>/reports/week-03/README.md; "
+            f"got {value!r}"
+        )
+    return PdfPermalink(
+        url=cleaned,
+        org=match.group("org"),
+        repo=match.group("repo"),
+        sha=match.group("sha"),
+        path=(match.group("path") or "").rstrip(".,;:"),
+        source=OPERATOR_SOURCE,
+    )
+
+
+def week_mismatch_warning(
+    assignment: str,
+    permalink_week: int | None,
+    expected_week: int | None,
+    path: str | None = None,
+) -> str:
+    """The ``warn:`` line for a permalink that names the wrong assignment week."""
+    found = f"week {permalink_week}" if permalink_week is not None else "no named week"
+    expected = f"week {expected_week}" if expected_week is not None else "an unknown week"
+    where = f" ({path})" if path else ""
+    return (
+        f"warn: the submission permalink points at {found}{where}, but {assignment} expects {expected}; "
+        "stopping before the commit check and the snapshot fetch. "
+        "A wrong-week permalink is a submission shortfall in the assignment's "
+        "week-report-and-submission segment; the right permalink still governs every file check."
+    )
+
+
+def _rerun_with_permalink(assignment: str, team_dir: str, repo_full: str | None, primary_index: str) -> str:
+    """The rerun command that asks the operator for the correct-week permalink."""
+    repo = repo_full or "<org>/<repo>"
+    permalink = f"https://github.com/{repo}/blob/<40-character-sha>/{primary_index}"
+    return (
+        f'  rerun: uv run python scripts/fetch_team_snapshot.py {assignment} "{team_dir}" '
+        f"--permalink {permalink}"
+    )
+
+
+def _write_week_mismatch_summary(
+    work_dir: Path,
+    assignment: str,
+    team_dir: str,
+    warning: str,
+    rerun: str,
+) -> Path:
+    work_dir.mkdir(parents=True, exist_ok=True)
+    path = work_dir / WORK_SUMMARY_FILENAME
+    text = "\n".join(
+        [
+            f"# Submission fetch: {assignment} / {team_dir}",
+            "",
+            warning,
+            rerun.strip(),
+            "",
+        ]
+    )
+    temporary = path.with_name(f"{path.name}.tmp")
+    temporary.write_text(text, encoding="utf-8")
+    os.chmod(temporary, 0o600)
+    temporary.replace(path)
+    return path
 
 
 def _permalink_from_bare_sha(urls: list[str], text: str, sources: dict[str, str]) -> PdfPermalink | None:
@@ -614,6 +703,7 @@ def fetch_team_snapshot(
     root: Path = Path("."),
     *,
     repo: str | None = None,
+    permalink: str | None = None,
     check_commit_fn: Callable[[str, str], CommitCheck] = check_commit,
     fetch_snapshot_fn: Callable[[str, str, Path], None] = fetch_snapshot,
     resolve_repo_fn: Callable[[str], BareShaResolution] = resolve_bare_sha_repo,
@@ -623,6 +713,7 @@ def fetch_team_snapshot(
         raise SubmissionPdfError(f"unknown assignment: {assignment}")
     if repo is not None and not REPO_FULL_PATTERN.fullmatch(repo):
         raise SubmissionPdfError(f"--repo must be org/repo, got {repo!r}")
+    override = parse_permalink_override(permalink) if permalink is not None else None
     submission_dir = root / FEEDBACK_ROOT / assignment / "submissions" / team_dir
     if not submission_dir.is_dir():
         raise SubmissionPdfError(f"submission directory not found: {submission_dir}")
@@ -635,24 +726,34 @@ def fetch_team_snapshot(
         shutil.rmtree(snapshot_dir)
     snapshot_dir.mkdir(parents=True)
 
-    permalink = metadata.permalink
+    link = override or metadata.permalink
+    expected_week = config["week"]
+    found_week = permalink_week(link.path) if link is not None else None
+    week_mismatch = found_week is not None and found_week != expected_week
     commit: CommitCheck | None = None
     fetched = False
-    repo_full = permalink.repo_full if permalink else None
-    permalink_source = permalink.source if permalink else None
+    repo_full = link.repo_full if link else None
+    permalink_source = link.source if link else None
     summary = [f"{assignment} / {team_dir}", f"  pdf: {metadata.pdf_path.name} ({metadata.page_count} page(s))"]
-    if permalink is None:
+    if override is not None:
+        summary.append(
+            f"  permalink: repo={repo_full} sha={link.sha} "
+            f"path={link.path or '(root)'} source={permalink_source} (from --permalink)"
+        )
+        if repo is not None:
+            summary.append(f"  note: --repo {repo} ignored; the permalink override names {repo_full}")
+    elif link is None:
         summary.append("  permalink: none (no full 40-character SHA in the PDF)")
         summary.append("  commit: not checked; stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules")
     elif repo_full is None and repo is not None:
         repo_full = repo
         permalink_source = OPERATOR_SOURCE
-        summary.append(f"  permalink: repo={repo} sha={permalink.sha} path={permalink.path or '(root)'} source={permalink_source} (from --repo)")
+        summary.append(f"  permalink: repo={repo} sha={link.sha} path={link.path or '(root)'} source={permalink_source} (from --repo)")
     elif repo_full is None:
-        resolution = resolve_repo_fn(permalink.sha)
+        resolution = resolve_repo_fn(link.sha)
         if resolution.repo is None:
             summary.append(
-                f"  permalink: repo=unresolved sha={permalink.sha} path=(root) source={permalink_source}"
+                f"  permalink: repo=unresolved sha={link.sha} path=(root) source={permalink_source}"
             )
             summary.append(f"  repo resolution: {resolution.detail}")
             summary.append("  commit: not checked; stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules")
@@ -660,18 +761,24 @@ def fetch_team_snapshot(
             repo_full = resolution.repo
             permalink_source = GH_SEARCH_SOURCE
             summary.append(
-                f"  permalink: repo={repo_full} sha={permalink.sha} path=(root) source={permalink_source}"
+                f"  permalink: repo={repo_full} sha={link.sha} path=(root) source={permalink_source}"
             )
     else:
         summary.append(
-            f"  permalink: repo={repo_full} sha={permalink.sha} "
-            f"path={permalink.path or '(root)'} source={permalink_source}"
+            f"  permalink: repo={repo_full} sha={link.sha} "
+            f"path={link.path or '(root)'} source={permalink_source}"
         )
         if repo is not None and repo != repo_full:
             summary.append(f"  note: --repo {repo} ignored; the PDF names {repo_full}")
 
-    if permalink is not None and repo_full is not None:
-        commit = check_commit_fn(repo_full, permalink.sha)
+    if week_mismatch:
+        warning = week_mismatch_warning(assignment, found_week, expected_week, link.path)
+        rerun = _rerun_with_permalink(assignment, team_dir, repo_full, config["primary_index"])
+        summary.append(warning)
+        summary.append(rerun)
+        _write_week_mismatch_summary(work_dir, assignment, team_dir, warning, rerun)
+    elif link is not None and repo_full is not None:
+        commit = check_commit_fn(repo_full, link.sha)
         state = "exists" if commit.exists else "missing"
         on_main = "unknown" if commit.on_main is None else ("yes" if commit.on_main else "no")
         summary.append(
@@ -681,7 +788,7 @@ def fetch_team_snapshot(
         if not commit.exists:
             summary.append("  snapshot: not fetched; stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules")
         else:
-            fetch_snapshot_fn(repo_full, permalink.sha, snapshot_dir)
+            fetch_snapshot_fn(repo_full, link.sha, snapshot_dir)
             fetched = True
             summary.append(f"  snapshot: fetched {len(list(snapshot_dir.iterdir()))} top-level entries to {_relative(snapshot_dir, root)}")
 
@@ -702,9 +809,12 @@ def fetch_team_snapshot(
         "recording_link": metadata.recording_link,
         "org": repo_full.split("/", 1)[0] if repo_full else None,
         "repo": repo_full,
-        "sha": permalink.sha if permalink else None,
-        "permalink": (permalink.url or None) if permalink else None,
-        "permalink_path": (permalink.path or None) if permalink else None,
+        "sha": link.sha if link else None,
+        "permalink": (link.url or None) if link else None,
+        "permalink_path": (link.path or None) if link else None,
+        "permalink_week": found_week,
+        "expected_week": expected_week,
+        "permalink_week_mismatch": week_mismatch,
         "permalink_source": permalink_source,
         "snapshot_time": commit.snapshot_time if commit else None,
         "commit_exists": commit.exists if commit else None,
@@ -723,6 +833,8 @@ def fetch_team_snapshot(
         pdf_info_path=pdf_info_path,
         snapshot_dir=snapshot_dir,
         summary_lines=tuple(summary),
+        week_mismatch=week_mismatch,
+        snapshot_fetched=fetched,
     )
 
 
