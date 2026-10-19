@@ -6,6 +6,29 @@ You are reviewing one ITPD assignment team submission.
 `{TEAM_DIR}` is the team's submission directory name, for example `Team 3_12345_assignsubmission_file`.
 Run every command from the repository root.
 
+## Environment
+
+Every Python command in the review uses the same invocation, chosen once with this probe:
+
+```console
+.venv/bin/python -c "import sys" >/dev/null 2>&1 && echo ".venv/bin/python" || echo "uv run python"
+```
+
+- `.venv/bin/python` runs the repository virtualenv directly.
+- `uv run python` runs the same project environment through uv.
+
+Both are valid invocations for this project; use the one the probe prints, and do not mix them in one review.
+The command examples below show `.venv/bin/python`; when the probe prints `uv run python`, substitute it in every command for the whole review.
+
+`uv run` can fail for two independent reasons. Diagnose which one you have; the remedies differ:
+
+- **Read-only uv cache.** uv reports `Could not acquire lock` or `Read-only file system (os error 30)` under `~/.cache/uv`, and never reached the interpreter.
+  Run uv from the checkout, where `uv.toml` puts the cache in `.local/uv-cache`, or set `UV_CACHE_DIR` to a writable directory.
+  `uv run --no-cache` does not help: uv still creates its temporary files in the cache directory.
+- **Unreadable platform in the Nix Python.** uv reports `Unknown operating system: ''` from its platform probe, because the Nix Python's `sysconfig` build data is broken.
+  Use `.venv/bin/python`, or repair the Python and dev-shell variables (`_PYTHON_HOST_PLATFORM`, `_PYTHON_SYSCONFIGDATA_NAME`).
+  A cache override cannot fix this cause, so never present it as the complete fix.
+
 ## Modes
 
 Follow the operator request to choose one of these modes:
@@ -17,8 +40,8 @@ Follow the operator request to choose one of these modes:
    - Read the existing `agent-feedback.md` first.
    - Refresh only the requested segments plus any segment whose status depends on the same newly checked artifact.
    - Apply instructor notes directly when the operator provides them.
-   - Patch with `uv run python scripts/regrade_feedback_segments.py` using a structured `segment_updates` payload.
-     Use `uv run python scripts/patch_feedback_report.py` as the low-level fallback.
+   - Patch with `.venv/bin/python scripts/regrade_feedback_segments.py` using a structured `segment_updates` payload.
+     Use `.venv/bin/python scripts/patch_feedback_report.py` as the low-level fallback.
 3. `segment inspect`
    - Used when the operator asks what the grader currently sees for specific segments.
    - Read the existing `agent-feedback.md` first and do not edit any files.
@@ -38,10 +61,32 @@ The helper scripts share two contracts; never edit those files by hand:
 
 - `scripts/fetch_team_snapshot.py` writes `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/pdf-info.json` (mode 0600) with keys `assignment`, `team_dir`, `pdf`, `pdf_path`, `page_count`, `recording_link`, `org`, `repo`, `sha`, `permalink`, `permalink_path`, `snapshot_time`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_fetched`, `snapshot_dir`, `github_usernames`, and `privacy_tokens` (`name_tokens`, `email_tokens`).
 - `scripts/collect_github_evidence.py` writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json` beside it, plus the compact `summary.md` digest, and, on request, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`.
-- Read `summary.md` first: it carries the issue counts, the pull-request numbers, the failing runs, the tags, and each milestone's due date with its open and closed issue counts, in at most 60 lines.
-- Open a dump only through a bounded projection that prints at most about 40 lines (`head -n 40`, a `jq` projection, or `rg`), and never `cat` a full dump.
-  The dumps are large: `commits.json` reached 1.35 MB and `prs.json` 284 KB, and reading one whole has killed grader runs.
 - `scripts/scan_privacy.py` reads `pdf-info.json`, and `scripts/check_snapshot_links.py --issue-bodies` reads `issues.json`.
+
+## Context budget
+
+These rules override any step that would otherwise read a whole dump or emit unbounded output.
+
+Start with the bounded digest: read `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/summary.md` first.
+It carries the issue counts, the pull-request numbers, the failing runs, the tags, and each milestone's due date with its open and closed issue counts, in at most 60 lines.
+
+The dumps are large: `commits.json` reached 1.35 MB and `prs.json` 284 KB, and reading one whole has killed grader runs.
+Never read a whole dump into context.
+Open one only through a bounded projection that prints at most about 40 lines, for example:
+
+```console
+head -n 40 "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/milestones.json"
+rg -n '"number"|"state"|"title"' "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/issues.json" | head -n 40
+```
+
+A `jq` projection works too, but end it with `| head -n 40`: a filter over a large dump can still print thousands of lines.
+
+- Prefer four small projections over one large read: ask a narrow question, project only the fields that answer it, cap the output, and move on.
+- Crash-safe rule: if a command's output is unexpectedly large, stop, narrow the command, and continue.
+  Do not scroll or re-read it; a stopped run loses nothing, and an overrun run can lose the whole review.
+- Never re-read a file you already summarized.
+  Rely on `summary.md` or your own notes and projections; re-reading spends the same budget twice.
+- The helper scripts print counts and paths only, so they are safe to run and re-run.
 
 ## Steps
 
@@ -58,12 +103,12 @@ The helper scripts share two contracts; never edit those files by hand:
 5. Read every file listed in its `## Authoritative sources` section.
    They live under `{ASSIGNMENT_DIR}/itpd/`, pinned at the commit the assignment is reviewed against.
 6. In `partial regrade` or `segment inspect` mode, read the current report.
-   For a structured view, run `uv run python scripts/inspect_feedback_segments.py {ASSIGNMENT_DIR} <agent-feedback.md> S<n> ...`.
+   For a structured view, run `.venv/bin/python scripts/inspect_feedback_segments.py {ASSIGNMENT_DIR} <agent-feedback.md> S<n> ...`.
    Add `--fresh-payload <payload.json> --format text` to compare saved and fresh state.
 7. Run the submission fetcher, which reads the PDF, checks the commit, and fetches the snapshot in one pass:
 
    ```console
-   uv run python scripts/fetch_team_snapshot.py {ASSIGNMENT_DIR} {TEAM_DIR}
+   .venv/bin/python scripts/fetch_team_snapshot.py {ASSIGNMENT_DIR} {TEAM_DIR}
    ```
 
    It prefers the PDF that carries the full-SHA permalink, records the team number, repository, permalink, full SHA, recording link, page count, and the member name/email tokens in `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/pdf-info.json`, checks that the commit exists and is on `main`, and refetches the snapshot into `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot/`.
@@ -99,7 +144,7 @@ The helper scripts share two contracts; never edit those files by hand:
     Check the snapshot's relative links, heading anchors, and pre-cut research anchors:
 
     ```console
-    uv run python scripts/check_snapshot_links.py "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot"
+    .venv/bin/python scripts/check_snapshot_links.py "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/snapshot"
     ```
 
     After step 11, add `--issue-bodies "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/issues.json"` to check anchors referenced from issue bodies; it reports pre-cut `#(alt|gap|vp)-NN-` anchors separately.
@@ -108,39 +153,31 @@ The helper scripts share two contracts; never edit those files by hand:
 11. Collect the live GitHub evidence the assignment prompt asks for:
 
     ```console
-    uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} [--issues <n> ...] [--paths <path> ...]
+    .venv/bin/python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} [--issues <n> ...] [--paths <path> ...]
     ```
 
     It reads `pdf-info.json` and writes the paginated dumps into the team work directory: `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, and `tags.json`, and, for each `--issues <n>`, `issues/<n>.comments.json`, `issues/<n>.timeline.json`, and `issues/<n>.edits.json`, and, for each `--paths <path>`, `paths/<path>.json`, plus the bounded `summary.md` digest.
-    Read `summary.md` first: it carries the issue counts, the pull-request numbers, the failing runs, the tags, and each milestone's due date with its open and closed issue counts.
-    Then open a dump only through a bounded projection that prints at most about 40 lines, for example:
-
-    ```console
-    head -n 40 "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/milestones.json"
-    rg -n '"number"|"state"|"title"' "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/issues.json" | head -n 40
-    ```
-
-    Never `cat` a full dump: `commits.json` reached 1.35 MB and `prs.json` 284 KB, and reading one whole can kill the run.
+    Read `summary.md` first, then open a dump only through the bounded projections in `## Context budget`.
     Regenerate the digest from the saved dumps without calling `gh`:
 
     ```console
-    uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} --summary
+    .venv/bin/python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} {TEAM_DIR} --summary
     ```
 
-    Work from `summary.md` and the bounded projections instead of re-running `gh`; the collector prints counts and paths only.
+    Work from the saved evidence instead of re-running `gh`; the collector prints counts and paths only.
     Fallback: the raw `gh` and `jq` commands in `{ASSIGNMENT_DIR}/grading_prompt.md`, for fields the collector does not cover.
     Follow `docs/grader-policy.md#live-github-evidence`.
 12. For recordings and other consumer-hosted media, make one access check only.
     Scan the snapshot for private-only material:
 
     ```console
-    uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR}
+    .venv/bin/python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR}
     ```
 
     It reads `pdf-info.json`, checks emails, phone numbers, `.env` and key files, recording links outside meeting artifacts, and the PDF member name tokens, and reports each finding by path and kind only; exit code 1 means it found something.
     Fallback: `grep -rnE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'` and the assignment prompt's file-name checks.
 13. Judge each segment independently with the status guide in `{ASSIGNMENT_DIR}/grading_prompt.md`.
-    Use `uv run python scripts/image_info.py <files>` to read a screenshot's or diagram's dimensions, byte size, and PNG transparency when the assignment prompt makes it matter.
+    Use `.venv/bin/python scripts/image_info.py <files>` to read a screenshot's or diagram's dimensions, byte size, and PNG transparency when the assignment prompt makes it matter.
 14. Set `Evidence gaps` per segment, then derive `Manual review required` and the overall assessment counts.
 
 ## Output
@@ -151,7 +188,7 @@ The helper scripts share two contracts; never edit those files by hand:
   Add the `summary`, `strengths`, and `main_issues_to_fix` bullets once the statuses are decided, then write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md` in the format from `docs/grading-feedback-format.md`, or render it from the payload:
 
   ```console
-  uv run python scripts/render_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/payload.json"
+  .venv/bin/python scripts/render_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/payload.json"
   ```
 
   The payload shape is documented in the script docstring.
@@ -161,21 +198,21 @@ The helper scripts share two contracts; never edit those files by hand:
 - Validate it, and fix it until it passes:
 
   ```console
-  uv run python scripts/check_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
+  .venv/bin/python scripts/check_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
   ```
 
   It runs the report validator and `markdownlint-cli2` together.
-  Fallback: `uv run python scripts/validate_feedback_report.py {ASSIGNMENT_DIR} <agent-feedback.md>` and `markdownlint-cli2 <agent-feedback.md>`.
+  Fallback: `.venv/bin/python scripts/validate_feedback_report.py {ASSIGNMENT_DIR} <agent-feedback.md>` and `markdownlint-cli2 <agent-feedback.md>`.
 - Scan the finished report for private-only material:
 
   ```console
-  uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR} --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
+  .venv/bin/python scripts/scan_privacy.py {ASSIGNMENT_DIR} {TEAM_DIR} --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
   ```
 
 - In `partial regrade` mode, prefer:
 
   ```console
-  uv run python scripts/regrade_feedback_segments.py {ASSIGNMENT_DIR} <agent-feedback.md> <payload.json> S<n> ...
+  .venv/bin/python scripts/regrade_feedback_segments.py {ASSIGNMENT_DIR} <agent-feedback.md> <payload.json> S<n> ...
   ```
 
   The payload format is `{"segment_updates": {"S<n>": {"status", "evidence_gaps", "evidence", "verified_shortfalls", "unverified_checks"}}, "unresolved_evidence_gaps": {"S<n>": ["..."]}}`.
@@ -184,13 +221,19 @@ The helper scripts share two contracts; never edit those files by hand:
 
 ## Return value
 
-Return exactly one line for `full review` and `partial regrade`:
+Return exactly one line before you finish, including on partial success.
+
+For `full review` and `partial regrade`, when a report was written, return:
 
 ```text
-{TEAM_DIR}: OK met <n> · partial <n> · missing <n> · unverified <n> — manual review <yes|no>
+{TEAM_DIR}: OK met <n> · partial <n> · missing <n> · unverified <n> — manual review <yes|no> — report itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md
 ```
 
-or
+Substitute the placeholders so the line names the exact path written, not a pattern and not the work directory.
+Emit this line whenever the report exists on disk; when a later check failed after the write, append `— <check> failed` so the failure is not silent.
+A written report is a partial success, not a failure.
+
+Only when no report was written, return:
 
 ```text
 {TEAM_DIR}: FAIL — <brief reason>
