@@ -35,7 +35,13 @@
               inputs.backlog-md.packages.${system}.default
             ];
             shellHook = ''
-              export BACKLOG_CWD="$PWD"
+              # Do not export BACKLOG_CWD here: shellHook sees the directory
+              # `nix develop` was invoked from, not the checkout, so the value is
+              # redundant inside the repository and wrong outside it. Clear any
+              # stale BACKLOG_CWD inherited from the launching shell instead, and
+              # let backlog resolve the project from its cwd; .envrc pins the
+              # checkout root for direnv users.
+              unset BACKLOG_CWD
 
               # UV_PYTHON pins the interpreter so uv neither downloads one nor
               # picks a different Python. UV_PYTHON_DOWNLOADS=never would break
@@ -54,10 +60,12 @@
                 export _PYTHON_SYSCONFIGDATA_NAME=_sysconfigdata__linux_x86_64-linux-gnu
               fi
 
-              # Do not pick UV_CACHE_DIR here: shellHook runs from the flake
-              # store, not the checkout, and a static path would break a moved
-              # checkout. uv.toml at the repository root sets
-              # cache-dir = ".local/uv-cache" relative to the project instead.
+              # Do not pick UV_CACHE_DIR here either: shellHook runs in the
+              # directory `nix develop` was invoked from, not the checkout, so a
+              # relative path would resolve against the wrong root. uv.toml at
+              # the repository root sets cache-dir = ".local/uv-cache" relative
+              # to the project, and .envrc relocates XDG_CACHE_HOME so nix can
+              # fetch inside DSH's workspace-write sandbox.
             '';
           };
         };

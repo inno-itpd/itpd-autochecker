@@ -16,6 +16,11 @@ __pycache__/
 .direnv/
 result
 
+# Bun (the backlog binary) falls back to ./node_modules/.cache when $HOME is
+# read-only; BUN_INSTALL_CACHE_DIR in .envrc avoids that, and nothing here is
+# installed by the repo itself.
+node_modules/
+
 # Editors
 .vscode/
 .idea/
