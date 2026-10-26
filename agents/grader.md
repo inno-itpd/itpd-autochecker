@@ -160,6 +160,12 @@ Runs, commits, tags, releases, comments, timelines, and edit history are not in 
    It prints counts and paths only, so real names and emails never leave the work directory.
    Do not copy real names or emails into any output.
 
+   When the submission directory holds no PDF and one Markdown file instead, run the Markdown wrapper fetcher, which writes the same `pdf-info.json` and fetches the snapshot:
+
+   ```console
+   uv run python scripts/fetch_markdown_snapshot.py {ASSIGNMENT_DIR} "{TEAM_DIR}"
+   ```
+
    Fallback when the fetcher cannot read the PDF:
 
    ```console
