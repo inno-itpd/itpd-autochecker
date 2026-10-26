@@ -19,7 +19,7 @@ TEAM_DIR = "Team 5 - TmpTeam_12345_assignsubmission_file (1)"
 ASSIGNMENT_DIR = "A3"
 TEAM_WORK = f"/repo/itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
 ASSIGNMENT_PROMPTS = tuple(
-    ROOT / assignment / "grading_prompt.md" for assignment in ("A1", "A2", "A3")
+    ROOT / assignment / "grading_prompt.md" for assignment in ("A1", "A2", "A3", "A4")
 )
 POLICY = ROOT / "docs" / "grader-policy.md"
 TEAM_DIR_PLACEHOLDER = "<team_dir>"

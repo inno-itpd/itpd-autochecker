@@ -247,7 +247,7 @@ def test_cli_exits_two_for_an_unknown_assignment(tmp_path: Path) -> None:
     exit_code = run(["A9"], root=make_root(tmp_path), out=lines.append)
 
     assert exit_code == 2
-    assert lines == ["ERROR: unknown assignment: A9; known: A1, A2, A3"]
+    assert lines == ["ERROR: unknown assignment: A9; known: A1, A2, A3, A4"]
 
 
 def test_cli_exits_two_for_a_missing_feedback_directory(tmp_path: Path) -> None:

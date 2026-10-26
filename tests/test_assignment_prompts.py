@@ -6,7 +6,7 @@ import re
 import pytest
 
 from tests.conftest import ROOT
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
+from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, issue_cutoff_for
 
 SEGMENT_LINE = re.compile(r"^- S(\d+): (.+)$", re.MULTILINE)
 STATUS_HEADING = re.compile(r"^### S(\d+) — (.+)$", re.MULTILINE)
@@ -20,6 +20,15 @@ A3_SPRINT_HARD_DEADLINES = {
     "SPRINT-08": "2026-11-20",
     "SPRINT-09": "2026-11-27",
 }
+A4_SPRINT_04_DUE_DATES = ("2026-10-24", "2026-10-25", "2026-10-26")
+A4_LATER_SPRINT_DUE_DATES = {
+    "SPRINT-05": "2026-10-31",
+    "SPRINT-06": "2026-11-07",
+    "SPRINT-07": "2026-11-14",
+    "SPRINT-08": "2026-11-21",
+    "SPRINT-09": "2026-11-28",
+}
+A4_TEAM_2 = "Team 2 - OK_10938_assignsubmission_file"
 A3_STALE_SPRINT_DEADLINES = {
     "2026-10-29": "2026-10-30",
     "2026-11-05": "2026-11-06",
@@ -94,12 +103,14 @@ def test_extractor_wrapper_exists(assignment: str) -> None:
 def test_assignment_windows_are_innopolis_timestamps(assignment: str) -> None:
     config = ASSIGNMENT_CONFIG[assignment]
     start = datetime.fromisoformat(config["week_window_start"])
-    cutoff = datetime.fromisoformat(config["issue_cutoff"])
+    cutoffs = [config["issue_cutoff"], *config.get("team_issue_cutoffs", {}).values()]
     assert start.utcoffset() == timedelta(hours=3)
-    assert cutoff.utcoffset() == timedelta(hours=3)
     assert start.time() == time(0, 0)
-    assert cutoff.time() == time(23, 59, 59)
-    assert start < cutoff
+    for cutoff_value in cutoffs:
+        cutoff = datetime.fromisoformat(cutoff_value)
+        assert cutoff.utcoffset() == timedelta(hours=3)
+        assert cutoff.time() == time(23, 59, 59)
+        assert start < cutoff
 
 
 def test_assignment_windows_match_the_published_schedule() -> None:
@@ -109,6 +120,19 @@ def test_assignment_windows_match_the_published_schedule() -> None:
     assert ASSIGNMENT_CONFIG["A2"]["issue_cutoff"] == "2026-10-10T23:59:59+03:00"
     assert ASSIGNMENT_CONFIG["A3"]["week_window_start"] == "2026-10-09T00:00:00+03:00"
     assert ASSIGNMENT_CONFIG["A3"]["issue_cutoff"] == "2026-10-17T23:59:59+03:00"
+    assert ASSIGNMENT_CONFIG["A4"]["week_window_start"] == "2026-10-16T00:00:00+03:00"
+
+
+def test_a4_effective_deadline_carries_the_extension() -> None:
+    assert ASSIGNMENT_CONFIG["A4"]["issue_cutoff"] == "2026-10-25T23:59:59+03:00"
+    assert ASSIGNMENT_CONFIG["A4"]["team_issue_cutoffs"] == {
+        A4_TEAM_2: "2026-10-26T23:59:59+03:00",
+    }
+    assert issue_cutoff_for("A4", A4_TEAM_2) == "2026-10-26T23:59:59+03:00"
+    assert issue_cutoff_for("A4", "Team 1 - Absolute Cinema_10937_assignsubmission_file") == (
+        "2026-10-25T23:59:59+03:00"
+    )
+    assert issue_cutoff_for("A4", "unknown team") == "2026-10-25T23:59:59+03:00"
 
 
 def test_a2_prompt_carries_the_config_issue_cutoff() -> None:
@@ -119,6 +143,13 @@ def test_a2_prompt_carries_the_config_issue_cutoff() -> None:
 def test_a3_prompt_carries_the_config_issue_cutoff() -> None:
     text = (ROOT / "A3" / "grading_prompt.md").read_text(encoding="utf-8")
     assert ASSIGNMENT_CONFIG["A3"]["issue_cutoff"] in text
+
+
+def test_a4_prompt_carries_every_effective_cutoff() -> None:
+    text = (ROOT / "A4" / "grading_prompt.md").read_text(encoding="utf-8")
+    assert ASSIGNMENT_CONFIG["A4"]["issue_cutoff"] in text
+    assert ASSIGNMENT_CONFIG["A4"]["team_issue_cutoffs"][A4_TEAM_2] in text
+    assert A4_TEAM_2 in text
 
 
 @pytest.mark.parametrize("assignment", sorted(ASSIGNMENT_CONFIG))
@@ -148,6 +179,33 @@ def test_a3_sprint_deadlines_reject_a_restored_soft_date(stale_date: str) -> Non
     restored = prompt.replace(hard_date, stale_date)
     assert restored != prompt
     assert _prompt_sprint_deadlines(restored) != A3_SPRINT_HARD_DEADLINES
+
+
+def test_a4_sprint_due_dates_match_the_assignment() -> None:
+    prompt = (ROOT / "A4" / "grading_prompt.md").read_text(encoding="utf-8")
+    section = prompt.split("### S1 ", 1)[1].split("\n### ", 1)[0]
+    assert "`SPRINT-04`" in section
+    assert "`SPRINT-05` to `SPRINT-09`" in section
+    for due in A4_SPRINT_04_DUE_DATES:
+        assert due in section
+    for due in A4_LATER_SPRINT_DUE_DATES.values():
+        assert due in section
+
+    assignment = ROOT / "A4" / "itpd" / "assignments" / "assignment-4.md"
+    if not assignment.exists():
+        return
+    text = assignment.read_text(encoding="utf-8")
+    assert "2026-10-24" in text
+    for due in A4_LATER_SPRINT_DUE_DATES.values():
+        assert due in text
+
+
+def test_a4_cutoff_is_not_the_original_saturday() -> None:
+    prompt = (ROOT / "A4" / "grading_prompt.md").read_text(encoding="utf-8")
+    assert "2026-10-24T23:59:59" not in prompt
+    assert "2026-10-25T23:59:59+03:00" in prompt
+    assert "2026-10-26T23:59:59+03:00" in prompt
+    assert "`2026-10-24`" in prompt
 
 
 def test_a3_markdown_has_no_stale_sprint_deadlines() -> None:
