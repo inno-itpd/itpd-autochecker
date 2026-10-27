@@ -292,6 +292,10 @@ def parse_json_stream(text: str) -> list[object]:
 
 def merge_list_pages(text: str) -> list[object]:
     merged: list[object] = []
+    if not text.strip():
+        # `gh ... --json` prints nothing at all for an empty list, so an empty
+        # label list must read as zero rows rather than abort the whole dump.
+        return merged
     for page in parse_json_stream(text):
         if not isinstance(page, list):
             raise LiveEvidenceError("expected a JSON array from gh")

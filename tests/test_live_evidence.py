@@ -961,3 +961,12 @@ def test_timelines_cli_passes_the_flag_and_rejects_summary(tmp_path: Path) -> No
     lines: list[str] = []
     assert collect_run(["A2", TEAM, "--timelines", "--summary"], out=lines.append) == 2
     assert lines == ["ERROR: --timelines cannot be combined with --summary"]
+
+
+def test_collect_reads_an_empty_list_as_zero_rows(tmp_path: Path) -> None:
+    scratch = write_pdf_info(tmp_path)
+    responses = base_responses()
+    responses[tuple(labels_command(REPO))] = ""
+    result = collect_github_evidence("A2", TEAM, tmp_path, runner=FakeGh(responses))
+    assert json.loads((scratch / "labels.json").read_text(encoding="utf-8")) == []
+    assert next(file for file in result.files if file.label == "labels").count == 0
