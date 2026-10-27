@@ -9,7 +9,6 @@ from tools.grader_tools.validate import validate_report
 def errors_for(text: str, assignment: str = "A1") -> list[str]:
     return validate_report(assignment, parse_feedback_text(text, ASSIGNMENT_CONFIG[assignment]["segment_defs"]))
 
-
 def test_valid_reports_pass() -> None:
     assert errors_for(build_report("A1")) == []
     assert errors_for(build_report("A1", statuses={1: "partial", 2: "missing", 3: "unverified"}, gaps={2, 3})) == []
@@ -99,3 +98,81 @@ def test_gap_segments_need_unresolved_bullets() -> None:
 def test_summary_bullet_count() -> None:
     text = build_report("A1").replace("- Third shortfall.\n", "")
     assert any("3-5 bullets" in error for error in errors_for(text))
+
+
+def test_next_steps_section_is_optional() -> None:
+    assert errors_for(build_report("A1")) == []
+    assert errors_for(build_report("A1", next_steps=["Read the ADR index next."])) == []
+
+
+def test_next_steps_section_rejects_an_empty_heading() -> None:
+    text = build_report("A1").replace("## Segment details", "## Suggested next steps\n\n## Segment details")
+    assert any("omitted rather than left empty" in error for error in errors_for(text))
+
+
+def test_next_steps_section_rejects_too_many_bullets() -> None:
+    text = build_report(
+        "A1",
+        next_steps=["One step.", "Two steps.", "Three steps.", "Four steps."],
+    )
+    assert any("1-3 bullets" in error for error in errors_for(text))
+
+
+def test_next_steps_section_rejects_nested_bullets() -> None:
+    text = build_report("A1", next_steps=["One step."]).replace("- One step.", "- One step.\n  - A nested step.")
+    assert any("no nested bullets" in error for error in errors_for(text))
+
+
+def test_next_steps_section_rejects_mentor_wording() -> None:
+    text = build_report("A1", next_steps=["Ask a mentor about the ADR index."])
+    assert any("mentor wording" in error for error in errors_for(text))
+
+
+def test_next_steps_section_rejects_none() -> None:
+    text = build_report("A1", next_steps=["None"])
+    assert any("rather than say `None`" in error for error in errors_for(text))
+
+
+def test_body_blob_link_must_cite_the_snapshot() -> None:
+    stale = f"{REPO}/blob/" + "f" * 40 + "/docs/decisions.md"
+    text = build_report("A1").replace("- Third shortfall.", f"- Third shortfall, see {stale}.")
+    errors = errors_for(text)
+    assert len(errors) == 1
+    assert "must point at" in errors[0]
+    assert SHA in errors[0]
+
+
+def test_body_blob_link_accepts_the_snapshot_and_live_branch_links() -> None:
+    snapshot_link = f"{REPO}/blob/{SHA}/docs/decisions.md"
+    branch_link = f"{REPO}/blob/main/docs/decisions.md"
+    text = build_report("A1").replace(
+        "- Third shortfall.", f"- Third shortfall, see {snapshot_link} and {branch_link}."
+    )
+    assert errors_for(text) == []
+
+
+def test_body_blob_link_must_cite_the_pinned_course_commit() -> None:
+    course = ASSIGNMENT_CONFIG["A1"]["course_commit"]
+    text = build_report("A1").replace(
+        "- Third shortfall.", f"- Third shortfall, see https://github.com/inno-itpd/itpd/blob/{course}/SKILL.md."
+    )
+    assert errors_for(text) == []
+
+    stale = "https://github.com/inno-itpd/itpd/blob/" + "0" * 40 + "/SKILL.md"
+    text = build_report("A1").replace("- Third shortfall.", f"- Third shortfall, see {stale}.")
+    assert any(course in error for error in errors_for(text))
+
+
+def test_body_blob_link_in_verified_shortfalls_may_cite_another_commit() -> None:
+    other = f"{REPO}/blob/" + "f" * 40 + "/prototypes/architecture-lab.html"
+    text = build_report("A1", statuses={1: "partial"}).replace(
+        "- S1 shortfall.", f"- S1 shortfall, see {other}."
+    )
+    assert errors_for(text) == []
+
+
+def test_body_links_to_other_repositories_and_trees_are_exempt() -> None:
+    other_repo = "https://github.com/some-org/other-repo/blob/" + "0" * 40 + "/README.md"
+    tree_link = f"{REPO}/tree/" + "f" * 40 + "/docs"
+    text = build_report("A1").replace("- Third shortfall.", f"- Third shortfall, see {other_repo} and {tree_link}.")
+    assert errors_for(text) == []

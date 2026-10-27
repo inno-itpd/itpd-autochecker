@@ -31,6 +31,7 @@ Payload shape (all keys are required unless marked optional):
   "summary": ["3 to 5 one-line bullets"],
   "strengths": ["at least one one-line bullet"],
   "main_issues_to_fix": ["at least one one-line bullet"],
+  "next_steps": ["at most 3 one-line bullets; omit or leave empty to omit the section"],
   "segment_updates": {
     "S1": {
       "status": "met",
@@ -75,6 +76,11 @@ Rules:
   A bullet list for a segment with `evidence_gaps: false` is rejected.
   An omitted placeholder segment gets the generated placeholder bullet;
   supplying its bullet list replaces the placeholder.
+- `next_steps` (optional) is the report's advice section: 0 to 3 one-line
+  bullets, rendered as `## Suggested next steps` after `## Main issues to fix`
+  and before `## Segment details`.  Omitting the key or supplying an empty list
+  omits the section entirely.  It never feeds a segment status, and the release
+  export keeps using `## Summary` only.
 
 The report is validated against the shared contract before anything is
 written, so a malformed payload fails with `ERROR: ...` (exit code 2) and
@@ -105,6 +111,7 @@ from tools.grader_tools.feedback_report import (
     SegmentDefs,
     bullet_list,
     parse_feedback_text,
+    render_bullet_body,
     render_preamble,
     render_report,
     render_segment_block,
@@ -122,6 +129,7 @@ PAYLOAD_KEYS = {
     "summary",
     "strengths",
     "main_issues_to_fix",
+    "next_steps",
     "segment_updates",
     "unresolved_evidence_gaps",
 }
@@ -326,6 +334,7 @@ def render_feedback_report(assignment: str, payload: dict[str, object]) -> tuple
     summary = bullet_list(payload.get("summary"), "summary", minimum=3, maximum=5)
     strengths = bullet_list(payload.get("strengths"), "strengths", minimum=1)
     main_issues = bullet_list(payload.get("main_issues_to_fix"), "main_issues_to_fix", minimum=1)
+    next_steps = bullet_list(payload.get("next_steps") or [], "next_steps", minimum=0, maximum=3)
 
     rendered = render_report(
         preamble=preamble,
@@ -335,6 +344,7 @@ def render_feedback_report(assignment: str, payload: dict[str, object]) -> tuple
         summary_body="\n".join(f"- {bullet}" for bullet in summary),
         strengths_body="\n".join(f"- {bullet}" for bullet in strengths),
         main_issues_body="\n".join(f"- {bullet}" for bullet in main_issues),
+        next_steps_body=render_bullet_body(next_steps) if next_steps else None,
     )
 
     errors = validate_report(assignment, parse_feedback_text(rendered, segment_defs))

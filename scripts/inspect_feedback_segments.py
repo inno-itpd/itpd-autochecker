@@ -47,6 +47,7 @@ SECTION_LABELS = {
     "summary": "summary",
     "strengths": "strengths",
     "main_issues_to_fix": "main issues",
+    "next_steps": "next steps",
 }
 
 
@@ -164,6 +165,7 @@ def build_output(assignment: str, feedback_path: Path, selectors: list[str], fre
             "summary": report.summary_body,
             "strengths": report.strengths_body,
             "main_issues_to_fix": report.main_issues_body,
+            "next_steps": report.next_steps_body or "",
         }
         predicted_sections = resolve_sections(payload, saved_sections)
         output["predicted_report_sections"] = {

@@ -216,6 +216,47 @@ def test_patch_keeps_the_top_level_string_sections() -> None:
     assert parse_feedback_text(rendered, A1_DEFS).summary_body == "- Only one.\n- Only two.\n- Only three."
 
 
+def test_patch_adds_and_removes_the_optional_next_steps_section() -> None:
+    saved = parse_feedback_text(build_report("A1"), A1_DEFS)
+    added = patch_report(
+        "A1",
+        saved,
+        {"sections": {"next_steps": ["Read the ADR index next."]}, "segment_updates": {"S4": CLEAR_S4}},
+    )
+    patched = parse_feedback_text(added, A1_DEFS)
+    assert patched.next_steps_body == "- Read the ADR index next."
+    assert validate_report("A1", patched) == []
+
+    removed = patch_report(
+        "A1",
+        patched,
+        {"sections": {"next_steps": []}, "segment_updates": {"S4": CLEAR_S4}},
+    )
+    assert "## Suggested next steps" not in removed
+    assert parse_feedback_text(removed, A1_DEFS).next_steps_body is None
+
+
+def test_patch_accepts_a_top_level_next_steps_list() -> None:
+    rendered = patch_report(
+        "A1",
+        parse_feedback_text(build_report("A1"), A1_DEFS),
+        {"next_steps": ["Read the ADR index next."], "segment_updates": {"S4": CLEAR_S4}},
+    )
+    assert parse_feedback_text(rendered, A1_DEFS).next_steps_body == "- Read the ADR index next."
+
+
+def test_patch_rejects_more_than_three_next_steps() -> None:
+    with pytest.raises(ValueError, match="at most 3"):
+        patch_report(
+            "A1",
+            parse_feedback_text(build_report("A1"), A1_DEFS),
+            {
+                "sections": {"next_steps": ["One.", "Two.", "Three.", "Four."]},
+                "segment_updates": {"S4": CLEAR_S4},
+            },
+        )
+
+
 def regrade_payload(include_metadata: bool = True) -> dict[str, object]:
     payload: dict[str, object] = {
         "segment_updates": {"S4": CLEAR_S4},
@@ -223,6 +264,7 @@ def regrade_payload(include_metadata: bool = True) -> dict[str, object]:
             "summary": ["New first.", "New second.", "New third."],
             "strengths": ["New strength."],
             "main_issues_to_fix": ["New issue."],
+            "next_steps": ["Read the ADR index next."],
         },
     }
     if include_metadata:
@@ -255,6 +297,7 @@ def test_inspect_reports_metadata_and_section_changes(tmp_path: Path) -> None:
     assert "Predicted section changes:" in text.stdout
     assert "- summary updated" in text.stdout
     assert "- main issues updated" in text.stdout
+    assert "- next steps updated" in text.stdout
     assert feedback.read_text(encoding="utf-8") == before
 
     data = run_script(
@@ -298,6 +341,7 @@ def test_regrade_cli_applies_metadata_and_sections(tmp_path: Path) -> None:
     assert f"- Snapshot reviewed: `{SHA}`" in feedback.read_text(encoding="utf-8")
     assert "Notes about the snapshot" not in feedback.read_text(encoding="utf-8")
     assert patched.summary_body == "- New first.\n- New second.\n- New third."
+    assert patched.next_steps_body == "- Read the ADR index next."
     assert (tmp_path / "A1" / "dev.md").exists()
 
 

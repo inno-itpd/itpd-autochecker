@@ -128,7 +128,8 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - `docs/project-plan.md` in the snapshot, its `### SPRINT-04` to `### SPRINT-09` sections, and the path history of the file.
 - The repository's GitHub milestones: `milestones.json` for the titles and due dates, and the raw `gh api "repos/$REPO/milestones?state=all&per_page=100"` call at procedure step 12 for each milestone's state.
 - The `User Story` issues in `SPRINT-04`'s milestone and their `Story Points`, from `issue-fields.json` or the REST `issue_field_values`.
-- The pull requests in the team's Week 4 window that touch `docs/project-plan.md`, for when each sprint's fields were written.
+- Each `User Story`'s `milestoned` and `demilestoned` events, from `issues/<n>.timeline.json` or the `issue_events` table filtered to the planning time, for the stories the milestone held when the sprint was planned.
+- The pull requests in the team's Week 4 window that touch `docs/project-plan.md`, for when each sprint's fields were written, and the plan's own path history (`paths/docs/project-plan.md.json`) for the first commit that wrote `**Planned Velocity:**`.
 
 **met:**
 
@@ -136,10 +137,17 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - Under the goal, `### SPRINT-04` carries `**Due:**`, `**Sprint Backlog:**`, and `**Planned Velocity:**`, in that order, as a bulleted list.
 - `**Due:**` is one of `2026-10-24`, `2026-10-25`, or `2026-10-26`, and never later than the team's effective deadline: `2026-10-25` for every team except `Team 2 - OK_10938_assignsubmission_file`, whose effective deadline is `2026-10-26`, so `2026-10-26` is accepted only for that team.
 - `**Sprint Backlog:**` links the `SPRINT-04` GitHub milestone, and the link resolves to the milestone whose title begins `SPRINT-04:`.
-- `**Planned Velocity:**` is a whole number, and it equals the sum of the `Story Points` of the stories the milestone held when the sprint was planned, from its `milestoned` events where they exist and from its current stories otherwise; a story added mid-sprint does not change the planned figure.
+- `**Planned Velocity:**` is a whole number, and it equals the sum of the `Story Points` of the stories the milestone held when the sprint was planned, from its `milestoned` and `demilestoned` events where they exist and from its current stories otherwise; a story added mid-sprint does not change the planned figure.
+  A prose sentence, a rounded total, or a figure copied from the current story set when the milestone changed after planning is not the planned velocity.
 - `SPRINT-05` to `SPRINT-09` each carry `**Due:**` with `2026-10-31`, `2026-11-07`, `2026-11-14`, `2026-11-21`, and `2026-11-28`, in that order.
 - The seven `SPRINT-nn` GitHub milestones exist, `SPRINT-03` to `SPRINT-09`, each titled `SPRINT-nn: <focus>` with the sprint's number. `SPRINT-03`'s milestone exists, but its due date and open or closed state are Week 3's and are not re-graded here. `SPRINT-04`'s due date is the same accepted date as its `**Due:**`; its state belongs to S12. `SPRINT-05` to `SPRINT-09` are due on the five Saturdays above and are open.
 - Every sprint section from `### SPRINT-04` on nests exactly one `#### REL-nn` heading, `REL-04` to `REL-09` in order; `### SPRINT-03` keeps its `#### REL-03` and is not re-graded here. The plan copies no issue list into the file.
+
+**What does not count:**
+
+- A prose sentence such as "we planned about 20 points", or a rounded total, as `**Planned Velocity:**`.
+- The current story set when the milestone gained or lost a story after planning: the sum must use the stories the milestone held at planning, from `milestoned`/`demilestoned` events.
+- A figure copied from the previous sprint or from the week report, instead of the sum of the planned stories' `Story Points`.
 
 **partial:**
 
@@ -174,7 +182,9 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 **met:**
 
-- The issue fields `MoSCoW`, `Story Points`, and `Priority` exist, each single-select and `Public`, read from the organization `issueFields` list when the token can read it and otherwise from the issue sidebar; a definition neither route can settle is an evidence gap for that criterion, not a shortfall.
+- The issue fields `MoSCoW`, `Story Points`, and `Priority` exist, each single-select and `Public`, read from the organization `issueFields` list when the token can read it and otherwise from the issue sidebar.
+  A definition neither route can settle is an `**Evidence:**` caveat, not an evidence gap, because the verified per-issue values already prove the field name, data type, and value and fix the status.
+  A field that neither the per-issue values nor the project can show at all is the shortfall.
 - `MoSCoW`'s options are `Must Have`, `Should Have`, `Could Have`, and `Won't Have`; `Story Points`'s options are `1`, `2`, `3`, `5`, `8`, and `13`; `Priority`'s options are `High`, `Medium`, and `Low`.
 - `MoSCoW` and `Story Points` are pinned to the `User Story` issue type, `Priority` is pinned to the `Task` issue type, and no field is pinned to `Issues without a type`.
 - The project has at least one table view whose columns include the `Responsible`, `Accountable`, `MoSCoW`, `Story Points`, and `Priority` fields, the built-in `Assignees`, and the built-in `Milestone`, grouped or sorted by `Milestone`.
@@ -184,6 +194,12 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - No story carries more than `13` story points, and no story larger than `13` points is scheduled in a milestone.
 - Every `User Story` issue scheduled into `SPRINT-04`'s milestone carries a `Story Points` value.
 - Every `Task` issue scheduled into `SPRINT-04`'s milestone carries a `Priority` value.
+
+**What does not count:**
+
+- A `gh project field-list` result, or a project column named `Story Points`, as evidence for the organization's issue-field definition: the project's fields are a different family.
+- A 404 from the organization `issueFields` route as proof that a field is absent; that route needs `admin:org`, and the issue sidebar is the fallback.
+- A field definition the sidebar cannot settle as an evidence gap when the per-issue values already prove the field, its data type, and its value; it is an `**Evidence:**` caveat instead.
 
 **partial:**
 
@@ -196,8 +212,8 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 **Guardrails:**
 
-- Read the per-issue values first. The organization `issueFields` list is evidence only when the token can read it; it needs organization membership the token may not have, so an empty list or `totalCount: 0` never means a field is absent. When the token cannot read it, the issue sidebar answers the definitions and values; a definition the sidebar cannot settle is an evidence gap for that criterion, not a shortfall.
-- A project's own fields and the organization's issue fields are different: the issue's sidebar and `issue_field_values` name the issue fields, while `gh project field-list` answers for the project's fields. Say in `**Evidence:**` which route answered.
+- Read the per-issue values first. The organization `issueFields` list is evidence only when the token can read it; it needs `admin:org` membership the token may not have, and its 404, an empty list, or `totalCount: 0` never means a field is absent. When the token cannot read it, the issue sidebar answers the definitions and values; a definition the sidebar cannot settle is an `**Evidence:**` caveat, not an evidence gap, when the per-issue values already fix the status.
+- A project's own fields and the organization's issue fields are different: the issue's sidebar and `issue_field_values` name the issue fields, while `gh project field-list` answers for the project's fields. A project field-list result is never evidence for the issue fields. Say in `**Evidence:**` which route answered.
 - A direct `fields` selection on the project type is a union and raises `selectionMismatch`, so read field names, options, and data types from `gh project field-list`.
 - A `Won't Have` story is not estimated or scheduled, so its lack of `Story Points` is not a shortfall. It still carries no `Responsible`, `Accountable`, or assignees while it is open and unscheduled.
 - The refinement's quantity is the team's judgement: judge the stories the team has placed in the next two sprints' worth of the product backlog, name them, and do not require an estimate on every open backlog story. The assignment's "next two sprints' worth" is the planning horizon, not a numeric floor, and a story beyond it need not carry `Story Points` yet; it still carries no milestone, no roles, and no assignees while it stays in the backlog.
@@ -459,13 +475,20 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - Every story issue, open or closed, that was opened on or after `2026-10-02T00:00:00+03:00` carries the `User Story` issue type.
 - Every story carries one `MoSCoW` value, one of `Must Have`, `Should Have`, `Could Have`, or `Won't Have`.
 - Every task issue carries the `Task` issue type.
-- No open issue carries any of the six labels `user-story`, `task`, `moscow:must`, `moscow:should`, `moscow:could`, or `moscow:won't`.
+- At `ISSUE_CUTOFF`, no open issue carries any of the six labels `user-story`, `task`, `moscow:must`, `moscow:should`, `moscow:could`, or `moscow:won't`.
+  Read the issue's `labeled` and `unlabeled` events for its label set at the cutoff, not the label set the API returns today.
 - Every story's acceptance criteria are checklist items of the form `- [ ] AC-nn: <criterion>` or `- [x] AC-nn: <criterion>`, each keeping its `AC-nn`.
 - Every story other than a `Won't Have` story carries `### Specified by`, and the section names each `FR-nnn` and `ADR-nnn` that specifies the story, each linked on `main`, including the stories that closed in Weeks 2 and 3.
 - Every `FR-nnn` and `ADR-nnn` a `### Specified by` links exists at the snapshot, and each entry is one of those two families.
 - Every open task carries `### Requirements`, and the section names each `FR-nnn` and `ADR-nnn` the task works on, each linked on `main`, or the one line saying it serves none, such as `None: repository upkeep`.
 - Every `FR-nnn` and `ADR-nnn` a `### Requirements` links exists at the snapshot.
 - No issue carries a comment that records the one-time catch-up: no comment in the Week 4 window says that the type, the `MoSCoW` value, the checkboxes, `### Specified by`, or `### Requirements` were added by this pass.
+
+**What does not count:**
+
+- The repository's current label set, or a `labels.json` entry, as proof that no issue carried a label at the cutoff: labels retire from issues, and the issue's `labeled`/`unlabeled` events are the evidence.
+- A label removal timestamped after `ISSUE_CUTOFF`: it leaves the label on the issue at the cutoff, so the state at the cutoff still carries it.
+- A comment that says the labels were retired, or a `labels` array in a post-cutoff issue dump, as the cutoff state.
 
 **partial:**
 
@@ -478,12 +501,12 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 **Guardrails:**
 
-- Judge the end state at the cutoff; a one-time catch-up is judged by its end state, not by when each edit landed, and an edit made after the snapshot but by the cutoff counts.
+- The catch-up is judged at `ISSUE_CUTOFF`: an edit made after the snapshot but by the cutoff counts, and an edit made after the cutoff is drift, so it does not repair the state at the cutoff.
 - The catch-up is one change: do not fail because its edits cluster in one day or are spread over the week, and the absence of a per-issue change comment is the criterion.
 - A `Won't Have` story keeps its `US-nn` and needs no `### Specified by`, but it still carries the type and a `MoSCoW` value.
 - A closed story still carries its type, its `MoSCoW` value, and `### Specified by`; only its criteria ticks are state.
 - The type and the fields are the only carriers: there is no label substitute, and a team whose organization cannot create them declares a deviation.
-- The six labels retire from the open issues: a label object that still exists but is carried by no open issue is not a shortfall, because the requirement's observable is that no open issue carries one.
+- The six labels must be gone from every open issue at `ISSUE_CUTOFF`: a label object that still exists but is carried by no open issue is not itself a shortfall, and a removal after the cutoff leaves the labels on the issue at the cutoff, so that removal is a shortfall.
 - A bot's issue or a workflow's pull request issue is not a task and is not judged.
 - The story's `### Specified by` is its conformance, not an origin, and the requirement does not name the story back.
 - An issue opened after `ISSUE_CUTOFF` is not judged.
@@ -510,14 +533,22 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - `AGENTS.md` states the repository layout, with what each directory holds and where a new file goes.
 - `AGENTS.md` states the checks, with how to run each check the repository has, by the command a member runs locally or the workflow that runs it in CI.
 - `AGENTS.md` states the conventions: the commit message format, the branch naming, and the code style.
+  Code style is its own convention and names what a member follows for naming, formatting, imports, docstrings, and the linter or formatter the repository runs; it is separate from the commit and branch rules.
 - `AGENTS.md` states the files an agent must not edit, each by path, with the condition under which a member makes the edit instead.
 - `AGENTS.md` links the course repository's `SKILL.md` by its GitHub URL, `https://github.com/inno-itpd/itpd/blob/main/SKILL.md`, once, as the router to the course requirements.
 - `AGENTS.md` maps no artifact path to a requirements file, and it does not copy the course requirements.
 
+**What does not count:**
+
+- A commit-message format or a branch-naming rule as the code style: they are the other two conventions, and a team that states only those states no code style.
+- A file-placement rule, such as where a new document goes, as the code style.
+- A pointer to a linter config, or `CONTRIBUTING.md` saying "follow the style of the code base", as a stated style when no convention names what to follow.
+- A style that lives only in a tool config and nowhere in `AGENTS.md` or `CONTRIBUTING.md`; read both files, and the statement is what the criterion asks for.
+
 **partial:**
 
 - The glossary and the team `AGENTS.md` exist, and at least one other `met` criterion fails.
-- Typical shortfalls: fewer than 3 terms; a heading that carries the definition or is a sentence; a definition that is general rather than project-specific; a `**Defined by:**` link that does not resolve; no domain heading; `AGENTS.md` missing one of its four sections; the `SKILL.md` link repeated, relative, or missing; an artifact-to-requirements map copied in.
+- Typical shortfalls: fewer than 3 terms; a heading that carries the definition or is a sentence; a definition that is general rather than project-specific; a `**Defined by:**` link that does not resolve; no domain heading; `AGENTS.md` missing one of its four sections; the `SKILL.md` link repeated, relative, or missing; a code style missing while the commit and branch rules are stated; an artifact-to-requirements map copied in.
 
 **missing:**
 
@@ -614,6 +645,13 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - No meeting artifact carries a recording link or a recording timecode: the recording link and the timecodes are Moodle-only, per the visibility rule.
 - The Moodle PDF links a recording that instructors can open, or gives one line saying why there is none, and it agrees with the permission answers in `## Metadata`.
 
+**What does not count:**
+
+- A transcript written one speaker turn per line when a turn carries several sentences: that is not the required one sentence per line, and the count of timestamped lines that carry more than one sentence is the finding.
+- A script whose first commit is after the meeting date, or a same-day commit the history cannot place before the meeting: the timing criterion fails.
+- A script or transcript rewritten after the meeting, or edited after `ISSUE_CUTOFF`, as the pre-meeting form; the post-cutoff edit is drift.
+- A transcript that says the customer refused publication but sits in the repository; publication refusal makes it Moodle-only.
+
 **partial:**
 
 - `reports/week-04/meeting-report.md` exists, and at least one other `met` criterion fails.
@@ -643,6 +681,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 - `CHANGELOG.md` and `docs/project-plan.md` in the snapshot.
 - The repository's tags and releases, from `tags.json`, `releases.json`, and `gh api "repos/$REPO/git/refs/tags"`.
+- The tag's own date and the date of the commit it names, from `gh api "repos/$REPO/git/refs/tags/<tag>"` (annotated tag) or `gh api "repos/$REPO/commits/<tag>"` (lightweight tag); `releases.json`'s `published_at` is the release page's date and not the tag's.
 - The tag protections, from `gh api "repos/$REPO/rulesets"` and `gh api "repos/$REPO/rulesets/<id>"`, by hand.
 - The path histories of `CHANGELOG.md`, `docs/project-plan.md`, and `reports/week-04/README.md`, and the merge times they sit at.
 - `SPRINT-04`'s GitHub milestone state, from the raw `gh api "repos/$REPO/milestones?state=all&per_page=100"` call, because `milestones.json` omits the state.
@@ -654,6 +693,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - Every user-visible change merged before `ISSUE_CUTOFF` has an entry in `[Unreleased]` or in a released section, unless its pull request says it made no user-visible change.
 - At least one tag exists whose version follows Semantic Versioning with the `v` prefix, such as `v0.4.0`, and it is the tag this week's release used: the tag the plan's `#### REL-04` line names and the changelog's latest dated section links. When those disagree, both fail.
 - The release tag points at a commit that is on `main`, and the tag's commit is not after `ISSUE_CUTOFF`.
+  The tag's own date is not after `ISSUE_CUTOFF` either: a tag created after the cutoff is late even when its commit is older, and a tag made on the cutoff day is judged by its timestamp in UTC.
 - A GitHub release exists for that tag, titled with the tag so the title and the tag match.
 - The changelog has a dated section headed `[x.y.z](https://github.com/<org>/<repo>/releases/tag/vX.Y.Z) - YYYY-MM-DD` that links the release, its entries are the entries released, and a new empty `[Unreleased]` sits above it.
 - A `#### REL-04` section in `docs/project-plan.md`, nested under `### SPRINT-04`, carries the line `Released as [vx.y.z](https://github.com/<org>/<repo>/releases/tag/vx.y.z) on YYYY-MM-DD`, with the tag the release used.
@@ -661,6 +701,13 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - The release tag is protected against being moved or deleted, by a repository ruleset that covers tag pushes or by an equivalent tag-protection rule that blocks moving and deleting the tag.
 - The tag predates the commit that added the changelog's released section, the commit that added the plan's `REL-04` line, and the commit that added `reports/week-04/README.md`, so every link to the release resolves against a tag that already existed.
 - `SPRINT-04`'s GitHub milestone is closed once the release is cut; a still-open milestone is accepted only when the Week 4 report's `## Deviations` declares it and gives the reason.
+
+**What does not count:**
+
+- The release page's `published_at` or the changelog's date as the tag's time when the tag object or its commit is later.
+- A commit date before the cutoff with a tag created or pushed after it: the tag, not the commit, is what the release used.
+- A `tags.json` entry on its own, because it carries only the tag name and not the date the tag was created.
+- A tag that was force-moved or re-pushed to an older commit to appear on time.
 
 **partial:**
 
@@ -762,9 +809,9 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 - `reports/week-04/README.md` at the snapshot, and every repository file it links.
 - `## Minimum Usable Product Candidate` in `reports/week-02/README.md` and `MLS-03`'s description in `docs/project-plan.md`, for a candidate story that moved out.
-- The Moodle PDF, its page count, and its contents.
+- The Moodle PDF, its page count, and its contents; a submission directory that holds a Markdown wrapper and no PDF is a submission-format problem judged here.
 - The snapshot SHA's position on `main`, and the snapshot commit time, per procedure step 4.
-- The link and Markdown check runs on `main`, from `runs_main.json` and `runs_sha.json`.
+- The link and Markdown check runs whose `head_sha` is the snapshot SHA, from `runs_sha.json`, and the branch runs in `runs_main.json` only to confirm which run is the latest on that SHA.
 - A privacy scan of the snapshot, per procedure step 15.
 
 **met:**
@@ -783,18 +830,27 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - The report carries no sprint planning, refinement, or retrospective section, because the plan, the issues, and the retrospective file own them.
 - A contribution table maps each member's GitHub username to the work done, with links to commits, pull requests, or reviews.
 - The report does not assess an individual: no section rates or explains a member's contribution.
-- The repository evidence links one merged pull request that closed its task issue, the latest green link-check run on `main`, and the latest green Markdown check run on `main`, and each link resolves.
+- The repository evidence links one merged pull request that closed its task issue, the latest green link-check run, and the latest green Markdown check run on the snapshot SHA, each by its run URL, and each link resolves.
+  A run whose `head_sha` is not the snapshot SHA is not the run for this submission, even when it is green and on `main`.
 - Every link in the report resolves, and every link the link check excludes is justified in prose.
 - `## Deviations` declares every deviation observed in the other segments, or says `None` when there is none.
 - One line states that no private-only material was committed to the repository.
 - The privacy scan finds no email address, phone number, member-name token, or `.env`/key file outside the meeting artifacts, and no recording link outside the meeting artifacts. A personal-data hit or a recording link inside a meeting artifact is reported in S11, not here.
 - The snapshot SHA is on `main`, and the PDF permalink points at `reports/week-04/README.md` at that full 40-character SHA.
 - The PDF is at most two pages, not counting a transcript appendix, and holds only the six items of `assignment-4.md`: the project name and team number, the member table, the permalink, the recording line, the transcript when publication was refused, and the privacy confirmation line.
+- The submission is a PDF: a directory that holds only a Markdown wrapper is a submission-format shortfall in this segment, even when the wrapper carries a valid permalink.
+
+**What does not count:**
+
+- The workflow's run list page, a branch's run history, or a job URL as the run link: the report needs the individual green run's URL.
+- A green run on an older or later SHA, or on `main` when its `head_sha` is not the snapshot SHA, as the snapshot's green run.
+- A red, cancelled, or in-progress run cited as green; read `conclusion`, not the run's existence.
+- A Markdown wrapper, or a link to one, as the two-page Moodle PDF.
 
 **partial:**
 
 - `reports/week-04/README.md` exists at the snapshot, and at least one other `met` criterion fails.
-- Typical shortfalls: a coverage row missing, out of order, or not linked; no release line or no moved-out note in the summary; no meeting outcome; a sprint-planning, refinement, or retrospective section in the report; no contribution table; an individual assessment; repository evidence missing a run or the pull request, or linking a red run; no `## Deviations`; an undeclared deviation; a privacy finding outside the meeting artifacts; a seven-character permalink; a snapshot that is not on `main`; a PDF over two pages or with extra content.
+- Typical shortfalls: a coverage row missing, out of order, or not linked; no release line or no moved-out note in the summary; no meeting outcome; a sprint-planning, refinement, or retrospective section in the report; no contribution table; an individual assessment; repository evidence missing a run or the pull request, linking a red run, a run list, or a run on another SHA; a Markdown wrapper instead of the PDF; no `## Deviations`; an undeclared deviation; a privacy finding outside the meeting artifacts; a seven-character permalink; a snapshot that is not on `main`; a PDF over two pages or with extra content.
 
 **missing:**
 
@@ -885,7 +941,8 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    Call the first value `SNAPSHOT_TIME`.
 
 5. Collect the live evidence once and keep it beside, not inside, the fetched snapshot.
-   Preferred: `uv run python scripts/collect_github_evidence.py A4 "<team_dir>" [--issues <n> ...] [--paths <path> ...]`, which reads `itpd-assignments-feedback/A4/work/<team_dir>/pdf-info.json` and writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, `tags.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, `paths/<path>.json`, and a bounded `summary.md` there, printing counts and paths only.
+   Preferred: `uv run python scripts/collect_github_evidence.py A4 "<team_dir>" [--issues <n> ...] [--paths <path> ...] [--timelines [<n> ...]]`, which reads `itpd-assignments-feedback/A4/work/<team_dir>/pdf-info.json` and writes `labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, `milestones.json`, `releases.json`, `tags.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, `paths/<path>.json`, and a bounded `summary.md` there, printing counts and paths only.
+   A bare `--timelines` collects every issue's timeline at one paginated request per issue; name the issues when only a few need it, and let `--issues` cover the rest.
    Read `summary.md` first: it carries the issue counts, the pull-request numbers, the failing runs, the tags, and each milestone's due date with its open and closed issue counts, in at most 60 lines.
    Open a dump only through a bounded projection that prints at most about 40 lines (`head -n 40`, a `jq` projection, or an `rg` match); never `cat` a full dump, because `commits.json` reached 1.35 MB and `prs.json` 284 KB.
    `--summary` rebuilds the digest from the saved dumps without calling `gh`.
@@ -943,6 +1000,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    - Take an issue's labels at `ISSUE_CUTOFF` from its timeline's `labeled` and `unlabeled` events, its title from `renamed` events, and its open or closed state and close reason from `closed` and `reopened` events.
    - Take its body from the last edit at or before `ISSUE_CUTOFF` when the edit history allows it; otherwise judge the current body and say so in `**Evidence:**`.
    - Take its milestone from the `milestoned` and `demilestoned` events when the issue has them, and its current milestone otherwise, noting in `**Evidence:**` which was read.
+   - The `issue_state_at_cutoff` view in `evidence.sqlite` answers the label set, milestone, and close or reopen state at the cutoff for every collected timeline in one query; `issue_events` answers when the question needs the events themselves or a time other than the cutoff, such as the planning time for S1.
    - A comment or edit made after `ISSUE_CUTOFF` is a caveat, never a shortfall.
    - Post-cutoff file state is a caveat and never a status change, except in a segment that judges the snapshot, which reads the file at `SNAPSHOT_TIME`.
    - Set `Evidence gaps: yes` only when the state at `ISSUE_CUTOFF` cannot be read and the difference could change the status.

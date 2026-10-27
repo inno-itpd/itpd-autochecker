@@ -255,3 +255,57 @@ def test_documented_commands_accept_a_team_directory_with_spaces_and_parentheses
     )
     assert reader_result.returncode == 0, reader_result.stderr
     assert "[]" in reader_result.stdout
+
+
+def _normalized(path: Path) -> str:
+    return " ".join(path.read_text(encoding="utf-8").split())
+
+
+def test_prompt_names_the_four_modes_and_a_selection_table() -> None:
+    text = GRADER_PROMPT.read_text(encoding="utf-8")
+    assert "| Request | Mode |" in text
+    for mode in ("`full review`", "`full regrade`", "`partial regrade`", "`segment inspect`"):
+        assert mode in text
+
+
+def test_full_regrade_keeps_the_work_directory_and_audits_every_segment() -> None:
+    text = _normalized(GRADER_PROMPT)
+    assert "Never empty or delete the work directory" in text
+    assert "A full regrade is a first-class mode" in text
+    assert "State the saved claim" in text
+    assert "Never change a status on prose alone" in text
+    assert "write the payload first and render the report last" in text
+    assert "regrade-changes.md" in text
+
+
+def test_full_review_step_one_delete_does_not_apply_to_a_regrade() -> None:
+    text = _normalized(GRADER_PROMPT)
+    assert "In `full review` mode only, empty the team work directory" in text
+    assert "In `full regrade` and `partial regrade` mode, skip this step" in text
+
+
+def test_prompt_reads_the_segment_count_from_assignment_config() -> None:
+    text = _normalized(GRADER_PROMPT)
+    assert "len(ASSIGNMENT_CONFIG[ASSIGNMENT_DIR][\"segment_defs\"])" in text
+    assert "13 for A3" not in text
+
+
+def test_prompt_documents_the_regrade_diff_and_corrections() -> None:
+    text = _normalized(GRADER_PROMPT)
+    assert "changes: S<n> <old> -> <new> (<reason>)" in text
+    assert "corrections: <saved claim> -> <what the evidence shows>" in text
+    assert "no status changes" in text
+
+
+def test_prompt_names_the_one_writer_rule_and_the_active_gate() -> None:
+    text = _normalized(GRADER_PROMPT)
+    assert "One writer per team" in text
+    assert 'check_batch_ready.py A4 --active "<team_dir>"' in text
+
+
+def test_prompt_documents_the_cutoff_view_and_the_collector_flag() -> None:
+    text = _normalized(GRADER_PROMPT)
+    assert "issue_state_at_cutoff" in text
+    assert "issue_events" in text
+    assert "--timelines" in text
+    assert "has_timeline" in text

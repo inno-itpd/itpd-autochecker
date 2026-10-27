@@ -42,9 +42,12 @@ Every feedback report must contain these sections in this order:
 6. `## Summary`
 7. `## Strengths`
 8. `## Main issues to fix`
-9. `## Segment details`
+9. `## Suggested next steps` (optional)
+10. `## Segment details`
 
-Do not add extra top-level sections.
+`## Suggested next steps` is the only optional top-level section, and it is the only top-level section a report may add beyond this list.
+Do not add any other top-level sections.
+When a report has no grounded advice, omit the optional section entirely rather than leaving an empty heading, a `None`, or a placeholder bullet.
 
 ## Repository metadata
 
@@ -139,6 +142,28 @@ When `Manual review required` is `yes`:
 
 - One sentence per bullet.
 - Actionable issues that students can confidently fix from verified evidence.
+
+## Suggested next steps
+
+This optional section holds advice the evidence supports but no rule requires.
+It sits between `## Main issues to fix` and `## Segment details`.
+
+- Omit the whole section when there is no grounded advice.
+- Otherwise use 1-3 bullets, one sentence each, and start each bullet with a verb.
+- Cite the artifact the advice rests on.
+- Do not repeat a `## Main issues to fix` bullet, do not state a status, grade, or `unverified`, and do not say `None`.
+- Do not frame the section as a note from a third party: the checker writes it, and no third party wrote it.
+- The section never feeds a segment status, `Evidence gaps`, or the overall assessment.
+- The release export ignores it: only `## Summary` goes into `feedback_release.csv`.
+
+```markdown
+## Suggested next steps
+
+- Bring one proposed answer for the open timeout question to the next review and record the Customer's verdict as a `DEC-nnn`.
+```
+
+The section is optional, so every report written before it existed still validates, and `scripts/validate_feedback_report.py` accepts a report with or without it.
+`scripts/render_feedback_report.py` and `scripts/patch_feedback_report.py` accept a `next_steps` bullet list; an empty list removes the section.
 
 ## Segment details
 

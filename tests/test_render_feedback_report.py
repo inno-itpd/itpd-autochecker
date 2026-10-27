@@ -89,6 +89,27 @@ def test_render_matches_the_report_builder(tmp_path: Path) -> None:
     assert not output_path.exists()
 
 
+def test_next_steps_payload_renders_the_optional_section(tmp_path: Path) -> None:
+    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload["next_steps"] = ["Read the ADR index next.", "Name US-04 in DEC-004."]
+    rendered, _ = render_feedback_report("A1", payload)
+    assert rendered == build_report("A1", next_steps=payload["next_steps"])
+    assert "## Suggested next steps" in rendered
+
+
+def test_empty_next_steps_payload_omits_the_section(tmp_path: Path) -> None:
+    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload["next_steps"] = []
+    rendered, _ = render_feedback_report("A1", payload)
+    assert "## Suggested next steps" not in rendered
+
+
+def test_next_steps_payload_rejects_more_than_three_bullets(tmp_path: Path) -> None:
+    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload["next_steps"] = ["One.", "Two.", "Three.", "Four."]
+    fail_render(tmp_path, payload, "at most 3")
+
+
 def test_a2_payload_renders_a_valid_report(tmp_path: Path) -> None:
     output = tmp_path / "agent-feedback.md"
     payload = full_payload(output, assignment="A2", statuses={2: "missing", 5: "partial", 8: "unverified"}, gaps={8})

@@ -31,10 +31,16 @@ It applies to every assignment unless the assignment's `A<N>/grading_prompt.md` 
 
 ## Evidence gaps policy
 
-- `Evidence gaps: yes` marks a blocked, conflicting, or otherwise unresolved check that could still change the segment's status.
+- `Evidence gaps: yes` is reserved for a blocked, conflicting, or otherwise unresolved check that could still change the segment's status.
+  The test is the status-changing one: if a later review of the blocked artifact could not change the status, there is no evidence gap.
+- A criterion the grader could not check that cannot change the status is an `**Evidence:**` caveat, never an evidence gap and never a `**Why not met (unverified):**` bullet.
+  State what was checked, what could not be read, and why the verified evidence already settles the status.
+- This policy takes precedence over an assignment prompt that says "an evidence gap for that criterion".
+  Apply the status-changing test there too, and record the blocker as a caveat when the verified evidence is enough for the status.
 - A blocked artifact URL does not count as positive evidence by itself.
   Only independently verified surrounding evidence counts.
 - Verified absence may still come with `Evidence gaps: yes` when an inaccessible location could change the result.
+- When a gap clears because new evidence confirms the earlier shortfall, the status may stay the same; clear the gap rather than silently upgrading the status.
 
 ## Evidence-state definitions
 
@@ -87,11 +93,19 @@ Process evidence lives on GitHub, not in the snapshot files: branch protection, 
 - The course requires that real names, university emails, and recordings stay out of the public repository and appear only in the Moodle PDF.
 - Never copy real names or emails from the PDF into feedback.
   Refer to people by GitHub username, and to the customer as `Customer`.
+- Before quoting a branch name, tag name, URL, or path in a report, check it against the member name and email tokens in `work/<team_dir>/pdf-info.json`.
+  A branch or URL that embeds a member's name is a privacy leak even when it looks like a harmless identifier: rewrite the reference, do not only add a note.
+  For example, describe the branch by its number and purpose rather than repeating `week4-<name>-...`.
+- Re-run the report privacy scan after the rewrite; the scan is what catches a name token the prose reviewer missed.
+- There are two scans, and a batch needs both:
+  - `scripts/scan_privacy.py A<N> "<team_dir>" --feedback <agent-feedback.md>` scans the finished report against the PDF tokens.
+  - `scripts/scan_privacy.py A<N> "<team_dir>"` scans the fetched snapshot before extraction.
+  After `work/<team_dir>/` is cleaned, the first scan still works with `--no-snapshot`, because it derives the tokens from the submission PDF.
 - Do not mark down a team for keeping private material out of the repository when the course requires or allows that.
 - Do mark down a team for committing private material that the course forbids in the repository.
   Describe the problem without repeating the private data.
-- After `work/<team_dir>/` is cleaned, run `scripts/scan_privacy.py A<N> "<team_dir>" --feedback <path> --no-snapshot`.
-  It derives the privacy tokens from the submission PDF instead of `pdf-info.json`.
+- A feedback report never presents advice as a third party's note.
+  The checker writes the optional `## Suggested next steps` section itself, so the section is the checker's own suggestion rather than someone else's note.
 
 ## Deviations
 
@@ -135,12 +149,19 @@ Process evidence lives on GitHub, not in the snapshot files: branch protection, 
 
 ## Regrading policy
 
+- A `full regrade` re-audits every segment of an existing report against freshly checked evidence.
+  It preserves the team work directory, rebuilds the payload, and re-renders the report; it does not re-fetch or re-review from zero.
+- Treat the existing report as an unverified draft, not as evidence.
+  A claim survives only when the saved dumps or a fresh lookup still support it.
+- Regrades do not depend on when a grader reruns them.
+  Re-read the artifact instead of trusting the previous wording, and give every changed claim a new `**Evidence:**` bullet.
 - Regrades re-check previously blocked artifacts instead of reusing old observations.
 - Segment-targeted regrades refresh the requested segments plus any segment whose status depends on the same newly checked artifact.
   Choose related segments by shared artifact, not by adjacent segment numbers.
 - Untouched segment blocks stay verbatim.
 - Instructor-provided evidence may be used directly, and is cited in `**Evidence:**` as instructor-reviewed.
 - A regrade may clear `Evidence gaps` without changing the status, when newly visible evidence confirms the earlier shortfall.
+- A regrade never changes a status on prose alone; the change needs verified evidence.
 
 ## Segment inspection policy
 

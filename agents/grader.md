@@ -27,19 +27,73 @@ A cache override cannot fix this cause, so never present it as the complete fix.
 
 Follow the operator request to choose one of these modes:
 
+| Request | Mode |
+|---------|------|
+| A first review, or a submission with no saved report | `full review` |
+| Re-audit the whole saved report, or `full regrade` | `full regrade` |
+| Named segments such as `S3,S4` | `partial regrade` |
+| What the report currently says, read-only | `segment inspect` |
+
 1. `full review` (default)
    - Review the submission and write a complete `agent-feedback.md`.
-2. `partial regrade`
+   - This is the only mode that empties the work directory, and only for a first review.
+2. `full regrade`
+   - Re-audit every segment of the saved report against freshly checked evidence, then rebuild the payload and re-render the report.
+   - Never empty or delete the work directory: it holds the saved dumps, `pdf-info.json`, and the previous payload.
+   - Follow [Full regrade](#full-regrade).
+3. `partial regrade`
    - Used when the operator names segment IDs such as `S3,S4`.
    - Read the existing `agent-feedback.md` first.
    - Refresh only the requested segments plus any segment whose status depends on the same newly checked artifact.
    - Apply instructor notes directly when the operator provides them.
    - Patch with `uv run python scripts/regrade_feedback_segments.py` using a structured `segment_updates` payload.
      Use `uv run python scripts/patch_feedback_report.py` as the low-level fallback.
-3. `segment inspect`
+4. `segment inspect`
    - Used when the operator asks what the grader currently sees for specific segments.
    - Read the existing `agent-feedback.md` first and do not edit any files.
    - Separate the saved report state from any fresh checks.
+
+## Full regrade
+
+A full regrade is a first-class mode, not a partial refresh with a wider segment list.
+It re-checks every segment, keeps the saved work, and can change a status only on freshly verified evidence.
+
+- Keep `{TEAM_WORK}` and its `pdf-info.json`.
+  Do not run `rm -rf` on it, and do not delete the saved dumps, `summary.md`, `evidence.sqlite`, or `payload.json`.
+- Re-fetch the snapshot at the saved SHA:
+  empty only `{TEAM_WORK}/snapshot/` and fetch it again, so a file left from an earlier fetch cannot pass as current.
+  When `pdf-info.json` has no repository and SHA, stay on the stopped path and re-audit the repository-dependent segments as `unverified`.
+- Refresh the digest and the database from the saved dumps without calling `gh`:
+
+  ```console
+  uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --summary
+  ```
+
+  Collect one dump again only when a claim needs a field the saved dumps do not hold, such as a new timeline or path history.
+- Treat the saved `agent-feedback.md` and `payload.json` as a draft, not as evidence.
+  For each segment, run the audit below.
+- Rebuild `payload.json` rather than editing the report prose:
+  write the payload first and render the report last, so `scripts/check_batch_ready.py` sees the report at or after the payload's mtime.
+- Validate the report, run both privacy scans, and finish with the standard return line plus the status diff and the corrections.
+- One writer per team: never run a full regrade beside another grader for the same team.
+  Before extraction, the operator passes every active team to `scripts/check_batch_ready.py A4 --active "<team_dir>"`, so a regrade batch never extracts while a writer is running.
+
+### Audit each segment
+
+For every segment of the assignment, in order:
+
+1. State the saved claim: its status, its `Evidence gaps` flag, and each `**Evidence:**` and shortfall bullet.
+2. Re-check the claim against the snapshot at the saved SHA and the saved dumps, then against a fresh lookup only where the dumps do not answer.
+3. Decide keep, correct, or withdraw:
+   - keep the claim when the evidence still supports it;
+   - correct it when the evidence contradicts it, and give the corrected claim an `**Evidence:**` bullet naming the artifact and what it shows;
+   - withdraw it when the artifact no longer supports it, and record the withdrawal in the corrections list.
+4. Never change a status on prose alone.
+   A status change needs a verified artifact, and the `**Evidence:**` bullet that carries it.
+5. Before keeping a saved shortfall, resolve the exact target it names: the milestone number, the issue, the run, the tag time, or the file heading.
+   A saved claim that names the wrong target is a correction even when its wording sounds right.
+
+The audit is the point of the mode: the A4 regrade found saved reports that cited the wrong milestone, accepted a post-cutoff label removal, treated project fields as issue fields, and called a post-cutoff tag on time.
 
 ## Paths
 
@@ -97,7 +151,7 @@ jq '.data.organization.projectV2.items.nodes[] | {title: .content.title, values:
 ## Evidence database
 
 `{TEAM_WORK}/evidence.sqlite` projects the saved dumps into SQLite with the Python standard library only.
-Every collection writes it, `--issue-fields` refreshes it, and `--summary` rebuilds it from the saved dumps and `issue-fields.json` without calling `gh`.
+Every collection writes it, `--issue-fields` refreshes it, and `--summary` rebuilds it from the saved dumps, `issue-fields.json`, and the saved `issues/<n>.timeline.json` files without calling `gh`.
 Use it instead of `jq` for the S6 and S7 questions: the `issue_projection` view is one row per issue with `number`, `state`, `title`, `type`, `milestone`, `milestone_due_on`, `labels`, `assignees`, and `closing_pull_requests`, and the multi-valued columns are `''` rather than NULL when the dump held no array.
 
 Open it with the standard-library CLI, which runs SQL statements rather than the `sqlite3` shell's dot commands:
@@ -128,13 +182,42 @@ LEFT JOIN pr_closing_references AS c ON c.pull_request_number = p.number
 ORDER BY p.number;
 ```
 
-Tables: `issues`, `labels`, `issue_labels`, `milestones`, `issue_assignees`, `issue_closing_references`, `issue_field_values`, `pull_requests`, `pr_reviews`, `pr_files`, and `pr_closing_references`.
+Tables: `issues`, `labels`, `issue_labels`, `milestones`, `issue_assignees`, `issue_closing_references`, `issue_field_values`, `pull_requests`, `pr_reviews`, `pr_files`, `pr_closing_references`, `issue_events`, and `cutoffs`.
 When `issue-fields.json` was never collected, `type`, `milestone`, and assignees are NULL or empty, and the issue and pull-request questions still answer.
-Runs, commits, tags, releases, comments, timelines, and edit history are not in the database; use the bounded projections in `## Context budget` for those.
+Runs, commits, tags, releases, comments, and edit history are not in the database; use the bounded projections in `## Context budget` for those.
+
+### Judging at the cutoff
+
+The `cutoffs` table holds the team's `ISSUE_CUTOFF` from `tools/grader_tools/assignment_config.py`, so `Team 2 - OK_10938_assignsubmission_file` gets its later Monday cutoff without the grader copying a date.
+`issue_events` holds one row per issue-timeline event, and `issue_state_at_cutoff` reconstructs the state at that cutoff. Read it before the current state:
+
+```sql
+SELECT number, labels_at_cutoff, milestone_at_cutoff, state_at_cutoff, has_timeline,
+       labels, milestone, state
+FROM issue_state_at_cutoff ORDER BY number;
+```
+
+- `labels_at_cutoff` is the label set after removing every label the timeline unlabeled at or before the cutoff.
+- `milestone_at_cutoff` is the milestone of the last `milestoned` event at or before the cutoff, or NULL when a later `demilestoned` event removed it.
+- `state_at_cutoff` is `closed` or `open` from the last `closed` or `reopened` event at or before the cutoff.
+- `has_timeline` is 1 when the issue's timeline was collected, and 0 otherwise.
+- A `0` means the view cannot answer for that issue: read the current value and say so in `**Evidence:**`, or collect the timeline first.
+- Type and issue-field values have no timeline history in the API, so the view cannot reconstruct them: read the current value plus the timeline edits, and say which was used.
+
+Collect timelines for the issues a segment needs, or every issue at once, before judging them:
+
+```console
+uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --timelines 12 13 27
+uv run python scripts/collect_github_evidence.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --timelines
+```
+
+The bare `--timelines` collects every issue in `issues.json`; either form costs one paginated request per issue, so collect all timelines only when the batch needs them.
+The collector writes `issues/<n>.timeline.json` and rebuilds `evidence.sqlite`, and a later `--summary` rebuilds `issue_events` and the view from those files without calling `gh`.
 
 ## Steps
 
-1. Empty the team work directory, so no files from an earlier run remain:
+1. In `full review` mode only, empty the team work directory, so no files from an earlier run remain.
+   In `full regrade` and `partial regrade` mode, skip this step: the saved dumps, `pdf-info.json`, and `payload.json` are the evidence the mode audits, and deleting them destroys it.
 
    ```console
    rm -rf "{TEAM_WORK}"
@@ -146,10 +229,11 @@ Runs, commits, tags, releases, comments, timelines, and edit history are not in 
 4. Read `{ASSIGNMENT_DIR}/grading_prompt.md`.
 5. Read every file listed in its `## Authoritative sources` section.
    They live under `{ASSIGNMENT_DIR}/itpd/`, pinned at the commit the assignment is reviewed against.
-6. In `partial regrade` or `segment inspect` mode, read the current report.
+6. In `full regrade`, `partial regrade`, or `segment inspect` mode, read the current report.
    For a structured view, run `uv run python scripts/inspect_feedback_segments.py {ASSIGNMENT_DIR} <agent-feedback.md> S<n> ...`.
    Add `--fresh-payload <payload.json> --format text` to compare saved and fresh state.
-7. Run the submission fetcher, which reads the PDF, checks the commit, and fetches the snapshot in one pass:
+7. Run the submission fetcher, which reads the PDF, checks the commit, and fetches the snapshot in one pass.
+   In `full regrade` mode, skip the fetcher when `{TEAM_WORK}/pdf-info.json` already exists, because a rerun replaces an operator permalink override; re-fetch only `{TEAM_WORK}/snapshot/` from the saved repository and SHA, as in step 9.
 
    ```console
    uv run python scripts/fetch_team_snapshot.py {ASSIGNMENT_DIR} "{TEAM_DIR}"
@@ -249,10 +333,11 @@ Runs, commits, tags, releases, comments, timelines, and edit history are not in 
 
 ## Output
 
-- In `full review` mode, write the validated report as soon as all segment statuses are decided — 13 for A3 — then run the gates below.
+- In `full review` mode, write the validated report as soon as all segment statuses are decided, then run the gates below.
+  The segment count is the assignment's own: read it from `len(ASSIGNMENT_CONFIG[ASSIGNMENT_DIR]["segment_defs"])` in `tools/grader_tools/assignment_config.py`, never from a hard-coded number or another assignment's count.
   A crash must leave a validated report on disk, not a half-written one; refine the prose after that first write instead of deferring it.
-- Build the payload for that write incrementally: judge S1–S4, then S5–S8, then S9–S13 (stop at the assignment's last segment when it has fewer), and rewrite `{TEAM_WORK}/payload.json` after each group, so a crash loses at most the group being reviewed.
-  Add the `summary`, `strengths`, and `main_issues_to_fix` bullets once the statuses are decided, then write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md` in the format from `docs/grading-feedback-format.md`, or render it from the payload:
+- Build the payload for that write incrementally: judge the first group of segments, then the next, and rewrite `{TEAM_WORK}/payload.json` after each group, so a crash loses at most the group being reviewed.
+  Add the `summary`, `strengths`, `main_issues_to_fix`, and optional `next_steps` bullets once the statuses are decided, then write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md` in the format from `docs/grading-feedback-format.md`, or render it from the payload:
 
   ```console
   uv run python scripts/render_feedback_report.py {ASSIGNMENT_DIR} "{TEAM_WORK}/payload.json"
@@ -262,7 +347,11 @@ Runs, commits, tags, releases, comments, timelines, and edit history are not in 
   Render again after a later group, and re-run the gates below after every render.
   A segment that the payload does not cover yet renders as an `unverified` placeholder with `Evidence gaps: yes` and a generated placeholder bullet in `**Why not met (unverified):**` and in `## Unresolved evidence gaps`, so even a partial payload writes a file that passes the validator.
   The placeholder is never `met` and is not a verified shortfall; supplying the segment in a later payload replaces it.
-- Validate it, and fix it until it passes:
+- In `full regrade` and `partial regrade` mode, write `{TEAM_WORK}/payload.json` first and render the report last.
+  `scripts/check_batch_ready.py` refuses a teammate whose payload is newer than its report, so a render before the last payload edit looks like an interrupted run.
+- When a reflection produced a useful, evidence-backed suggestion that no rule requires, put it in the optional `## Suggested next steps` section instead of `## Main issues`: 1-3 one-sentence bullets that begin with a verb and cite the artifact.
+  Omit the section when there is no such advice, and never present it as a third party's note.
+- Validate the rendered report, and fix it until it passes:
 
   ```console
   uv run python scripts/check_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
@@ -283,14 +372,28 @@ Runs, commits, tags, releases, comments, timelines, and edit history are not in 
   ```
 
   The payload format is `{"segment_updates": {"S<n>": {"status", "evidence_gaps", "evidence", "verified_shortfalls", "unverified_checks"}}, "unresolved_evidence_gaps": {"S<n>": ["..."]}}`.
+  The optional `report` and `sections` objects carry metadata and sections, and `sections.next_steps` carries the advice section.
   Unresolved bullets for untouched gap segments are carried over automatically.
 - In `segment inspect` mode, do not write any files.
+
+## Full regrade output
+
+A full regrade changes only what the audit supports.
+It may end with the same statuses as the saved report, and that is a valid outcome.
+
+- Use `{TEAM_WORK}/payload.json` and the last valid report as the draft, and rewrite the payload instead of hand-editing prose.
+- Write the payload first and render the report last, then validate the render and run both privacy scans.
+- Record every change and correction in `{TEAM_WORK}/regrade-changes.md`:
+  `changes: S<n> <old> -> <new> (<reason>)` for a status change, and `corrections: <saved claim> -> <what the evidence shows>` for a corrected or withdrawn claim.
+- Give every changed claim a new `**Evidence:**` bullet, and give every status change a `**Why not met (verified):**` bullet when the new status is `partial` or `missing`.
+- A claim that needs a dump which is not saved yet is a reason to collect that dump now, and the collector line records it.
+- Do not run `scripts/check_batch_ready.py` yourself: it is the operator's pre-extraction gate, and only the operator can pass `--active`.
 
 ## Return value
 
 Return exactly one line before you finish, including on partial success.
 
-For `full review` and `partial regrade`, when a report was written, return:
+For `full review` and `full regrade`, when a report was written, return:
 
 ```text
 {TEAM_DIR}: OK met <n> · partial <n> · missing <n> · unverified <n> — manual review <yes|no> — report itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md
@@ -299,6 +402,15 @@ For `full review` and `partial regrade`, when a report was written, return:
 Substitute the placeholders so the line names the exact path written, not a pattern and not the work directory.
 Emit this line whenever the report exists on disk; when a later check failed after the write, append `— <check> failed` so the failure is not silent.
 A written report is a partial success, not a failure.
+
+For a `full regrade`, add two more lines after it:
+
+```text
+changes: S<n> <old> -> <new> (<reason>) · ...
+corrections: <saved claim> -> <what the evidence shows> · ...
+```
+
+Use `no status changes` when every status held, and `none` for no corrections.
 
 Only when no report was written, return:
 

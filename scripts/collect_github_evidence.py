@@ -34,9 +34,11 @@ def build_parser() -> argparse.ArgumentParser:
             "submission with no resolvable snapshot is a judged outcome: the script prints 'result: "
             "skipped (no snapshot)' and exits 0. With --issue-fields it instead writes issue-fields.json, "
             "one row per issue with its type, milestone, assignees, and field values, from one paginated "
-            "REST list call; that mode is not combined with --summary, --issues, or --paths. With "
-            "--summary it rebuilds and prints the digest and evidence.sqlite from the saved dumps and "
-            "never calls gh."
+            "REST list call; that mode is not combined with --summary, --issues, --paths, or --timelines. "
+            "With --timelines it writes issues/<n>.timeline.json for the listed issues, or for every issue "
+            "when no numbers are given, at one paginated request per issue; that feeds the issue_events "
+            "table and the issue_state_at_cutoff view. With --summary it rebuilds and prints the digest and "
+            "evidence.sqlite from the saved dumps, timelines, and cutoff, and never calls gh."
         )
     )
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
@@ -55,6 +57,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         metavar="PATH",
         help="Repository paths, from the repository root, to fetch commit histories for",
+    )
+    parser.add_argument(
+        "--timelines",
+        nargs="*",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Write issues/<n>.timeline.json for the listed issues, or for every issue in issues.json "
+            "when no numbers are given; one paginated request per issue. Feeds issue_events and the "
+            "issue_state_at_cutoff view; not combined with --issue-fields or --summary"
+        ),
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
@@ -86,9 +100,14 @@ def run(
 ) -> int:
     args = build_parser().parse_args(argv)
     if args.summary:
+        if args.timelines is not None:
+            out("ERROR: --timelines cannot be combined with --summary")
+            return 2
         try:
             summary_path, digest = regenerate_evidence_summary(args.assignment, args.team_dir, root=root)
-            database = write_evidence_database(summary_path.parent)
+            database = write_evidence_database(
+                summary_path.parent, assignment=args.assignment, team_dir=args.team_dir
+            )
         except (LiveEvidenceError, EvidenceDatabaseError) as exc:
             out(f"ERROR: {exc}")
             return 2
@@ -99,6 +118,9 @@ def run(
     if args.issue_fields and (args.issues or args.paths):
         out("ERROR: --issue-fields cannot be combined with --issues or --paths")
         return 2
+    if args.issue_fields and args.timelines is not None:
+        out("ERROR: --issue-fields cannot be combined with --timelines")
+        return 2
     try:
         result = collect(
             args.assignment,
@@ -107,6 +129,7 @@ def run(
             issues=args.issues,
             paths=args.paths,
             issue_fields=args.issue_fields,
+            timelines=args.timelines,
         )
     except LiveEvidenceError as exc:
         out(f"ERROR: {exc}")

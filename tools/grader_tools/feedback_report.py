@@ -21,7 +21,13 @@ HEADER_UNRESOLVED = "## Unresolved evidence gaps"
 HEADER_SUMMARY = "## Summary"
 HEADER_STRENGTHS = "## Strengths"
 HEADER_MAIN_ISSUES = "## Main issues to fix"
+HEADER_NEXT_STEPS = "## Suggested next steps"
 HEADER_DETAILS = "## Segment details"
+
+# `## Suggested next steps` is optional: a report without grounded advice omits
+# it entirely, and every report written before the section existed stays valid.
+# Its position is fixed between `## Main issues to fix` and `## Segment details`.
+OPTIONAL_SECTIONS = (HEADER_NEXT_STEPS,)
 
 SECTION_ORDER = [
     HEADER_ASSESSMENT,
@@ -30,8 +36,11 @@ SECTION_ORDER = [
     HEADER_SUMMARY,
     HEADER_STRENGTHS,
     HEADER_MAIN_ISSUES,
+    HEADER_NEXT_STEPS,
     HEADER_DETAILS,
 ]
+
+REQUIRED_SECTIONS = tuple(heading for heading in SECTION_ORDER if heading not in OPTIONAL_SECTIONS)
 
 HEADING_EVIDENCE = "Evidence"
 HEADING_VERIFIED = "Why not met (verified)"
@@ -130,6 +139,7 @@ class ParsedFeedbackReport:
     details_body: str
     segments_table: ParsedSegmentsTable
     segment_blocks: dict[int, SegmentBlock]
+    next_steps_body: str | None = None
 
 
 @dataclass(frozen=True)
@@ -187,18 +197,26 @@ def format_status_counts(counts: dict[str, int]) -> str:
     return " · ".join(parts)
 
 
-def extract_required_sections(text: str) -> dict[str, tuple[re.Match[str], str]]:
+def extract_sections(text: str) -> dict[str, tuple[re.Match[str], str]]:
+    """Read every top-level section that is present, requiring only the mandatory ones."""
     sections: dict[str, tuple[re.Match[str], str]] = {}
     for heading in SECTION_ORDER:
         match = HEADING_PATTERNS[heading].search(text)
         if not match:
+            if heading in OPTIONAL_SECTIONS:
+                continue
             raise ValueError(f"Missing {heading} section")
         sections[heading] = (match, section_body(text, match))
 
-    positions = [sections[heading][0].start() for heading in SECTION_ORDER]
+    positions = [sections[heading][0].start() for heading in SECTION_ORDER if heading in sections]
     if positions != sorted(positions):
         raise ValueError("Sections must appear in this order: " + ", ".join(SECTION_ORDER))
     return sections
+
+
+def extract_required_sections(text: str) -> dict[str, tuple[re.Match[str], str]]:
+    """Backward-compatible alias for :func:`extract_sections`."""
+    return extract_sections(text)
 
 
 def parse_segments_table(table_text: str, segment_defs: SegmentDefs) -> ParsedSegmentsTable:
@@ -277,7 +295,8 @@ def parse_segment_blocks(details_text: str, segment_defs: SegmentDefs) -> dict[i
 
 def parse_feedback_text(text: str, segment_defs: SegmentDefs) -> ParsedFeedbackReport:
     text = normalize_line_endings(text)
-    sections = extract_required_sections(text)
+    sections = extract_sections(text)
+    next_steps = sections.get(HEADER_NEXT_STEPS)
     return ParsedFeedbackReport(
         text=text,
         preamble=text[: sections[HEADER_ASSESSMENT][0].start()].strip(),
@@ -290,6 +309,7 @@ def parse_feedback_text(text: str, segment_defs: SegmentDefs) -> ParsedFeedbackR
         details_body=sections[HEADER_DETAILS][1],
         segments_table=parse_segments_table(sections[HEADER_SEGMENTS][1], segment_defs),
         segment_blocks=parse_segment_blocks(sections[HEADER_DETAILS][1], segment_defs),
+        next_steps_body=next_steps[1] if next_steps is not None else None,
     )
 
 
@@ -721,6 +741,8 @@ def render_report(
     summary_body: str,
     strengths_body: str,
     main_issues_body: str,
+    *,
+    next_steps_body: str | None = None,
 ) -> str:
     ordered = [segment_blocks[seg_num] for seg_num in sorted(segment_defs)]
     sections = [
@@ -750,11 +772,22 @@ def render_report(
         "",
         main_issues_body.strip(),
         "",
-        HEADER_DETAILS,
-        "",
-        "\n\n".join(block.markdown.strip() for block in ordered),
     ]
+    if next_steps_body is not None and next_steps_body.strip():
+        sections.extend([HEADER_NEXT_STEPS, "", next_steps_body.strip(), ""])
+    sections.extend(
+        [
+            HEADER_DETAILS,
+            "",
+            "\n\n".join(block.markdown.strip() for block in ordered),
+        ]
+    )
     return "\n".join(sections).rstrip() + "\n"
+
+
+def render_bullet_body(bullets: list[str]) -> str:
+    """Render a single-level bullet list, as the optional section's body."""
+    return "\n".join(f"- {bullet}" for bullet in bullets)
 
 
 def parse_unresolved_section(unresolved_text: str, segment_defs: SegmentDefs) -> dict[int, list[str]]:

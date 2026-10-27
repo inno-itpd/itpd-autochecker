@@ -24,6 +24,15 @@ States are lowercased so ``issues.json`` (``OPEN``) and ``issue-fields.json``
 (``open``) answer the same query.  The database is rebuilt from scratch on every
 write, so it never accumulates rows from an earlier collection.
 
+The saved ``issues/<n>.timeline.json`` files feed ``issue_events``, and the
+team's cutoff from :func:`assignment_config.issue_cutoff_for` is one row in
+``cutoffs``.  The ``issue_state_at_cutoff`` view then reconstructs
+``labels_at_cutoff``, ``milestone_at_cutoff``, and ``state_at_cutoff`` from the
+events at or before that cutoff, with a ``has_timeline`` marker for an issue
+whose timeline was never collected.  Type and issue-field values have no
+timeline history in the API, so the view leaves them to the current value plus
+the timeline; a missing timeline never turns into a guessed state.
+
 ``tests/test_evidence_sqlite.py`` holds ``ISSUE_DUMP_KEYS``, ``PR_DUMP_KEYS``,
 and ``ISSUE_FIELDS_DUMP_KEYS`` equal to the collector's ``ISSUE_FIELDS``,
 ``PR_FIELDS``, and issue-fields projection keys, so the two files cannot drift.
@@ -38,12 +47,16 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from tools.grader_tools.assignment_config import issue_cutoff_for
+
 EVIDENCE_DB_FILENAME = "evidence.sqlite"
 ISSUES_FILENAME = "issues.json"
 LABELS_FILENAME = "labels.json"
 MILESTONES_FILENAME = "milestones.json"
 PRS_FILENAME = "prs.json"
 ISSUE_FIELDS_FILENAME = "issue-fields.json"
+TIMELINES_DIRNAME = "issues"
+TIMELINE_SUFFIX = ".timeline.json"
 DUMP_FILENAMES = (
     LABELS_FILENAME,
     MILESTONES_FILENAME,
@@ -106,6 +119,8 @@ SCHEMA_TABLES = (
     "pr_reviews",
     "pr_files",
     "pr_closing_references",
+    "issue_events",
+    "cutoffs",
 )
 
 # Foreign keys are declared for readability but not enforced: a partial dump
@@ -201,6 +216,21 @@ CREATE TABLE pr_closing_references (
     url TEXT
 );
 
+CREATE TABLE issue_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    issue_number INTEGER NOT NULL REFERENCES issues(number),
+    event TEXT,
+    label_name TEXT,
+    milestone_title TEXT,
+    created_at TEXT,
+    actor_login TEXT
+);
+
+CREATE TABLE cutoffs (
+    team_dir TEXT,
+    cutoff TEXT
+);
+
 CREATE VIEW issue_projection AS
 SELECT
     i.number AS number,
@@ -235,6 +265,58 @@ SELECT
     ) AS closing_pull_requests
 FROM issues AS i
 LEFT JOIN milestones AS m ON m.title = i.milestone_title;
+
+CREATE VIEW issue_state_at_cutoff AS
+SELECT
+    i.number AS number,
+    (SELECT cutoff FROM cutoffs ORDER BY cutoff LIMIT 1) AS cutoff,
+    EXISTS (SELECT 1 FROM issue_events AS e WHERE e.issue_number = i.number) AS has_timeline,
+    i.state AS state,
+    (
+        SELECT CASE lower(e.event) WHEN 'closed' THEN 'closed' WHEN 'reopened' THEN 'open' END
+        FROM issue_events AS e
+        WHERE e.issue_number = i.number
+          AND lower(e.event) IN ('closed', 'reopened')
+          AND datetime(e.created_at) <= datetime((SELECT cutoff FROM cutoffs ORDER BY cutoff LIMIT 1))
+        ORDER BY datetime(e.created_at) DESC, e.id DESC
+        LIMIT 1
+    ) AS state_at_cutoff,
+    i.milestone_title AS milestone,
+    (
+        SELECT CASE WHEN lower(e.event) = 'demilestoned' THEN NULL ELSE e.milestone_title END
+        FROM issue_events AS e
+        WHERE e.issue_number = i.number
+          AND lower(e.event) IN ('milestoned', 'demilestoned')
+          AND datetime(e.created_at) <= datetime((SELECT cutoff FROM cutoffs ORDER BY cutoff LIMIT 1))
+        ORDER BY datetime(e.created_at) DESC, e.id DESC
+        LIMIT 1
+    ) AS milestone_at_cutoff,
+    COALESCE(
+        (
+            SELECT group_concat(a.label_name, ', ')
+            FROM issue_labels AS a
+            WHERE a.issue_number = i.number
+        ),
+        ''
+    ) AS labels,
+    COALESCE(
+        (
+            SELECT group_concat(name, ', ')
+            FROM (
+                SELECT e.label_name AS name
+                FROM issue_events AS e
+                WHERE e.issue_number = i.number
+                  AND e.label_name IS NOT NULL
+                  AND datetime(e.created_at) <= datetime((SELECT cutoff FROM cutoffs ORDER BY cutoff LIMIT 1))
+                GROUP BY e.label_name
+                HAVING SUM(CASE WHEN lower(e.event) = 'labeled' THEN 1 ELSE 0 END)
+                     > SUM(CASE WHEN lower(e.event) = 'unlabeled' THEN 1 ELSE 0 END)
+                ORDER BY e.label_name
+            )
+        ),
+        ''
+    ) AS labels_at_cutoff
+FROM issues AS i;
 """
 
 
@@ -264,8 +346,21 @@ class EvidenceDatabase:
         )
 
 
-def build_evidence_database(dumps: Mapping[str, object], path: Path) -> EvidenceDatabase:
-    """Write ``path`` from already-parsed dumps, replacing any earlier database."""
+def build_evidence_database(
+    dumps: Mapping[str, object],
+    path: Path,
+    *,
+    timelines: Mapping[int, object] | None = None,
+    cutoff: str | None = None,
+    team_dir: str | None = None,
+) -> EvidenceDatabase:
+    """Write ``path`` from already-parsed dumps, replacing any earlier database.
+
+    ``timelines`` maps an issue number to its saved ``issues/<n>.timeline.json``
+    payload, and ``cutoff`` is the team's ``ISSUE_CUTOFF``; both feed the
+    ``issue_events`` table and the ``issue_state_at_cutoff`` view.  Without a
+    cutoff the view still reports ``has_timeline`` but reconstructs no state.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f"{path.name}.tmp")
@@ -278,6 +373,9 @@ def build_evidence_database(dumps: Mapping[str, object], path: Path) -> Evidence
         _insert_issues(connection, _rows(dumps.get(ISSUES_FILENAME)))
         _insert_issue_fields(connection, _rows(dumps.get(ISSUE_FIELDS_FILENAME)))
         _insert_pull_requests(connection, _rows(dumps.get(PRS_FILENAME)))
+        _insert_issue_events(connection, timelines or {})
+        if cutoff is not None:
+            connection.execute("INSERT INTO cutoffs (team_dir, cutoff) VALUES (?, ?)", (team_dir, cutoff))
         connection.commit()
         counts = {table: _count(connection, table) for table in SCHEMA_TABLES}
     except (OSError, sqlite3.Error) as exc:
@@ -298,16 +396,46 @@ def build_evidence_database(dumps: Mapping[str, object], path: Path) -> Evidence
     return EvidenceDatabase(path=path, counts=counts)
 
 
-def write_evidence_database(work_dir: Path) -> EvidenceDatabase:
-    """Rebuild ``<work_dir>/evidence.sqlite`` from the dumps saved there.
+def write_evidence_database(
+    work_dir: Path,
+    *,
+    assignment: str | None = None,
+    team_dir: str | None = None,
+    cutoff: str | None = None,
+) -> EvidenceDatabase:
+    """Rebuild ``<work_dir>/evidence.sqlite`` from the files saved there.
 
     A missing dump is an empty table: only ``issue-fields.json`` is optional in
     practice, but reading every dump the same way keeps a partial collection
-    from raising.
+    from raising.  The saved ``issues/<n>.timeline.json`` files feed
+    ``issue_events``, and the team's cutoff comes from ``cutoff`` or from
+    ``issue_cutoff_for(assignment, team_dir)``.
     """
     work_dir = Path(work_dir)
     dumps = {filename: _load_dump(work_dir / filename) for filename in DUMP_FILENAMES}
-    return build_evidence_database(dumps, work_dir / EVIDENCE_DB_FILENAME)
+    if cutoff is None and assignment is not None:
+        cutoff = issue_cutoff_for(assignment, team_dir or "")
+    return build_evidence_database(
+        dumps,
+        work_dir / EVIDENCE_DB_FILENAME,
+        timelines=_load_timelines(work_dir),
+        cutoff=cutoff,
+        team_dir=team_dir,
+    )
+
+
+def _load_timelines(work_dir: Path) -> dict[int, object]:
+    """Read the saved ``issues/<n>.timeline.json`` files, keyed by issue number."""
+    directory = work_dir / TIMELINES_DIRNAME
+    if not directory.is_dir():
+        return {}
+    timelines: dict[int, object] = {}
+    for path in sorted(directory.glob(f"*{TIMELINE_SUFFIX}")):
+        number = _number(path.name[: -len(TIMELINE_SUFFIX)])
+        if number is None:
+            continue
+        timelines[number] = _load_dump(path)
+    return timelines
 
 
 def _load_dump(path: Path) -> object | None:
@@ -520,6 +648,28 @@ def _insert_issue_fields(connection: sqlite3.Connection, rows: list[Mapping[str,
                     _text(value.get("name")),
                     _text(value.get("data_type")),
                     _value_text(value.get("value")),
+                ),
+            )
+
+
+def _insert_issue_events(connection: sqlite3.Connection, timelines: Mapping[int, object]) -> None:
+    """Insert one row per issue-timeline event, null-safe for absent fields."""
+    for issue_number in sorted(timelines):
+        for event in _rows(timelines[issue_number]):
+            actor = event.get("actor")
+            if actor is None:
+                actor = event.get("user")
+            connection.execute(
+                "INSERT INTO issue_events "
+                "(issue_number, event, label_name, milestone_title, created_at, actor_login) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    issue_number,
+                    _text(event.get("event")),
+                    _name(event.get("label")),
+                    _milestone_title(event.get("milestone")),
+                    _text(event.get("created_at")),
+                    _login(actor),
                 ),
             )
 

@@ -36,7 +36,7 @@ def test_parse_reads_statuses_and_gaps() -> None:
 
 
 def test_render_round_trip_is_stable() -> None:
-    text = build_report("A2", statuses={1: "missing"}, gaps={3})
+    text = build_report("A2", statuses={1: "missing"}, gaps={3}, next_steps=["Read the ADR index next."])
     defs = ASSIGNMENT_CONFIG["A2"]["segment_defs"]
     report = parse_feedback_text(text, defs)
     rerendered = render_report(
@@ -47,8 +47,29 @@ def test_render_round_trip_is_stable() -> None:
         report.summary_body,
         report.strengths_body,
         report.main_issues_body,
+        next_steps_body=report.next_steps_body,
     )
     assert rerendered == text
+
+
+def test_optional_next_steps_section_is_read_in_order() -> None:
+    report = parse_feedback_text(
+        build_report("A1", next_steps=["Read the ADR index next.", "Name US-04 in DEC-004."]),
+        A1_DEFS,
+    )
+    assert report.next_steps_body == "- Read the ADR index next.\n- Name US-04 in DEC-004."
+    section_positions = [
+        report.text.index("## Main issues to fix"),
+        report.text.index("## Suggested next steps"),
+        report.text.index("## Segment details"),
+    ]
+    assert section_positions == sorted(section_positions)
+
+
+def test_next_steps_section_is_absent_by_default() -> None:
+    report = parse_feedback_text(build_report("A1"), A1_DEFS)
+    assert report.next_steps_body is None
+    assert "## Suggested next steps" not in report.text
 
 
 def test_no_gaps_uses_no_review_sentence() -> None:
@@ -100,3 +121,13 @@ def test_unresolved_preamble_round_trip_is_stable() -> None:
     assert metadata.snapshot is None
     assert metadata.notes == "The PDF permalink could not be resolved."
     assert render_preamble("A1", metadata) == report.preamble
+
+
+def test_next_steps_must_precede_segment_details() -> None:
+    text = build_report("A1", next_steps=["Read the ADR index next."])
+    start = text.index("## Suggested next steps")
+    end = text.index("## Segment details")
+    moved = text[start:end]
+    reordered = text[:start] + text[end:] + "\n" + moved
+    with pytest.raises(ValueError, match="order"):
+        parse_feedback_text(reordered, A1_DEFS)

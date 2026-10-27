@@ -223,6 +223,8 @@ def test_projection_answers_the_s6_issue_questions(null_dumps: Path) -> None:
         "pr_reviews": 1,
         "pr_files": 2,
         "pr_closing_references": 1,
+        "issue_events": 0,
+        "cutoffs": 0,
     }
 
 
@@ -400,3 +402,169 @@ def test_dump_keys_match_the_collector() -> None:
         )
     )[0]
     assert tuple(row) == ISSUE_FIELDS_DUMP_KEYS
+
+
+CUTOFF = "2026-10-25T23:59:59+03:00"  # 20:59:59Z
+TEAM_2 = "Team 2 - OK_10938_assignsubmission_file"
+
+
+def event(kind: str, at: str, **extra: object) -> dict[str, object]:
+    payload: dict[str, object] = {"event": kind, "created_at": at}
+    payload.update(extra)
+    return payload
+
+
+def write_timeline(work_dir: Path, number: int, events: list[dict[str, object]]) -> None:
+    write_json(work_dir / "issues" / f"{number}.timeline.json", events)
+
+
+def cutoff_rows(database: Path) -> list[tuple[object, ...]]:
+    with sqlite3.connect(database) as connection:
+        return connection.execute(
+            "SELECT number, cutoff, has_timeline, state, state_at_cutoff, milestone, "
+            "milestone_at_cutoff, labels, labels_at_cutoff FROM issue_state_at_cutoff ORDER BY number"
+        ).fetchall()
+
+
+@pytest.fixture
+def cutoff_work_dir(work_dir: Path) -> Path:
+    write_json(
+        work_dir / "issues.json",
+        [
+            {"number": 10, "state": "OPEN", "title": "Labels"},
+            {"number": 11, "state": "OPEN", "title": "Milestone move"},
+            {"number": 12, "state": "OPEN", "title": "Milestone removal"},
+            {"number": 13, "state": "OPEN", "title": "Reopened after cutoff"},
+            {"number": 14, "state": "CLOSED", "title": "Closed after cutoff"},
+            {"number": 15, "state": "OPEN", "title": "No timeline"},
+            {"number": 16, "state": "OPEN", "title": "Post-cutoff unlabel"},
+        ],
+    )
+    write_timeline(
+        work_dir,
+        10,
+        [
+            event("labeled", "2026-10-20T10:00:00Z", label={"name": "task"}),
+            event("labeled", "2026-10-21T10:00:00Z", label={"name": "user-story"}),
+            event("unlabeled", "2026-10-25T21:16:32Z", label={"name": "user-story"}),
+        ],
+    )
+    write_timeline(
+        work_dir,
+        11,
+        [
+            event("milestoned", "2026-10-18T10:00:00Z", milestone={"title": "SPRINT-03"}),
+            event("milestoned", "2026-10-22T10:00:00Z", milestone={"title": "SPRINT-04"}),
+            event("milestoned", "2026-10-26T10:00:00Z", milestone={"title": "SPRINT-05"}),
+        ],
+    )
+    write_timeline(
+        work_dir,
+        12,
+        [
+            event("milestoned", "2026-10-22T10:00:00Z", milestone={"title": "SPRINT-04"}),
+            event("demilestoned", "2026-10-26T10:00:00Z", milestone={"title": "SPRINT-04"}),
+        ],
+    )
+    write_timeline(
+        work_dir,
+        13,
+        [
+            event("closed", "2026-10-24T10:00:00Z"),
+            event("reopened", "2026-10-25T21:00:00Z"),
+        ],
+    )
+    write_timeline(
+        work_dir,
+        14,
+        [event("closed", "2026-10-26T10:00:00Z")],
+    )
+    write_timeline(
+        work_dir,
+        16,
+        [
+            event("labeled", "2026-10-20T10:00:00Z", label={"name": "user-story"}),
+            event("unlabeled", "2026-10-26T12:00:00Z", label={"name": "user-story"}),
+        ],
+    )
+    return work_dir
+
+
+def test_cutoff_view_reconstructs_labels_and_milestones(cutoff_work_dir: Path) -> None:
+    database = write_evidence_database(cutoff_work_dir, cutoff=CUTOFF, team_dir=TEAM)
+    rows = {row[0]: row for row in cutoff_rows(database.path)}
+
+    label_row = rows[10]
+    assert label_row[1] == CUTOFF
+    assert label_row[2] == 1
+    assert set(label_row[8].split(", ")) == {"task", "user-story"}
+    # The current label column comes from the issue dump, which carried none.
+    assert label_row[7] == ""
+
+    assert rows[11][6] == "SPRINT-04"
+    assert rows[12][6] == "SPRINT-04"
+    assert rows[15][2] == 0
+    assert rows[15][6] is None
+    assert rows[15][8] == ""
+
+
+def test_cutoff_view_reconstructs_close_and_reopen(cutoff_work_dir: Path) -> None:
+    database = write_evidence_database(cutoff_work_dir, cutoff=CUTOFF)
+    rows = {row[0]: row for row in cutoff_rows(database.path)}
+
+    assert rows[13][4] == "closed"
+    assert rows[13][3] == "open"
+    assert rows[14][4] is None
+    assert rows[14][3] == "closed"
+
+
+def test_cutoff_view_marks_a_missing_timeline(cutoff_work_dir: Path) -> None:
+    database = write_evidence_database(cutoff_work_dir, cutoff=CUTOFF)
+    with sqlite3.connect(database.path) as connection:
+        events = connection.execute(
+            "SELECT issue_number, event, label_name, milestone_title, created_at FROM issue_events ORDER BY id"
+        ).fetchall()
+    assert events
+    assert {row[0] for row in events} == {10, 11, 12, 13, 14, 16}
+    assert database.counts["issue_events"] == len(events)
+
+
+def test_write_database_reads_the_team_cutoff_from_the_config(cutoff_work_dir: Path) -> None:
+    database = write_evidence_database(cutoff_work_dir, assignment="A4", team_dir=TEAM_2)
+    with sqlite3.connect(database.path) as connection:
+        cutoffs = connection.execute("SELECT team_dir, cutoff FROM cutoffs").fetchall()
+    assert cutoffs == [(TEAM_2, "2026-10-26T23:59:59+03:00")]
+
+
+def test_summary_mode_rebuilds_issue_events_from_saved_timelines(work_dir: Path) -> None:
+    write_pdf_info(work_dir)
+    write_saved_dumps(work_dir)
+    for name in ("runs_main.json", "runs_sha.json", "releases.json", "tags.json"):
+        write_json(work_dir / name, [])
+    write_timeline(work_dir, 10, [event("labeled", "2026-10-20T10:00:00Z", label={"name": "task"})])
+    root = work_dir.parents[3]
+
+    def forbidden_collect(*args: object, **kwargs: object) -> LiveEvidenceResult:
+        raise AssertionError("--summary must reuse the saved dumps instead of calling gh")
+
+    status = collect_run(["A3", TEAM, "--summary"], root=root, out=lambda _: None, collect=forbidden_collect)
+
+    assert status == 0
+    with sqlite3.connect(work_dir / EVIDENCE_DB_FILENAME) as connection:
+        rows = connection.execute("SELECT issue_number, event, label_name FROM issue_events").fetchall()
+    assert rows == [(10, "labeled", "task")]
+
+
+def test_team_2_later_cutoff_keeps_a_label_the_default_cutoff_loses(cutoff_work_dir: Path) -> None:
+    def label_at(path: Path) -> str:
+        with sqlite3.connect(path) as connection:
+            row = connection.execute(
+                "SELECT labels_at_cutoff FROM issue_state_at_cutoff WHERE number = 16"
+            ).fetchone()
+        return row[0]
+
+    # The two rebuilds share one work directory, so read each result before the next write.
+    default_cutoff = write_evidence_database(cutoff_work_dir, assignment="A4", team_dir="Team 1")
+    assert label_at(default_cutoff.path) == "user-story"
+    team_2 = write_evidence_database(cutoff_work_dir, assignment="A4", team_dir=TEAM_2)
+    assert label_at(team_2.path) == ""

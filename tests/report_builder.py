@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.feedback_report import render_report, render_segment_block, SegmentBlock
+from tools.grader_tools.feedback_report import (
+    SegmentBlock,
+    render_bullet_body,
+    render_report,
+    render_segment_block,
+)
 
 REPO = "https://github.com/itpd-team-3/meeting-notes"
 SHA = "0123456789abcdef0123456789abcdef01234567"
@@ -60,6 +65,7 @@ def build_report(
     gaps: set[int] | None = None,
     team: int = 3,
     preamble_text: str | None = None,
+    next_steps: list[str] | None = None,
 ) -> str:
     segment_defs = ASSIGNMENT_CONFIG[assignment]["segment_defs"]
     statuses = statuses or {}
@@ -76,4 +82,5 @@ def build_report(
         summary_body="- First shortfall.\n- Second shortfall.\n- Third shortfall.",
         strengths_body="- A verified strength.",
         main_issues_body="- A fixable issue.",
+        next_steps_body=render_bullet_body(next_steps) if next_steps else None,
     )

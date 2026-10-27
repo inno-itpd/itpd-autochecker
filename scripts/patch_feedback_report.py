@@ -14,7 +14,8 @@ The payload is a JSON object.  It may contain any of:
   "sections": {
     "summary": ["3 to 5 one-line bullets"],
     "strengths": ["at least one one-line bullet"],
-    "main_issues_to_fix": ["at least one one-line bullet"]
+    "main_issues_to_fix": ["at least one one-line bullet"],
+    "next_steps": ["0 to 3 one-line bullets; an empty list removes the section"]
   },
   "summary": "- an existing string body\n- kept for compatibility",
   "strengths": "...",
@@ -46,10 +47,13 @@ The payload is a JSON object.  It may contain any of:
 - The object and every field are optional.  An omitted section keeps the saved
   body.
 - `summary` takes 3-5 one-line bullets, `strengths` and `main_issues_to_fix`
-  take at least one.  The names match `render_feedback_report.py`.  A
-  `main_issues` alias is accepted for `main_issues_to_fix`.
+  take at least one, and `next_steps` takes 0-3.  The names match
+  `render_feedback_report.py`.  A `main_issues` alias is accepted for
+  `main_issues_to_fix`.
 - The top-level string `summary`, `strengths`, and `main_issues_to_fix` keys
-  remain supported.  Supplying the same section both ways is rejected.
+  remain supported.  A top-level `next_steps` key takes a bullet list, and an
+  empty list removes the optional `## Suggested next steps` section.
+  Supplying the same section both ways is rejected.
 
 The rendered report is re-parsed and validated exactly like a full render, so
 an invalid payload prints `ERROR: ...` (exit code 2) and leaves the report file
@@ -80,6 +84,7 @@ from tools.grader_tools.feedback_report import (
     parse_preamble,
     parse_segment_blocks,
     parse_unresolved_section,
+    render_bullet_body,
     render_preamble,
     render_report,
     segment_selector_to_int,
@@ -88,13 +93,18 @@ from tools.grader_tools.feedback_report import (
 from tools.grader_tools.validate import validate_report
 
 REPORT_KEYS = {"snapshot", "repository", "primary_index", "notes"}
-SECTION_BODY_KEYS = ("summary", "strengths", "main_issues_to_fix")
+SECTION_BODY_KEYS = ("summary", "strengths", "main_issues_to_fix", "next_steps")
+# `next_steps` takes a bullet list, not a rendered body; the other sections keep
+# accepting the top-level string form for compatibility.
+SECTION_LIST_KEYS = ("next_steps",)
 SECTION_ALIASES = {"main_issues": "main_issues_to_fix"}
 SECTION_BULLET_LIMITS = {
     "summary": (3, 5),
     "strengths": (1, None),
     "main_issues_to_fix": (1, None),
+    "next_steps": (0, 3),
 }
+SECTION_STRING_KEYS = tuple(key for key in SECTION_BODY_KEYS if key not in SECTION_LIST_KEYS)
 
 
 def _reject_unexpected(seen: set[object], allowed: set[str], label: str) -> None:
@@ -191,16 +201,31 @@ def resolve_sections(payload: dict[str, object], saved_bodies: dict[str, str]) -
 
         for key, value in normalized.items():
             minimum, maximum = SECTION_BULLET_LIMITS[key]
+            if key in SECTION_LIST_KEYS:
+                if not isinstance(value, list):
+                    raise ValueError(f"Patch payload `sections.{key}` must be a list of one-line bullets")
+                bullets = bullet_list(value, f"sections.{key}", minimum=minimum, maximum=maximum)
+                bodies[key] = render_bullet_body(bullets) if bullets else ""
+                continue
             bullets = bullet_list(value, f"sections.{key}", minimum=minimum, maximum=maximum)
             bodies[key] = "\n".join(f"- {bullet}" for bullet in bullets)
 
-    for key in SECTION_BODY_KEYS:
+    for key in SECTION_STRING_KEYS:
         if key not in payload:
             continue
         value = payload[key]
         if not isinstance(value, str) or not value.strip():
             raise ValueError(f"Patch payload `{key}` must be a non-empty string")
         bodies[key] = value.strip()
+    for key in SECTION_LIST_KEYS:
+        if key not in payload:
+            continue
+        value = payload[key]
+        if not isinstance(value, list):
+            raise ValueError(f"Patch payload `{key}` must be a list of one-line bullets")
+        minimum, maximum = SECTION_BULLET_LIMITS[key]
+        bullets = bullet_list(value, key, minimum=minimum, maximum=maximum)
+        bodies[key] = render_bullet_body(bullets) if bullets else ""
     return bodies
 
 
@@ -258,6 +283,7 @@ def patch_report(assignment: str, report: ParsedFeedbackReport, payload: dict[st
             "summary": report.summary_body,
             "strengths": report.strengths_body,
             "main_issues_to_fix": report.main_issues_body,
+            "next_steps": report.next_steps_body or "",
         },
     )
 
@@ -269,6 +295,7 @@ def patch_report(assignment: str, report: ParsedFeedbackReport, payload: dict[st
         summary_body=bodies["summary"],
         strengths_body=bodies["strengths"],
         main_issues_body=bodies["main_issues_to_fix"],
+        next_steps_body=bodies["next_steps"] or None,
     )
     errors = validate_report(assignment, parse_feedback_text(rendered, segment_defs))
     if errors:

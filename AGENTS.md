@@ -83,6 +83,20 @@ If a command must run from elsewhere, pass `--config-file <repo>/uv.toml` or set
 6. Run `uv run python A<N>/extract_feedback.py` to regenerate `dev.md` and `feedback_release.csv`.
 7. Review the extractor warnings and fix malformed reports.
 
+## Re-grading a batch
+
+A regrade is a first-class grader mode, not a re-render of the saved report.
+`agents/grader.md` defines four modes: `full review` (a first review), `full regrade` (re-audit every segment of a saved report), `partial regrade` (named segments), and `segment inspect` (read-only).
+
+1. Launch one grader per team in `full regrade` mode, passing the assignment directory, the exact team directory name, and the absolute `{TEAM_WORK}` path.
+   A full regrade must preserve `work/<team_dir>/`: it reuses `pdf-info.json`, re-fetches only `snapshot/` at the saved SHA, and rebuilds `summary.md` and `evidence.sqlite` from the saved dumps.
+2. The grader audits every segment, rebuilds `itpd-assignments-feedback/A<N>/work/<team_dir>/payload.json`, renders the report last, validates it, and runs both privacy scans.
+   It returns the standard report line plus `changes: S<n> <old> -> <new> (<reason>)` and `corrections: <saved claim> -> <what the evidence shows>`.
+3. Keep one writer per team: interrupt a duplicate before resuming a session, and never run a second regrade beside one that is still running.
+4. Check batch readiness as in the workflow above, passing every team `list_agents` still reports as running or registered with `--active`.
+5. Validate the changed reports, run `markdownlint-cli2 --fix`, and re-run `A<N>/extract_feedback.py`.
+   The optional `## Suggested next steps` section is report-only: `dev.md` and `feedback_release.csv` keep exporting `## Summary` alone.
+
 ## Reviewing teams with the grader agent
 
 `agents/grader.md` is the executable prompt for one team.
@@ -94,6 +108,7 @@ When the user asks to review or re-review teams:
 2. Read `grading.json` and use `team_batch_size` as the batch size.
    Default to `8` if the file or value is missing or invalid.
 3. Pick the teams: the ones the user names, or every directory in `itpd-assignments-feedback/A<N>/submissions/` that has no `feedback/<team_dir>/agent-feedback.md` yet.
+   A segment count always comes from `ASSIGNMENT_CONFIG[A<N>]["segment_defs"]` in `tools/grader_tools/assignment_config.py`, never from another assignment's number.
 4. For each batch, launch one subagent per team in parallel:
    - Claude Code: the `grader` agent (`.claude/agents/grader.md`).
    - opencode: the `grader` subagent (`.opencode/agents/grader.md`) via the `task` tool.
@@ -110,7 +125,7 @@ When the user asks to review or re-review teams:
 ## Grader helper scripts
 
 All run from the repository root and print counts and paths only.
-`agents/grader.md` uses them in steps 7 to 13 and keeps the raw `gh` and `jq` commands as fallback.
+`agents/grader.md` uses them in its Steps section and keeps the raw `gh` and `jq` commands as fallback.
 
 - `uv run python scripts/preflight.py` — checks `gh` auth, `pdftotext`, and `markdownlint-cli2` before a batch.
 - `uv run python scripts/check_batch_ready.py A<N> [--active "<team_dir>" ...]` — pre-extraction gate: refuses a team whose grader `list_agents` still reports as running or registered (pass each team on `--active`, because a script cannot call `list_agents`), a non-empty work directory with no report, and a report older than `work/<team_dir>/payload.json`; exit codes 0 ready, 1 not ready, 2 usage error.
@@ -119,7 +134,9 @@ All run from the repository root and print counts and paths only.
 - `uv run python scripts/fetch_markdown_snapshot.py A<N> "<team_dir>" [--repo org/repo] [--permalink <url>]` — the no-PDF fallback: reads a Markdown submission wrapper, writes `pdf-info.json` with `permalink_source=operator`, the same keys, and the member name/email tokens derived from the wrapper's member table, and fetches the snapshot into `work/<team_dir>/snapshot/`.
   A wrong-week permalink prints a `warn:` line, repeats it in the team's `summary.md`, skips the commit check and the snapshot fetch, and exits 1; the `--permalink <url>` operator override replaces the PDF permalink with a full GitHub blob URL at a 40-character SHA, records `permalink_source=operator`, and lets the run continue.
   Exit codes are 0 success, 1 wrong-week stop, 2 usage, PDF-read, or GitHub error.
-- `uv run python scripts/collect_github_evidence.py A<N> "<team_dir>" [--issues <n> ...] [--paths <path> ...] [--issue-fields]` — paginated dumps (`labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`) in the same team work directory, and, with `--issue-fields`, `issue-fields.json` with every issue's `type`, `milestone`, `assignees`, and field values from one paginated REST list call; every write mode also rebuilds the `evidence.sqlite` projection, and `--summary` rebuilds it and the digest from the saved dumps without calling `gh`.
+- `uv run python scripts/collect_github_evidence.py A<N> "<team_dir>" [--issues <n> ...] [--paths <path> ...] [--issue-fields] [--timelines [<n> ...]]` — paginated dumps (`labels.json`, `issues.json`, `prs.json`, `runs_main.json`, `runs_sha.json`, `commits.json`, plus `issues/<n>.comments.json`, `issues/<n>.timeline.json`, `issues/<n>.edits.json`, and `paths/<path>.json`) in the same team work directory, and, with `--issue-fields`, `issue-fields.json` with every issue's `type`, `milestone`, `assignees`, and field values from one paginated REST list call.
+  `--timelines` writes `issues/<n>.timeline.json` for the listed issues, or for every issue in `issues.json` when no number is given, at one paginated request per issue; those timelines feed the `issue_events` table and the `issue_state_at_cutoff` view.
+  Every write mode also rebuilds the `evidence.sqlite` projection, and `--summary` rebuilds it and the digest from the saved dumps, `issue-fields.json`, and the saved timelines without calling `gh`.
 - `uv run python scripts/check_snapshot_links.py <snapshot_dir> [--issue-bodies <issues.json>]` — broken relative links, missing anchors, and pre-cut research anchors.
 - `uv run python scripts/scan_privacy.py A<N> "<team_dir>" [--feedback <agent-feedback.md>] [--no-snapshot]` — privacy findings grouped per file with a hit count plus per-rule hit and file totals, by path and kind only; `--no-snapshot` with `--feedback` derives the tokens from the submission PDF after `work/<team_dir>/` is cleaned.
 - `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>` — report validation plus `markdownlint-cli2` in one command.
@@ -139,11 +156,24 @@ uv run python -m sqlite3 "itpd-assignments-feedback/A3/work/<team_dir>/evidence.
 uv run python -m sqlite3 "<path>" "SELECT number, state, title FROM issues ORDER BY number;"
 ```
 
-Tables: `issues`, `labels`, `issue_labels`, `milestones`, `issue_assignees`, `issue_closing_references`, `issue_field_values`, `pull_requests`, `pr_reviews`, `pr_files`, and `pr_closing_references`.
+Tables: `issues`, `labels`, `issue_labels`, `milestones`, `issue_assignees`, `issue_closing_references`, `issue_field_values`, `pull_requests`, `pr_reviews`, `pr_files`, `pr_closing_references`, `issue_events`, and `cutoffs`.
 The `issue_projection` view joins them into one row per issue with `number`, `state`, `title`, `type`, `milestone`, `milestone_due_on`, `labels`, `assignees`, and `closing_pull_requests`.
 Multi-valued columns are comma-separated and empty (`''`) when the dump held no array, and states are lowercase.
 `issue-fields.json` supplies `type`, `milestone`, and the assignees, so those columns stay NULL or empty when it was never collected.
 The JSON keys the database reads are the collector's `ISSUE_FIELDS` and `PR_FIELDS` plus the issue-fields projection, and a test keeps them equal.
+
+The saved `issues/<n>.timeline.json` files feed `issue_events`, and the team's cutoff from `issue_cutoff_for` is one row in `cutoffs`.
+The `issue_state_at_cutoff` view reconstructs `labels_at_cutoff`, `milestone_at_cutoff`, and `state_at_cutoff` from the events at or before that cutoff, and marks an issue whose timeline was never collected with `has_timeline = 0`.
+Type and issue-field values have no timeline history in the API, so the view leaves them to the current value plus the timeline; a missing timeline is marked rather than guessed.
+
+```console
+# Labels, milestone, and state at the cutoff, beside the current values
+uv run python -m sqlite3 "<path>" \
+  "SELECT number, cutoff, has_timeline, labels_at_cutoff, milestone_at_cutoff, state_at_cutoff, labels, milestone, state FROM issue_state_at_cutoff ORDER BY number;"
+
+# The team's cutoff row (Team 2's Monday cutoff works through the same query)
+uv run python -m sqlite3 "<path>" "SELECT team_dir, cutoff FROM cutoffs;"
+```
 
 Concrete queries for the S6 and S7 evidence:
 
@@ -186,9 +216,14 @@ Payload shape:
       "unverified_checks": []
     }
   },
-  "unresolved_evidence_gaps": {}
+  "unresolved_evidence_gaps": {},
+  "sections": {
+    "next_steps": ["Read the ADR index next."]
+  }
 }
 ```
+
+`sections.next_steps` is optional and takes 0-3 one-line bullets; an empty list removes the optional `## Suggested next steps` section, and the same list is accepted at the top level as `next_steps`.
 
 Decision rules:
 
@@ -202,6 +237,7 @@ Decision rules:
 - `dev.md` columns: `team | gaps | gaps section | statuses | feedback`.
 - `feedback_release.csv` uses `|` as the delimiter: `group|s1..sN|manual_review|feedback`.
 - Only the `## Summary` section goes into the release feedback column.
+  The optional `## Suggested next steps` section is report-only, so the extractor ignores it and no export changes.
 
 ## Adding a new assignment
 

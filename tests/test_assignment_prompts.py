@@ -216,3 +216,83 @@ def test_a3_markdown_has_no_stale_sprint_deadlines() -> None:
         if stale_date in path.read_text(encoding="utf-8")
     ]
     assert offenders == []
+
+
+def _segment(text: str, number: str) -> str:
+    marker = next(line for line in text.splitlines() if line.startswith(f"### {number} "))
+    return text.split(marker, 1)[1].split("\n### ", 1)[0]
+
+
+@pytest.mark.parametrize(
+    ("segment", "needles"),
+    [
+        (
+            "S1",
+            (
+                "milestoned` and `demilestoned` events",
+                "paths/docs/project-plan.md.json",
+                "prose sentence, a rounded total",
+                "**What does not count:**",
+            ),
+        ),
+        (
+            "S2",
+            (
+                "project field-list result is never evidence for the issue fields",
+                "`admin:org`",
+                "`**Evidence:**` caveat",
+                "**What does not count:**",
+            ),
+        ),
+        (
+            "S8",
+            (
+                "no open issue carries any of the six labels",
+                "`labeled` and `unlabeled` events",
+                "removal after the cutoff",
+                "**What does not count:**",
+            ),
+        ),
+        (
+            "S9",
+            (
+                "Code style is its own convention",
+                "`CONTRIBUTING.md`",
+                "commit-message format or a branch-naming rule",
+                "**What does not count:**",
+            ),
+        ),
+        (
+            "S11",
+            (
+                "one sentence per line",
+                "first commit is on or before the meeting date",
+                "one speaker turn per line",
+                "**What does not count:**",
+            ),
+        ),
+        (
+            "S12",
+            (
+                "The tag's own date is not after `ISSUE_CUTOFF`",
+                "published_at",
+                "tags.json` entry on its own",
+                "**What does not count:**",
+            ),
+        ),
+        (
+            "S15",
+            (
+                "head_sha` is the snapshot SHA",
+                "run list page",
+                "Markdown wrapper",
+                "**What does not count:**",
+            ),
+        ),
+    ],
+)
+def test_a4_prompt_carries_the_regrade_checks(segment: str, needles: tuple[str, ...]) -> None:
+    text = (ROOT / "A4" / "grading_prompt.md").read_text(encoding="utf-8")
+    section = _segment(text, segment)
+    for needle in needles:
+        assert needle in section, f"{segment}: missing {needle!r}"

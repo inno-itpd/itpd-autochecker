@@ -893,3 +893,71 @@ def test_a2_step5_field_lists_match_the_collector() -> None:
     assert f".[] | [.{PATH_COMMIT_FIELDS[0]}, .commit.committer.date, (.commit.message | split(\"\\n\")[0])] | @tsv" in step5
     assert f"userContentEdits(first: 100) {{ nodes {{ {' '.join(EDIT_FIELDS)} }} }}" in USER_CONTENT_EDITS_QUERY
     assert f"userContentEdits(first: 100) {{ nodes {{ {' '.join(EDIT_FIELDS)} }} }}" in step5
+
+
+def test_timelines_all_collects_every_issue_in_the_issue_dump(tmp_path: Path) -> None:
+    scratch = write_pdf_info(tmp_path)
+    responses = base_responses()
+    responses[tuple(issues_command(REPO))] = json.dumps(
+        [{"number": 50, "state": "OPEN", "title": "First"}, {"number": 52, "title": "Second"}]
+    )
+    responses[tuple(timeline_command(REPO, 50))] = json.dumps(
+        [{"event": "labeled", "label": {"name": "task"}, "created_at": "2026-10-20T10:00:00Z"}]
+    )
+    responses[tuple(timeline_command(REPO, 52))] = json.dumps([])
+    result = collect_github_evidence("A2", TEAM, tmp_path, timelines=[], runner=FakeGh(responses))
+
+    assert json.loads((scratch / "issues" / "50.timeline.json").read_text(encoding="utf-8")) == [
+        {"event": "labeled", "label": {"name": "task"}, "created_at": "2026-10-20T10:00:00Z"}
+    ]
+    assert json.loads((scratch / "issues" / "52.timeline.json").read_text(encoding="utf-8")) == []
+    labels = [file.label for file in result.files]
+    assert "issue 50 timeline" in labels
+    assert "issue 52 timeline" in labels
+    with sqlite3.connect(result.database_path) as connection:
+        events = connection.execute("SELECT issue_number, event, label_name FROM issue_events").fetchall()
+    assert events == [(50, "labeled", "task")]
+
+
+def test_timelines_accepts_a_listed_set_and_dedups_the_issue_drilldown(tmp_path: Path) -> None:
+    write_pdf_info(tmp_path)
+    responses = base_responses()
+    responses[tuple(comments_command(REPO, 11))] = json.dumps([])
+    responses[tuple(timeline_command(REPO, 11))] = json.dumps([{"event": "labeled", "label": {"name": "task"}}])
+    responses[tuple(edits_command(REPO, 11))] = json.dumps(
+        {"data": {"repository": {"issue": {"userContentEdits": {"nodes": []}}}}}
+    )
+    runner = FakeGh(responses)
+    result = collect_github_evidence("A2", TEAM, tmp_path, issues=[11], timelines=[11], runner=runner)
+
+    assert [call for call in runner.calls if call == tuple(timeline_command(REPO, 11))] == [
+        tuple(timeline_command(REPO, 11))
+    ]
+    assert [file.label for file in result.files].count("issue 11 timeline") == 1
+
+
+def test_timelines_rejects_issue_fields_and_non_positive_numbers(tmp_path: Path) -> None:
+    with pytest.raises(LiveEvidenceError, match="cannot be combined with --timelines"):
+        collect_github_evidence("A2", TEAM, tmp_path, issue_fields=True, timelines=[], runner=FakeGh({}))
+    with pytest.raises(LiveEvidenceError, match="invalid issue number"):
+        collect_github_evidence("A2", TEAM, tmp_path, timelines=[0], runner=FakeGh({}))
+
+
+def test_timelines_cli_passes_the_flag_and_rejects_summary(tmp_path: Path) -> None:
+    write_pdf_info(tmp_path)
+    responses = base_responses()
+    responses[tuple(timeline_command(REPO, 50))] = json.dumps([])
+    seen: dict[str, object] = {}
+
+    def fake_collect(assignment: str, team_dir: str, *, root: Path, **kwargs: object) -> LiveEvidenceResult:
+        seen.update(kwargs)
+        return collect_github_evidence(assignment, team_dir, root, runner=FakeGh(responses), **kwargs)
+
+    lines: list[str] = []
+    status = collect_run(["A2", TEAM, "--timelines", "50"], root=tmp_path, out=lines.append, collect=fake_collect)
+    assert status == 0
+    assert seen["timelines"] == [50]
+
+    lines: list[str] = []
+    assert collect_run(["A2", TEAM, "--timelines", "--summary"], out=lines.append) == 2
+    assert lines == ["ERROR: --timelines cannot be combined with --summary"]

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
 from tools.grader_tools.feedback_report import (
+    HEADER_NEXT_STEPS,
     HEADING_UNVERIFIED,
     HEADING_VERIFIED,
     NO_REVIEW_TEXT,
@@ -16,6 +17,7 @@ from tools.grader_tools.feedback_report import (
     SegmentDefs,
     has_subheading,
     parse_feedback_report,
+    parse_preamble,
     parse_unresolved_section,
     render_overall_assessment,
     render_segments_table,
@@ -35,6 +37,16 @@ SNAPSHOT_LINE = re.compile(r"^- Snapshot reviewed: (`[0-9a-f]{40}`|none)$")
 ASSESSMENT_COUNT_LINE = re.compile(
     r"^-\s*(Met|Partial|Missing|Unverified):\s*`(\d+)/(\d+)`\s*$", re.MULTILINE | re.IGNORECASE
 )
+
+NEXT_STEPS_MIN = 1
+NEXT_STEPS_MAX = 3
+MENTOR_WORDING = re.compile(r"\bmentor", re.IGNORECASE)
+NEXT_STEPS_EMPTY_BODY = "`## Suggested next steps` must be omitted rather than left empty"
+BLOB_LINK = re.compile(
+    r"https://github\.com/(?P<owner>[^/\s`)]+)/(?P<repo>[^/\s`]+)/blob/(?P<ref>[^/\s`)]+)(?:/[^\s`)]*)?"
+)
+FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
+COURSE_REPOSITORY = "inno-itpd/itpd"
 
 
 def _format_counts(counts: dict[str, int], total: int) -> str:
@@ -202,6 +214,116 @@ def _validate_summary(summary_body: str) -> list[str]:
     return []
 
 
+def _validate_next_steps(next_steps_body: str | None) -> list[str]:
+    """Check the optional advice section's schema, or nothing when it is absent."""
+    if next_steps_body is None:
+        return []
+    if not next_steps_body.strip():
+        return [NEXT_STEPS_EMPTY_BODY]
+
+    bullets: list[str] = []
+    for line in next_steps_body.splitlines():
+        if not line.strip():
+            continue
+        if line != line.lstrip():
+            return [f"`{HEADER_NEXT_STEPS}` must contain a single-level bullet list, with no nested bullets"]
+        if not line.startswith("- "):
+            return [f"`{HEADER_NEXT_STEPS}` must contain only bullets"]
+        bullet = line[2:].strip()
+        if not bullet:
+            return [f"`{HEADER_NEXT_STEPS}` must not contain an empty bullet"]
+        bullets.append(bullet)
+
+    errors: list[str] = []
+    if not NEXT_STEPS_MIN <= len(bullets) <= NEXT_STEPS_MAX:
+        errors.append(
+            f"`{HEADER_NEXT_STEPS}` must contain {NEXT_STEPS_MIN}-{NEXT_STEPS_MAX} bullets, got {len(bullets)}"
+        )
+    for bullet in bullets:
+        if MENTOR_WORDING.search(bullet):
+            errors.append(f"`{HEADER_NEXT_STEPS}` must not use mentor wording: {bullet}")
+        if bullet.strip().strip("`").strip().lower() == "none":
+            errors.append(f"`{HEADER_NEXT_STEPS}` must be omitted rather than say `None`")
+    return errors
+
+
+def _repository_key(url: str | None) -> str | None:
+    """Return `org/repo` from a canonical repository URL, or None."""
+    if url is None:
+        return None
+    match = re.fullmatch(r"https://github\.com/([^/]+)/([^/]+)", url)
+    return f"{match.group(1)}/{match.group(2)}" if match else None
+
+
+def _positive_link_lines(text: str) -> list[str]:
+    """Return the lines whose pinned links must cite the snapshot.
+
+    `**Why not met (verified):**` and `**Why not met (unverified):**` bullets may
+    cite an artifact at another commit to show that it is not in the snapshot, so
+    they are exempt; positive evidence and prose must cite the reviewed snapshot.
+    """
+    negative_headings = (f"**{HEADING_VERIFIED}:**", f"**{HEADING_UNVERIFIED}:**")
+    kept: list[str] = []
+    in_negative = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped in negative_headings:
+            in_negative = True
+            continue
+        if stripped.startswith("**") and stripped.endswith(":**"):
+            in_negative = False
+        elif stripped.startswith("## "):
+            in_negative = False
+        if not in_negative:
+            kept.append(line)
+    return kept
+
+
+def _validate_blob_links(
+    assignment: str,
+    text: str,
+    repository: str | None,
+    snapshot: str | None,
+) -> list[str]:
+    """Check every pinned `blob/<sha>` body link against the repository it names.
+
+    A branch ref such as `blob/main` is a live link, so it is exempt; only a
+    full 40-character SHA is a pinned citation.  The report's own snapshot is
+    exempt because the preamble already pins it, `inno-itpd/itpd` must cite the
+    assignment's pinned course commit, the team repository must cite its
+    snapshot, and any other repository is exempt.
+    Negative-evidence bullets are exempt because they may cite a commit outside
+    the snapshot to show that the artifact was not submitted.
+    """
+    course_commit = ASSIGNMENT_CONFIG[assignment].get("course_commit")
+    team_repository = _repository_key(repository)
+    errors: list[str] = []
+    seen: set[tuple[str, str]] = set()
+    for line in _positive_link_lines(text):
+        for match in BLOB_LINK.finditer(line):
+            target = f"{match.group('owner')}/{match.group('repo')}"
+            ref = match.group("ref")
+            if not FULL_SHA.fullmatch(ref):
+                continue
+            if snapshot is not None and ref == snapshot:
+                continue
+            expected: str | None = None
+            if target == COURSE_REPOSITORY:
+                expected = course_commit
+            elif team_repository is not None and target == team_repository:
+                expected = snapshot
+            if expected is None or ref == expected:
+                continue
+            key = (match.group(0), expected)
+            if key in seen:
+                continue
+            seen.add(key)
+            errors.append(
+                f"Body link `{match.group(0)}` must point at `{expected}` for `{target}`, not `{ref}`"
+            )
+    return errors
+
+
 def validate_report(assignment: str, report: ParsedFeedbackReport) -> list[str]:
     config = ASSIGNMENT_CONFIG[assignment]
     segment_defs = config["segment_defs"]
@@ -209,6 +331,15 @@ def validate_report(assignment: str, report: ParsedFeedbackReport) -> list[str]:
     errors.extend(_validate_segments(report, segment_defs))
     errors.extend(_validate_unresolved(report, segment_defs))
     errors.extend(_validate_summary(report.summary_body))
+    errors.extend(_validate_next_steps(report.next_steps_body))
+
+    try:
+        metadata = parse_preamble(report.preamble)
+    except ValueError:
+        repository, snapshot = None, None
+    else:
+        repository, snapshot = metadata.repository, metadata.snapshot
+    errors.extend(_validate_blob_links(assignment, report.text, repository, snapshot))
     return errors
 
 

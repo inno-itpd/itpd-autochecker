@@ -23,6 +23,13 @@ through one paginated REST list call, skips pull requests, and writes
 assignees, and issue-field values.  It never rewrites the other dumps, and it
 is not combined with ``--summary`` or the drill-down options.
 
+The opt-in ``timelines`` collection writes ``issues/<n>.timeline.json`` for the
+listed issues, or for every issue in ``issues.json`` when the list is empty.
+Each issue costs one paginated request (about one page per 100 events), so the
+caller asks for it only when a segment judges label, milestone, or close state
+at the cutoff.  ``--summary`` rebuilds the events from the saved timeline files
+without calling ``gh``.
+
 Every mode that writes dumps also rebuilds ``evidence.sqlite`` from the saved
 files through ``tools.grader_tools.evidence_sqlite``, so a grader can query the
 same evidence with SQL; ``--summary`` rebuilds it without calling ``gh``.
@@ -144,10 +151,17 @@ class LiveEvidenceResult:
     database_path: Path | None = None
 
 
-def _write_database(work_dir: Path, summary: list[str], root: Path) -> Path:
-    """Rebuild ``evidence.sqlite`` and record its one-line summary."""
+def _write_database(
+    work_dir: Path,
+    summary: list[str],
+    root: Path,
+    *,
+    assignment: str,
+    team_dir: str,
+) -> Path:
+    """Rebuild `evidence.sqlite` for the team's cutoff and record its one-line summary."""
     try:
-        database = write_evidence_database(work_dir)
+        database = write_evidence_database(work_dir, assignment=assignment, team_dir=team_dir)
     except EvidenceDatabaseError as exc:
         raise LiveEvidenceError(str(exc)) from exc
     summary.append(database.summary_line(root))
@@ -773,6 +787,7 @@ def collect_github_evidence(
     issues: Sequence[int] = (),
     paths: Sequence[str] = (),
     issue_fields: bool = False,
+    timelines: Sequence[int] | None = None,
     runner: Callable[[list[str]], CommandResult] = run_gh,
 ) -> LiveEvidenceResult:
     if assignment not in ASSIGNMENT_CONFIG:
@@ -781,6 +796,9 @@ def collect_github_evidence(
     repo_paths = list(dict.fromkeys(normalize_repo_path(path) for path in paths))
     if issue_fields and (issue_numbers or repo_paths):
         raise LiveEvidenceError("--issue-fields cannot be combined with --issues or --paths")
+    if issue_fields and timelines is not None:
+        raise LiveEvidenceError("--issue-fields cannot be combined with --timelines")
+    timeline_numbers = _unique_issue_numbers(timelines) if timelines else []
 
     work_dir = root / FEEDBACK_ROOT / assignment / "work" / team_dir
     info_path = work_dir / PDF_INFO_FILENAME
@@ -812,7 +830,7 @@ def collect_github_evidence(
         dump_path = work_dir / ISSUE_FIELDS_FILENAME
         write_json_dump(dump_path, value)
         record("issue fields", dump_path, len(value))
-        database_path = _write_database(work_dir, summary, root)
+        database_path = _write_database(work_dir, summary, root, assignment=assignment, team_dir=team_dir)
         return LiveEvidenceResult(
             assignment=assignment,
             team_dir=team_dir,
@@ -853,8 +871,8 @@ def collect_github_evidence(
     )
     digest_path = write_summary(work_dir, digest)
     summary.append(f"  summary: {len(digest.splitlines())} lines -> {_display(digest_path, root)}")
-    database_path = _write_database(work_dir, summary, root)
 
+    collected_timelines: set[int] = set()
     for number in issue_numbers:
         drilldowns: tuple[tuple[str, list[str], Callable[[str], object]], ...] = (
             ("comments", comments_command(repo, number), merge_list_pages),
@@ -866,12 +884,26 @@ def collect_github_evidence(
             dump_path = work_dir / "issues" / f"{number}.{kind}.json"
             write_json_dump(dump_path, value)
             record(f"issue {number} {kind}", dump_path, _record_count(value))
+            if kind == "timeline":
+                collected_timelines.add(number)
+
+    if timelines is not None:
+        requested = timeline_numbers or _dump_issue_numbers(dump_values.get("issues.json"))
+        for number in requested:
+            if number in collected_timelines:
+                continue
+            value = merge_list_pages(_run_gh(timeline_command(repo, number), runner))
+            dump_path = work_dir / "issues" / f"{number}.timeline.json"
+            write_json_dump(dump_path, value)
+            record(f"issue {number} timeline", dump_path, len(value))
 
     for repo_path in repo_paths:
         value = project_path_commits(_run_gh(path_commits_command(repo, sha, repo_path), runner))
         dump_path = work_dir / "paths" / f"{repo_path}.json"
         write_json_dump(dump_path, value)
         record(f"path {repo_path} commits", dump_path, len(value))
+
+    database_path = _write_database(work_dir, summary, root, assignment=assignment, team_dir=team_dir)
 
     return LiveEvidenceResult(
         assignment=assignment,
@@ -892,6 +924,20 @@ def _unique_issue_numbers(issues: Sequence[int]) -> list[int]:
         if number <= 0:
             raise LiveEvidenceError(f"invalid issue number: {number}")
         if number not in numbers:
+            numbers.append(number)
+    return numbers
+
+
+def _dump_issue_numbers(value: object) -> list[int]:
+    """Return the issue numbers of the saved `issues.json` dump, in order."""
+    if not isinstance(value, list):
+        return []
+    numbers: list[int] = []
+    for item in value:
+        if not isinstance(item, Mapping):
+            continue
+        number = item.get("number")
+        if isinstance(number, int) and not isinstance(number, bool) and number > 0 and number not in numbers:
             numbers.append(number)
     return numbers
 

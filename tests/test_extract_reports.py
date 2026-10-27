@@ -51,3 +51,22 @@ def test_extraction_writes_dev_md_and_csv(tmp_path: Path) -> None:
 
 def test_missing_input_dir(tmp_path: Path) -> None:
     assert run_extraction("A1", tmp_path / "nope", tmp_path / "dev.md", tmp_path / "out.csv") == 1
+
+
+def test_next_steps_section_never_reaches_the_export(tmp_path: Path) -> None:
+    feedback_dir = tmp_path / "A1" / "feedback"
+    advice = ["Read the ADR index next.", "Name US-04 in DEC-004."]
+    write_team(feedback_dir, "Team 4_1_assignsubmission_file", build_report("A1", team=4, next_steps=advice))
+    dev = tmp_path / "A1" / "dev.md"
+    release = tmp_path / "A1" / "feedback_release.csv"
+
+    assert run_extraction("A1", feedback_dir, dev, release) == 0
+
+    dev_text = dev.read_text(encoding="utf-8")
+    with open(release, encoding="utf-8", newline="") as handle:
+        records = list(csv.DictReader(handle, delimiter="|"))
+    assert "Suggested next steps" not in dev_text
+    assert "Read the ADR index next." not in dev_text
+    assert "Suggested next steps" not in records[0]["feedback"]
+    assert "Read the ADR index next." not in records[0]["feedback"]
+    assert records[0]["feedback"].startswith("- First shortfall.\\n")
