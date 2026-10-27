@@ -300,7 +300,7 @@ def test_prompt_documents_the_regrade_diff_and_corrections() -> None:
 def test_prompt_names_the_one_writer_rule_and_the_active_gate() -> None:
     text = _normalized(GRADER_PROMPT)
     assert "One writer per team" in text
-    assert 'check_batch_ready.py A4 --active "<team_dir>"' in text
+    assert 'check_batch_ready.py {ASSIGNMENT_DIR} --active "<team_dir>"' in text
 
 
 def test_prompt_documents_the_cutoff_view_and_the_collector_flag() -> None:

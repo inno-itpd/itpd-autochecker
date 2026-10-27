@@ -76,7 +76,7 @@ It re-checks every segment, keeps the saved work, and can change a status only o
   write the payload first and render the report last, so `scripts/check_batch_ready.py` sees the report at or after the payload's mtime.
 - Validate the report, run both privacy scans, and finish with the standard return line plus the status diff and the corrections.
 - One writer per team: never run a full regrade beside another grader for the same team.
-  Before extraction, the operator passes every active team to `scripts/check_batch_ready.py A4 --active "<team_dir>"`, so a regrade batch never extracts while a writer is running.
+  Before extraction, the operator passes every active team to `scripts/check_batch_ready.py {ASSIGNMENT_DIR} --active "<team_dir>"`, so a regrade batch never extracts while a writer is running.
 
 ### Audit each segment
 
