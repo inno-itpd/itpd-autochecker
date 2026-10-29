@@ -139,6 +139,7 @@ All run from the repository root and print counts and paths only.
   Every write mode also rebuilds the `evidence.sqlite` projection, and `--summary` rebuilds it and the digest from the saved dumps, `issue-fields.json`, and the saved timelines without calling `gh`.
 - `uv run python scripts/check_snapshot_links.py <snapshot_dir> [--issue-bodies <issues.json>]` — broken relative links, missing anchors, and pre-cut research anchors.
 - `uv run python scripts/scan_privacy.py A<N> "<team_dir>" [--feedback <agent-feedback.md>] [--no-snapshot]` — privacy findings grouped per file with a hit count plus per-rule hit and file totals, by path and kind only; `--no-snapshot` with `--feedback` derives the tokens from the submission PDF after `work/<team_dir>/` is cleaned.
+- `uv run python scripts/snapshot_inventory.py A<N> "<team_dir>" [--snapshot <dir>] [--output <path>]` — writes `work/<team_dir>/inventory.md`, a bounded digest of the fetched snapshot: the root files, the `QR-nn`, `FR-nnn`, and `ADR-nnn` counts, the `docs/` and `reports/` trees, the workflow names, and the site-config candidates; it prints the path and the counts only, so a grader reads one short file instead of walking the tree.
 - `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>` — report validation plus `markdownlint-cli2` in one command.
 - `uv run python scripts/render_feedback_report.py A<N> <payload.json>` — renders a complete report from one structured payload.
 - `uv run python scripts/image_info.py <files>` — PNG and JPEG dimensions, byte size, and PNG transparency.
@@ -275,16 +276,28 @@ Run `backlog` inside the dev shell so `BACKLOG_CWD` points at this repo.
 
 ### Observed failure modes
 
-These are the failure modes the A3 batch produced, with the remedy for each.
+These are the failure modes the A3 and A4 batches produced, with the remedy for each.
 
 - **Context blowup:** the A3 batch lost 14 grader runs to oversized input; `commits.json` reached 1.35 MB and `prs.json` 284 KB.
   Read `summary.md` first, open a dump only through a projection capped at about 40 lines, and prefer four small projections over one large read.
   If a command's output is unexpectedly large, stop, narrow it, and continue, and never re-read a file you already summarized.
   The same rules are in the `## Context budget` section of `agents/grader.md`.
 - **Provider 403:** four of seven A3 grader runs died within seconds with `403 "Access denied by security policy."` (`code: AUTH`) after running 5 to 10 minutes.
-  The harness auto-resumed them, and because fresh retries had already started for two of the teams, Teams 1 and 4 briefly had two writers on the same report and payload; interrupt the duplicate before resuming.
+  In the A3 batch the harness auto-resumed them; in the A4 Teams 2 and 9 batch it did not, so the operator resumes them by hand as the next bullet describes.
+  Because a fresh retry had already started for two of the A3 teams, Teams 1 and 4 briefly had two writers on the same report and payload; interrupt the duplicate before resuming.
   Every retry at four-way concurrency succeeded, so the limit was the provider, not the batch size: `grading.json` stays unchanged at `{"team_batch_size": 8}`, and the documented batch size stays at 8.
   Treat a 403 as a resumable session and follow the resume rules in `## Reviewing teams with the grader agent`; never start a new writer for a team that still has one.
+- **Silent turn death, not context overflow:** in the A4 Teams 2 and 9 batch, nine grader turns ended with no closing message: four with the same `403 "Access denied by security policy."` (`AUTH`), plus `Request timed out.` (`TIMEOUT`), `error code: 520` (`SERVER`), and `Connection error.` (`TRANSPORT`).
+  Input length is not the explanation, so do not shrink the batch or the prompt on that theory: `request/context` in the transcript gives a 1,048,576-token window, the conversation peaked near 1.6M characters, and the largest-context turns finished while Team 9 died at under half that size.
+  The `policyKey` on the `llm/retry` records retries `EMPTY_RESPONSE`, `RATE_LIMIT`, `SERVER`, `TIMEOUT`, and `TRANSPORT` up to five times but never `AUTH`, so a policy 403 ends the turn at once and the subagent is reported as failed rather than auto-resumed.
+  Read `~/.dsh/sessions/<workspace>/<agent-id>/session.v4.jsonl.zstd` with `zstdcat` and check the `turn/end` reasons and the `assistant/attempt` failures before blaming the prompt.
+  The remedy recovered both teams without a replacement grader: resume the same session with `send_message`, and make each resume cheap:
+
+  1. Have the grader write `work/<team_dir>/payload.json` and render once before deep analysis, so even an empty payload leaves a valid all-placeholder report on disk.
+  2. Then judge 2 to 4 segments per batch, rewriting the payload and re-rendering after each one.
+  3. Shrink to one or two segments per turn when turns keep dying, and check the judged segment count in the payload before re-sending a batch, because a message that arrives as a turn ends is never executed.
+  4. Skip the collector rerun and the snapshot refetch on resume: they add context without adding evidence.
+  5. Write `work/<team_dir>/inventory.md` with `scripts/snapshot_inventory.py` and tell the grader to read it instead of exploring the tree.
 - **Bare-SHA PDF:** a submission PDF may carry only `Submission commit: <sha40>` and no GitHub URL.
   `scripts/fetch_team_snapshot.py` resolves it with `gh search commits <sha> --json repository --jq 'map(.repository.fullName) | unique'` and adopts the repository only when exactly one matches; zero or several matches keep the stop path and name the candidates and the command tried.
   The operator override is `scripts/fetch_team_snapshot.py A<N> "<team_dir>" --repo org/repo`, recorded as `permalink_source=operator`.
