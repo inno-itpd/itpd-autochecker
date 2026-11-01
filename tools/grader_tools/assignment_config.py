@@ -95,6 +95,29 @@ ASSIGNMENT_CONFIG: dict[str, dict] = {
             16: {"name": "AI usage and honesty"},
         },
     },
+    "A5": {
+        "week": 5,
+        "course_commit": "0173b82dfb82e515457a1074970c116760490c79",
+        "primary_index": "reports/week-05/README.md",
+        "week_window_start": "2026-10-23T00:00:00+03:00",
+        "issue_cutoff": "2026-10-31T23:59:59+03:00",
+        "segment_defs": {
+            1: {"name": "Sprint plan and milestones"},
+            2: {"name": "New stories and backlog refinement"},
+            3: {"name": "Automated tests and CI checks"},
+            4: {"name": "Deployment and environments"},
+            5: {"name": "Quality requirement tests"},
+            6: {"name": "Testing plan and results"},
+            7: {"name": "Feature documentation"},
+            8: {"name": "Week 4 action points and open questions"},
+            9: {"name": "Customer validation of the deployed product"},
+            10: {"name": "Redeploy and retest after same-week rework"},
+            11: {"name": "REL-05 release"},
+            12: {"name": "Sprint close and retrospective"},
+            13: {"name": "Week report and submission"},
+            14: {"name": "AI usage and honesty"},
+        },
+    },
 }
 
 FEEDBACK_ROOT = "itpd-assignments-feedback"

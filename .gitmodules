@@ -13,3 +13,6 @@
 [submodule "A4/itpd"]
 	path = A4/itpd
 	url = https://github.com/inno-itpd/itpd
+[submodule "A5/itpd"]
+	path = A5/itpd
+	url = https://github.com/inno-itpd/itpd

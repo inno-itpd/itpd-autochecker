@@ -61,7 +61,7 @@
 - The grader gets only the Moodle PDF; there is no ZIP.
   The PDF carries a permalink to `reports/week-NN/README.md` at the full SHA, and the grader fetches the snapshot from GitHub at that SHA.
 - `A<N>/itpd` pins the course repository (`inno-itpd/itpd`) at the commit the assignment is reviewed against.
-  A1 is pinned to `fe58ba7`, the version published at the Week 1 deadline; A2 to `a949e8d`, A3 to `23b22a6`, the merge of `week-3` on 2026-10-14, and A4 to `35c9294`, the merge of `week-4` on 2026-10-21.
+  A1 is pinned to `fe58ba7`, the version published at the Week 1 deadline; A2 to `a949e8d`, A3 to `23b22a6`, the merge of `week-3` on 2026-10-14, A4 to `35c9294`, the merge of `week-4` on 2026-10-21, and A5 to `0173b82`, the merge of `week-5` on 2026-10-28.
   A4's Week 4 deadline was extended after the pin: Sunday 25 October 2026 for every team except `Team 2 - OK_10938_assignsubmission_file`, which has Monday 26 October 2026.
   `A4/grading_prompt.md` records the extension and `assignment_config.py` carries the per-team cutoff.
 
@@ -311,7 +311,7 @@ These are the failure modes the A3 and A4 batches produced, with the remedy for 
   When `repo` or `sha` is `null` in `pdf-info.json`, `scripts/collect_github_evidence.py` prints `result: skipped (no snapshot)` and exits 0, so a missing snapshot is a judged outcome, not a tool failure; in A3 the S12 shortfall still stands.
 - **Wrong-week permalink:** a submission PDF may permalink `reports/week-02/README.md` while the assignment expects `reports/week-03/README.md`.
   `scripts/fetch_team_snapshot.py` derives `permalink_week`, compares it with the assignment's `week` as `expected_week`, and on a mismatch prints a `warn:` line, repeats it in `work/<team_dir>/summary.md`, records `permalink_week_mismatch=true`, skips the commit check and the snapshot fetch, and exits 1 with a rerun command.
-  Do not grade the wrong-week target: the mismatch is a submission shortfall in the week-report-and-submission segment (S15 in A4, S12 in A3), and the operator supplies the right permalink with `scripts/fetch_team_snapshot.py A<N> "<team_dir>" --permalink <url>`, recorded as `permalink_source=operator`; the fetched snapshot then still governs every file check.
+  Do not grade the wrong-week target: the mismatch is a submission shortfall in the week-report-and-submission segment (S13 in A5, S15 in A4, S12 in A3), and the operator supplies the right permalink with `scripts/fetch_team_snapshot.py A<N> "<team_dir>" --permalink <url>`, recorded as `permalink_source=operator`; the fetched snapshot then still governs every file check.
   `scripts/collect_github_evidence.py --summary` repeats the warning from `pdf-info.json`, so a later digest does not drop it.
 - **Cleaned work directory:** `scripts/scan_privacy.py` needs `pdf-info.json` and the fetched snapshot by default, so deleting `work/<team_dir>/` early breaks the final privacy gate.
   Keep `work/<team_dir>/` until the batch is extracted; when it was already cleaned, scan the report with tokens derived from the submission PDF: `scripts/scan_privacy.py A<N> "<team_dir>" --feedback <report> --no-snapshot`.

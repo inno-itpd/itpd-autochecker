@@ -121,6 +121,8 @@ def test_assignment_windows_match_the_published_schedule() -> None:
     assert ASSIGNMENT_CONFIG["A3"]["week_window_start"] == "2026-10-09T00:00:00+03:00"
     assert ASSIGNMENT_CONFIG["A3"]["issue_cutoff"] == "2026-10-17T23:59:59+03:00"
     assert ASSIGNMENT_CONFIG["A4"]["week_window_start"] == "2026-10-16T00:00:00+03:00"
+    assert ASSIGNMENT_CONFIG["A5"]["week_window_start"] == "2026-10-23T00:00:00+03:00"
+    assert ASSIGNMENT_CONFIG["A5"]["issue_cutoff"] == "2026-10-31T23:59:59+03:00"
 
 
 def test_a4_effective_deadline_carries_the_extension() -> None:
@@ -150,6 +152,11 @@ def test_a4_prompt_carries_every_effective_cutoff() -> None:
     assert ASSIGNMENT_CONFIG["A4"]["issue_cutoff"] in text
     assert ASSIGNMENT_CONFIG["A4"]["team_issue_cutoffs"][A4_TEAM_2] in text
     assert A4_TEAM_2 in text
+
+
+def test_a5_prompt_carries_the_config_issue_cutoff() -> None:
+    text = (ROOT / "A5" / "grading_prompt.md").read_text(encoding="utf-8")
+    assert ASSIGNMENT_CONFIG["A5"]["issue_cutoff"] in text
 
 
 @pytest.mark.parametrize("assignment", sorted(ASSIGNMENT_CONFIG))
