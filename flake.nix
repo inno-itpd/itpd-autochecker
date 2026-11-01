@@ -31,6 +31,8 @@
               pkgs.unzip
               pkgs.jq
               pkgs.ripgrep
+              # backs the codebase-memory MCP server in .dsh/cordis.patch.yml
+              pkgs.codebase-memory-mcp
               pkgs.lychee
               inputs.backlog-md.packages.${system}.default
             ];

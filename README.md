@@ -27,5 +27,6 @@ uv run pytest
 - `uv.toml`: keeps uv's cache inside the checkout (`.local/uv-cache`), so `uv run` also works where `~/.cache/uv` is read-only.
 - `itpd-assignments-feedback/`: the submodule holding submission PDFs, feedback, and exports.
 - `backlog/`: Backlog.md tasks for this repo.
+- `.dsh/`: the DSH overlay that registers the Backlog and codebase-memory MCP servers.
 
 See `AGENTS.md` for the full workflow.

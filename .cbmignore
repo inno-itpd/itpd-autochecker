@@ -1,0 +1,27 @@
+# codebase-memory-mcp indexing excludes.
+# Gitignore syntax, read only from the indexed repository root.
+
+# Vendored course checkouts and Moodle submission data are not this repository's source.
+A*/itpd/
+itpd-assignments-feedback/
+
+# Tool state kept inside the checkout under the DSH sandbox.
+.local/
+.direnv/
+.venv/
+node_modules/
+
+# Agent harness definitions and Backlog records are documentation, not source.
+agents/
+backlog/
+.agents/
+.claude/
+.opencode/
+
+# Submission PDFs and screenshots are binary.
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif

@@ -9,6 +9,7 @@
 ├── uv.toml                    # uv config: cache-dir inside the checkout (.local/)
 ├── AGENTS.md, CLAUDE.md       # This file (CLAUDE.md imports it)
 ├── opencode.json              # opencode config (loads AGENTS.md)
+├── .dsh/cordis.patch.yml      # dsh MCP overlay (Backlog + codebase-memory), passed with --patch
 ├── grading.json               # {"team_batch_size": N} for parallel reviews
 ├── agents/grader.md           # Canonical one-team grader prompt
 ├── .opencode/agents/grader.md # opencode wrapper → agents/grader.md
@@ -42,7 +43,7 @@
 ## Stack
 
 - Nix flake dev shell: run `nix develop`, or `direnv allow` once and let `.envrc` load it.
-  It provides Python 3.13, uv, gh, pdftotext, unzip, jq, ripgrep, markdownlint-cli2, lychee, and backlog.
+  It provides Python 3.13, uv, gh, pdftotext, unzip, jq, ripgrep, markdownlint-cli2, lychee, backlog, and codebase-memory-mcp.
 - Python with no runtime dependencies; `pytest` as the dev dependency, managed with `uv`.
 - uv keeps its cache inside the checkout: `uv.toml` sets `cache-dir = ".local/uv-cache"`, which uv resolves against the project root, so a plain `uv run` works even when the default cache (`~/.cache/uv`) is on a read-only mount.
   `.local/` is gitignored, and an explicit `UV_CACHE_DIR` still overrides the file.
@@ -261,6 +262,12 @@ Tasks for this repo are tracked with Backlog.md in `backlog/`.
 - `backlog task edit <id> -s "In Progress"`, then `-s Done` with `--notes` recording decisions and validation
 
 Run `backlog` inside the dev shell so `BACKLOG_CWD` points at this repo.
+
+## DSH harness
+
+`.dsh/cordis.patch.yml` registers the Backlog and codebase-memory MCP servers as `mcp__backlog__*` and `mcp__codebase-memory-mcp__*`, and `dsh` does not discover it on its own.
+Pass the overlay explicitly when launching `dsh` from the checkout root, for example `dsh web --patch .dsh/cordis.patch.yml`; change servers there, not in `~/.dsh`.
+`.dsh/README.md` records the launcher form, the restart-after-edit rule, and the `dsh plugin` exception.
 
 ## Checks
 
