@@ -61,7 +61,7 @@ No rule in the pinned materials carries a `**Since: W6**` or later marker, so no
 - `ISSUE_CUTOFF`: `2026-10-31T23:59:59+03:00` for every team.
   Every later reference to `ISSUE_CUTOFF` means that cutoff, and `**Evidence:**` states the cutoff used.
 - Hard deadline of the following week: Saturday 7 November 2026, 23:59, the deadline the Week 6 syllabus block gives and the due date `SPRINT-06`'s GitHub milestone carries.
-  A Week 5 action point due in Week 6 is due by that date.
+  A Week 5 action point due in Week 6 carries a due date inside the Week 6 class week, 30 October to 5 November 2026, as `course/syllabus.md` gives Week 6; 7 November is the Week 6 submission deadline, and a due date from 6 November on falls in Week 7 and is outside the meeting's Week 6 window.
 - The time zone is not stated in the materials; read every deadline as Innopolis time (UTC+3).
 - Submission inputs: the Moodle PDF under `itpd-assignments-feedback/A5/submissions/<team_dir>/`; there is no ZIP, so the snapshot upload to Moodle is not judged.
   The snapshot is fetched from GitHub at the permalink SHA into `itpd-assignments-feedback/A5/work/<team_dir>/snapshot/`.
@@ -205,12 +205,13 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - Each story's acceptance criteria are checklist items of the form `- [ ] AC-nn: <criterion>` or `- [x] AC-nn: <criterion>`, numbered from `AC-01` within the story.
 - Each story other than a `Won't Have` story carries `### Specified by`, and the section names each `FR-nnn` and `ADR-nnn` that specifies the story, each linked on `main`.
 - Every `FR-nnn` and `ADR-nnn` a new story's `### Specified by` links exists at the snapshot, and each entry is one of those two families.
-- At least one of the two new stories sits in `SPRINT-05`'s GitHub milestone and carries a `Responsible` value, an `Accountable` value naming a different member, and exactly the two assignees those values name.
-- The other new story is refined for `SPRINT-06` and carries no milestone, no `Responsible` value, no `Accountable` value, and no assignees, while keeping its `Story Points`.
+- At least one new story sits in `SPRINT-05`'s GitHub milestone and carries a `Responsible` value, an `Accountable` value naming a different member, and exactly the two assignees those values name.
+- At least one other new story is refined for `SPRINT-06` and stays in the product backlog: it carries no milestone, no `Responsible` value, no `Accountable` value, and no assignees, while keeping its `Story Points`.
+  When the team adds more than two new stories, at least one of them still has to be the unscheduled, refined one; a team that schedules every new story fails this criterion.
 - Every open `User Story` the team places in the next two sprints' worth of the product backlog carries a `Story Points` value, has runnable acceptance criteria, and sits in no milestone.
 - The stories the team places in the next two sprints' worth are unscheduled: no milestone, no `Responsible`, no `Accountable`, and no assignees.
 - No story larger than `13` points is scheduled: every story in `SPRINT-05`'s milestone carries a `Story Points` value, and no scheduled story is a story the team records as needing a split.
-- The `SPRINT-05` milestone holds the scheduled story and the sprint's other issues, and the plan's `**Sprint Backlog:**` link reaches it.
+- The `SPRINT-05` milestone holds the scheduled story and the sprint's other issues.
 
 **What does not count:**
 
@@ -224,7 +225,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 **partial:**
 
 - At least one new story with its `User Story` type and a `Story Points` value is readable, and at least one other `met` criterion fails.
-- Typical shortfalls: fewer than two new stories; a new story missing its type, its `MoSCoW` value, its `Story Points`, or a criterion; a story with no `### Specified by`; a `### Specified by` that does not resolve or that names a `US-nn`; the scheduled story without one of the two roles or with an assignee the roles do not name; the second story scheduled, or carrying a role or an assignee; a backlog story the team places in the next two sprints without an estimate; a story over `13` points scheduled.
+- Typical shortfalls: fewer than two new stories; a new story missing its type, its `MoSCoW` value, its `Story Points`, or a criterion; a story with no `### Specified by`; a `### Specified by` that does not resolve or that names a `US-nn`; the new story scheduled in `SPRINT-05` without one of the two roles or with an assignee the roles do not name; a new story left in the backlog that sits in a milestone or carries a role or an assignee, or every new story scheduled and none left in the backlog; a backlog story the team places in the next two sprints without an estimate; a story over `13` points scheduled.
 
 **missing:**
 
@@ -232,7 +233,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 **Guardrails:**
 
-- The two new stories are judged in the Week 4 shape, and the shape itself was Week 4's rule; a defect in an older story's criteria or `### Specified by` is not re-graded here.
+- Every new story is judged in the Week 4 shape, and the shape itself was Week 4's rule; a defect in an older story's criteria or `### Specified by` is not re-graded here.
   The older stories are judged only for their `Story Points` and their unscheduled state where they belong to the next two sprints' worth.
 - "New" means opened on or after the Week 5 window start and by `ISSUE_CUTOFF`; a story opened after the snapshot but by the cutoff counts like any other, and one opened after the cutoff is not judged.
 - Refinement's quantity is the team's judgement: judge the stories the team has placed in the next two sprints' worth of the product backlog, name them, and do not require an estimate on every open backlog story.
@@ -565,7 +566,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - Every `Action` cell cites `reports/week-04/meeting-report.md#action-points` with the action quoted.
 - Every `Outcome` says whether the action point was carried out and what was found, or why it was not, and links each artifact and task issue it changed.
 - Every artifact an `Outcome` says changed holds that change, and the change is dated no later than `ISSUE_CUTOFF`.
-- An action point not carried out reappears in the Week 5 `## Action points` with a new due week inside Week 6, unless its `Outcome` says the team or the customer dropped it.
+- An action point not carried out reappears in the Week 5 `## Action points` with a new due week, unless its `Outcome` says the team or the customer dropped it. The due week's window is S9's, so a reappearance outside Week 6 is not a second shortfall here.
 - Every `Decision` cell links the `DEC-nnn` the outcome produced, or says `None`, and every linked entry exists with a `**Source:**` that points at where the decision was made.
 - `## Previous open questions` has the columns `Question`, `Answer`, and `Decision`, with one row per Week 4 open question not yet closed, and every Week 4 open question is either answered there or carried into the Week 5 `## Open questions`.
 - Every `Question` cell cites `reports/week-04/meeting-report.md#open-questions` with the question quoted.
@@ -632,7 +633,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - Every story the meeting showed has a verdict recorded as a decision naming its `US-nn`, and an accepted story has closed with a comment that cites its verdict's `DEC-nnn` and names the `AC-nn` it was accepted against.
 - A rejected story's verdict names each `AC-nn` it failed, the story stays open, and its rework task names the story and the failed `AC-nn`.
 - Every story issue the meeting showed, accepted, rejected, or changed has a comment dated on or after the meeting that names the verdict or the change, names each `AC-nn` affected, and links the `DEC-nnn` on `main`.
-- `## Action points` has the columns `Action`, `Owner`, and `Due`, at least two rows, an owner given by GitHub username, and every due date inside Week 6, such as `End of Week 6` or a date from 30 October to 5 November 2026.
+- `## Action points` has the columns `Action`, `Owner`, and `Due`, at least two rows, an owner given by GitHub username, and every due date inside the Week 6 class week, such as `End of Week 6` or a date from 30 October to 5 November 2026; the 7 November submission deadline is not that window.
 - `## Open questions` has the columns `Question`, `What it would change`, and `Follow-up`; `## Disagreements` has the columns `Your position`, `Customer's position`, and `What you changed`, and every row that changed nothing says why the team kept its position.
 - The meeting was held in the Week 5 window, between Friday 23 October 2026 and `ISSUE_CUTOFF`, and a meeting held in writing says so and carries no `## Roles` section.
 - Every meeting artifact names the customer `Customer` and identifies people only by GitHub username.
@@ -696,6 +697,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - The released tag names that final commit: the commit the staging test ran, the commit the evidence links, and the commit production serves are the same commit.
 - When the rework could not finish before the deadline, it was deferred to `SPRINT-06`, `## Deviations` declares the deferral, and the released commit is the reviewed and tested commit rather than an untested later one.
 - When the review asked for no rework, the released commit is the commit staging tested and production served, and nothing in the record claims a rework that did not happen.
+- When the VM was unavailable and `## Deviations` declares it, no staging or production deploy takes place: the fallback path satisfies this segment when the tag names the commit the reviewed checks ran on, the record states the fallback, and no artifact claims a deploy or a rework that did not happen; the absent deployment is S4's shortfall.
 - The release order the week records is the one the merges, the run SHAs, and the tag show: rework merged, staging deploy and test, production deploy and verification, tag, then the documents that link the tag.
 
 **What does not count:**
@@ -724,7 +726,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - A deploy after `ISSUE_CUTOFF` is drift and never repairs the sequence at the cutoff.
 - The tag's SemVer number, its protection, the release body, the changelog, and the plan's block are S11's; this segment judges only the commit the tag names and the deploy-and-retest sequence that produced it.
 - "Deployed to production" is judged from the record in this segment and from the runbook's evidence in S4; a deploy that only an issue comment claims, with no verification, is not a deploy that moved the released commit.
-- When the review asked for no rework and no deploy record can be found at all, the segment is `partial` against the release-order criterion rather than `missing`; S4 carries the deployment shortfall, and this segment still judges whether the tag names the commit the record supports.
+- When the review asked for no rework, no deploy record can be found, and no VM-unavailable deviation is declared, the segment is `partial` against the release-order criterion rather than `missing`; S4 carries the deployment shortfall, and this segment still judges whether the tag names the commit the record supports.
 
 ### S11 — REL-05 release
 
@@ -745,7 +747,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - Every user-visible change merged before `ISSUE_CUTOFF` has an entry in `[Unreleased]` or in a released section, unless its pull request says it made no user-visible change.
 - One tag is this week's release: its version follows Semantic Versioning with the `v` prefix, such as `v0.5.0`, and it is the tag the plan's `#### REL-05` block and the changelog's latest dated section name; when those disagree, both fail.
 - The release tag points at a commit on `main`, the commit is not after `ISSUE_CUTOFF`, and its own date is not after `ISSUE_CUTOFF` either.
-- The tag names the final production commit of S10: the commit the staging test ran, the evidence links, and production served.
+- The tag names the final production commit of S10: the commit the staging test ran, the evidence links, and production served; on S10's VM-unavailable fallback, it names the reviewed commit the checks ran on.
 - A GitHub release exists for that tag, titled with the tag, so the title and the tag match.
 - The release body is the customer-facing note in the team's shape, and its last line is `[Full changelog](<absolute url>)` linking the changelog's released section, with nothing after it.
 - The changelog has a dated section headed `[x.y.z](https://github.com/<org>/<repo>/releases/tag/vx.y.z) - YYYY-MM-DD` that links the release, its entries are the entries released, and a new empty `[Unreleased]` sits above it.
@@ -790,7 +792,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - When the tag rulesets cannot be read with the token, say which endpoint returned what, judge the rest, and set `Evidence gaps: yes` only when the answer could change the status.
 - `REL-04` and Week 4's release are not re-graded; this segment judges the release this week cut.
 - A tag created after `ISSUE_CUTOFF` is a shortfall under the cutoff criterion, and a tag made on the cutoff day is judged by its timestamp in UTC.
-- The commit the tag names is S10's final production commit; a disagreement between this segment and S10's sequence is reported in S10, which owns the sequence, and this segment judges only that the tag names that commit.
+- The commit the tag names is S10's final production commit, or the reviewed commit on S10's VM-unavailable fallback; a disagreement between this segment and S10's sequence is reported in S10, which owns the sequence, and this segment judges only that the tag names that commit.
 - The changelog's `[Unreleased]` upkeep through the week is judged by the released section's completeness, not by an entry-by-entry audit of every intermediate commit.
 - A changelog line that a pull request's own body marks as not user-visible is judged by the entry, not by the marker alone.
 
@@ -869,9 +871,9 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - `reports/week-05/README.md` is in the snapshot, and every repository file it links resolves.
 - The report identifies the week, the project, the team, and the covered scope.
 - The summary names the deployment and where it runs, so a reader knows the product is on the university VM and that the customer reaches it from the university network, and it points at the Moodle submission for the address rather than naming it.
-- The summary names each plan milestone the plan carries for `SPRINT-05` to `SPRINT-09` and says what each delivers.
+- The summary names each plan milestone whose `**Due:**` falls in `SPRINT-05` to `SPRINT-09` and says what each delivers, or says that the plan carries none in that range.
 - The summary names `REL-05` and its tag.
-- The summary names the CI checks that do not apply to the stack and why, and names what moved out of the sprint.
+- The summary names the CI checks that do not apply to the stack and why, or says that every check applies, and names what moved out of the sprint.
 - The summary points at `docs/project-plan.md#quality-requirement-testing-plan` for the rows that are not `Passes`, and copies none of the rows.
 - The summary says what the team found, built, or decided, and what it left open.
 - The report states the customer-meeting outcome: each story shown with whether the customer accepted or rejected it, each citing its `DEC-nnn`, and each implemented test's result at its level.
@@ -881,14 +883,14 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - When the customer refused publication of the transcript, the Meeting transcript row says so and points at the Moodle submission.
 - No second list of the same links follows the coverage table.
 - The report carries no sprint planning, refinement, or retrospective section, because the plan, the issues, and the retrospective file own them.
-- A contribution table maps each member's GitHub username to the work done, with links to commits, pull requests, or reviews.
+- A contribution table maps each member's GitHub username to the work done, using links to their commits, pull requests, or reviews where possible.
 - The report does not assess an individual: no section rates or explains a member's contribution.
 - The repository evidence links one merged pull request that closed its task issue, and the latest green link-check, Markdown-check, `actionlint`, and product-code CI runs on `main`, each by its run URL, and each link resolves.
   Each run's `conclusion` is `success`, and a run whose branch is not `main`, or whose `head_sha` is not an ancestor of the snapshot, is not the run this item asks for.
 - Every link in the report resolves, and every link the link check excludes is justified in prose.
 - `## Deviations` declares every deviation observed in the other segments, including a VM that was not available, a `scripted` or `CI` fallback, a `manual` test with its `**Why Manual:**`, a second test on the next active row, and rework deferred to `SPRINT-06`, or says `None` when there is none.
 - One line states that no private-only material was committed to the repository.
-- The privacy scan finds no email address, phone number, member-name token, or `.env`/key file outside the meeting artifacts, and no recording link outside the meeting artifacts; a personal-data hit or a recording link inside a meeting artifact is reported in S9, not here.
+- The privacy scan finds no email address, phone number, member-name token, or `.env`/key file outside the Week 5 meeting artifacts, and no recording link outside them; a personal-data hit or a recording link inside a Week 5 meeting artifact is reported in S9, not here.
 - The report and the week-local files it links carry no real VM address, host name, password, token, or secret, and the report points at the Moodle submission for the address; an address in `docs/deployment.md` is S4's and one in a test's `**Runs at:**` is S5's.
 - The snapshot SHA is on `main`, and the PDF permalink points at `reports/week-05/README.md` at that full 40-character SHA.
 - The report and every repository file it links are merged into `main` at the snapshot; nothing the assignment requires is left on an unmerged pull-request branch.
@@ -926,6 +928,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - The PDF's recording link gets one access check per `docs/grader-policy.md#consumer-hosted-media`; an inaccessible or sign-in-gated recording is an evidence gap for that item only, and the PDF's other items are still judged.
 - Record the snapshot commit date against the deadline in `**Evidence:**`, and never change a status for lateness.
 - Report a privacy finding by path and kind, such as "the VM's IPv4 address in `docs/deployment.md`", never by value.
+- The privacy line is a repository-wide claim: the scan covers the whole snapshot, so a member-name, email, phone, `.env`, or key-file hit in a Week 1 to Week 4 file, including an earlier week's meeting artifact, is a shortfall here even though that week's own artifacts are not re-graded; a hit inside a Week 5 meeting artifact is reported in S9.
 - A report that links a file at a commit other than the snapshot is accepted when the target exists; record the hash in `**Evidence:**`.
 - The report's length, its prose, and the contribution table's wording are quality notes.
 - The `## Deviations` section declares what the other segments observed; an undeclared deviation is a shortfall here, while the deviation itself is judged in its own segment.
