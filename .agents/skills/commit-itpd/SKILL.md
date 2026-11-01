@@ -1,6 +1,6 @@
 ---
 name: commit-itpd
-description: Create a git commit with this repository's conventions: use when the user explicitly asks to commit changes.
+description: "Create a git commit with this repository's conventions: use when the user explicitly asks to commit changes."
 ---
 
 # Commit
