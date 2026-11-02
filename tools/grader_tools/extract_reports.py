@@ -13,6 +13,8 @@ from urllib.parse import quote
 
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, default_paths
 from tools.grader_tools.feedback_report import format_status_counts, parse_feedback_report, status_counts
+from tools.grader_tools.grading_config import load_grading_config
+from tools.grader_tools.resume_state import load_resume_states
 from tools.grader_tools.validate import validate_report
 
 # Moodle exports one directory per team, e.g. `Team 3_12345_assignsubmission_file`.
@@ -147,6 +149,15 @@ def write_release_csv(entries: list[ExtractedEntry], output_path: Path, segment_
     print(f"Wrote {len(entries)} rows to {output_path}")
 
 
+def blocked_teams(work_dir: Path, max_resumes: int) -> dict[str, int]:
+    """Map each team whose resume budget is spent and unfinished to its count."""
+    return {
+        team: state.attempts
+        for team, state in load_resume_states(work_dir, max_resumes).items()
+        if state.blocked
+    }
+
+
 def run_extraction(assignment: str, input_dir: Path, dev_output: Path, release_output: Path) -> int:
     if assignment not in ASSIGNMENT_CONFIG:
         print(f"Error: unknown assignment {assignment}", file=sys.stderr)
@@ -155,9 +166,18 @@ def run_extraction(assignment: str, input_dir: Path, dev_output: Path, release_o
         print(f"Error: {input_dir} is not a directory", file=sys.stderr)
         return 1
 
+    max_resumes = load_grading_config().max_agent_resumes
+    blocked = blocked_teams(input_dir.parent / "work", max_resumes)
     entries, warnings = scan_feedback_dir(assignment, input_dir)
+    excluded = [entry for entry in entries if entry.team_dir in blocked]
+    if excluded:
+        entries = [entry for entry in entries if entry.team_dir not in blocked]
+        warnings.extend(
+            f"{entry.team_dir}: excluded, resume budget spent ({blocked[entry.team_dir]}/{max_resumes})"
+            for entry in excluded
+        )
     if not entries:
-        print("No team feedback directories found.", file=sys.stderr)
+        print("No team feedback directories left to extract.", file=sys.stderr)
         return 1
     for warning in warnings:
         print(f"Warning: {warning}", file=sys.stderr)

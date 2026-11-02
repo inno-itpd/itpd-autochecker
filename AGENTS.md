@@ -10,7 +10,7 @@
 ├── AGENTS.md, CLAUDE.md       # This file (CLAUDE.md imports it)
 ├── opencode.json              # opencode config (loads AGENTS.md)
 ├── .dsh/cordis.patch.yml      # dsh MCP overlay (Backlog + codebase-memory), passed with --patch
-├── grading.json               # {"team_batch_size": N} for parallel reviews
+├── grading.json               # {"team_batch_size": N, "max_agent_resumes": M} for parallel reviews
 ├── agents/grader.md           # Canonical one-team grader prompt
 ├── .opencode/agents/grader.md # opencode wrapper → agents/grader.md
 ├── .claude/agents/grader.md   # Claude Code wrapper → agents/grader.md
@@ -34,6 +34,7 @@
         │   ├── pdf-info.json  # PDF metadata, permalink, member tokens (mode 0600)
         │   ├── *.json         # GitHub evidence dumps: labels, issues, prs, runs, commits
         │   ├── evidence.sqlite # SQLite projection of the dumps, rebuilt by --summary
+        │   ├── resume-count.json # resume attempts spent per team, so a restart keeps the budget
         │   └── snapshot/      # repository fetched from GitHub at the permalink SHA
         ├── feedback/<team_dir>/agent-feedback.md
         ├── dev.md             # Instructor triage table
@@ -75,13 +76,14 @@ Outside the repository uv does not discover `uv.toml` and fails with `Could not 
 If a command must run from elsewhere, pass `--config-file <repo>/uv.toml` or set `UV_CACHE_DIR` to a writable directory.
 
 1. Unpack the Moodle export into `itpd-assignments-feedback/A<N>/submissions/`, one directory per team.
-2. Run `uv run python scripts/preflight.py` before a grader batch; it checks `gh` auth, `pdftotext`, and `markdownlint-cli2`.
+2. Run `uv run python scripts/preflight.py` before a grader batch; it prints the `grading.json` batch size and resume cap, then checks `gh` auth, `pdftotext`, and `markdownlint-cli2`.
 3. Review teams with the grader agent (see below).
    **Keep every team's `work/<team_dir>/` until the batch has been extracted in step 6**, because the final `scripts/scan_privacy.py` run reads `pdf-info.json` and the fetched snapshot from it.
 4. Validate changed reports with `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>`, then run `markdownlint-cli2 --fix "itpd-assignments-feedback/A<N>/feedback/**/*.md"`.
 5. Check batch readiness before extraction: run `list_agents` and stop while any grader for the batch is still running, then run `uv run python scripts/check_batch_ready.py A<N> [--active "<team_dir>" ...]`, passing every team `list_agents` still reports as running or registered.
    Refuse extraction while the gate exits non-zero.
 6. Run `uv run python A<N>/extract_feedback.py` to regenerate `dev.md` and `feedback_release.csv`.
+   A team whose resume budget was spent and never finished is left out of both exports and named in the extractor warnings.
 7. Review the extractor warnings and fix malformed reports.
 
 ## Re-grading a batch
@@ -106,8 +108,8 @@ It uses `{ASSIGNMENT_DIR}` (for example `A1`), `{TEAM_DIR}` (the exact submissio
 When the user asks to review or re-review teams:
 
 1. Read `agents/grader.md`.
-2. Read `grading.json` and use `team_batch_size` as the batch size.
-   Default to `8` if the file or value is missing or invalid.
+2. Read `grading.json` and use `team_batch_size` as the batch size and `max_agent_resumes` as the per-team resume cap.
+   Default to `8` and `4` if the file or a value is missing or invalid.
 3. Pick the teams: the ones the user names, or every directory in `itpd-assignments-feedback/A<N>/submissions/` that has no `feedback/<team_dir>/agent-feedback.md` yet.
    A segment count always comes from `ASSIGNMENT_CONFIG[A<N>]["segment_defs"]` in `tools/grader_tools/assignment_config.py`, never from another assignment's number.
 4. For each batch, launch one subagent per team in parallel:
@@ -118,7 +120,11 @@ When the user asks to review or re-review teams:
    - Workers write disjoint paths (feedback and `work/` per team), so they need no coordination.
 5. When a grader run fails, do not launch a fresh subagent first.
    Check `list_agents`: if the team's session still exists and is resumable, continue it with `send_message`, telling it to read the saved report and payload and continue rather than start over.
-   Launch a replacement subagent only when that session cannot be resumed and no writer for the team is active.
+   Resume at most `max_agent_resumes` times per team, counting only the `send_message` resumes you send; each resume must leave progress on disk (payload rewritten, report re-rendered) before the next one.
+   Record every resume first with `uv run python scripts/record_resume.py A<N> "<team_dir>"`; it persists the count in `work/<team_dir>/resume-count.json` and exits 1 once the budget is spent.
+   When a resume produced the final report, run the same command with `--done` so the block is cleared.
+   When the cap is spent, stop resuming: keep the partial `payload.json` and report and report the team to the operator as blocked.
+   Launch a replacement subagent only when that session cannot be resumed and no writer for the team is active, or when the resume cap is spent and the operator asks for a replacement.
    Never run two writers for one team: interrupt the duplicate before resuming, because two writers on one report and payload leave a half-rendered report that `scripts/check_batch_ready.py` refuses.
 6. If subagents are unavailable, review sequentially without asking.
 7. After all batches, run the pre-extraction gate, the lint, and the extraction steps from the workflow above.
@@ -128,8 +134,9 @@ When the user asks to review or re-review teams:
 All run from the repository root and print counts and paths only.
 `agents/grader.md` uses them in its Steps section and keeps the raw `gh` and `jq` commands as fallback.
 
-- `uv run python scripts/preflight.py` — checks `gh` auth, `pdftotext`, and `markdownlint-cli2` before a batch.
+- `uv run python scripts/preflight.py` — prints the `grading.json` batch size and resume cap, then checks `gh` auth, `pdftotext`, and `markdownlint-cli2` before a batch.
 - `uv run python scripts/check_batch_ready.py A<N> [--active "<team_dir>" ...]` — pre-extraction gate: refuses a team whose grader `list_agents` still reports as running or registered (pass each team on `--active`, because a script cannot call `list_agents`), a non-empty work directory with no report, and a report older than `work/<team_dir>/payload.json`; exit codes 0 ready, 1 not ready, 2 usage error.
+- `uv run python scripts/record_resume.py A<N> "<team_dir>" [--show | --done] [--work-root <dir>]` — records one `send_message` resume in `work/<team_dir>/resume-count.json`, prints `resumes n/m - resumable|blocked|finished`, and exits 0 while resumable or finished, 1 once the budget is spent, 2 on a bad assignment; `--show` reads without writing and `--done` clears the block after the final report.
 - `uv run python scripts/fetch_team_snapshot.py A<N> "<team_dir>" [--repo org/repo] [--permalink <url>]` — PDF permalink (a bare SHA is resolved with `gh search commits`, or paired with `--repo` and recorded as `permalink_source=operator`), recording, page-count, and member-token extraction; commit and `main` check; snapshot refetch; writes `itpd-assignments-feedback/A<N>/work/<team_dir>/pdf-info.json`.
   It derives `permalink_week` from the permalink path, compares it with the assignment's `week` as `expected_week`, and records both plus `permalink_week_mismatch`.
 - `uv run python scripts/fetch_markdown_snapshot.py A<N> "<team_dir>" [--repo org/repo] [--permalink <url>]` — the no-PDF fallback: reads a Markdown submission wrapper, writes `pdf-info.json` with `permalink_source=operator`, the same keys, and the member name/email tokens derived from the wrapper's member table, and fetches the snapshot into `work/<team_dir>/snapshot/`.
@@ -292,7 +299,7 @@ These are the failure modes the A3 and A4 batches produced, with the remedy for 
 - **Provider 403:** four of seven A3 grader runs died within seconds with `403 "Access denied by security policy."` (`code: AUTH`) after running 5 to 10 minutes.
   In the A3 batch the harness auto-resumed them; in the A4 Teams 2 and 9 batch it did not, so the operator resumes them by hand as the next bullet describes.
   Because a fresh retry had already started for two of the A3 teams, Teams 1 and 4 briefly had two writers on the same report and payload; interrupt the duplicate before resuming.
-  Every retry at four-way concurrency succeeded, so the limit was the provider, not the batch size: `grading.json` stays unchanged at `{"team_batch_size": 8}`, and the documented batch size stays at 8.
+  Every retry at four-way concurrency succeeded, so the limit was the provider, not the batch size: the batch size was not lowered, and the documented batch size stayed at 8.
   Treat a 403 as a resumable session and follow the resume rules in `## Reviewing teams with the grader agent`; never start a new writer for a team that still has one.
 - **Silent turn death, not context overflow:** in the A4 Teams 2 and 9 batch, nine grader turns ended with no closing message: four with the same `403 "Access denied by security policy."` (`AUTH`), plus `Request timed out.` (`TIMEOUT`), `error code: 520` (`SERVER`), and `Connection error.` (`TRANSPORT`).
   Input length is not the explanation, so do not shrink the batch or the prompt on that theory: `request/context` in the transcript gives a 1,048,576-token window, the conversation peaked near 1.6M characters, and the largest-context turns finished while Team 9 died at under half that size.

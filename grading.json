@@ -1,1 +1,1 @@
-{"team_batch_size": 10}
+{"team_batch_size": 10, "max_agent_resumes": 4}

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from scripts.preflight import run
+from tools.grader_tools.grading_config import GradingConfig, load_grading_config
 from tools.grader_tools.preflight import (
     PreflightCheck,
     PreflightResult,
@@ -15,6 +16,7 @@ from tools.grader_tools.preflight import (
 )
 
 ALL_TOOLS = {"gh", "pdftotext", "markdownlint-cli2"}
+SETTINGS = GradingConfig(team_batch_size=10, max_agent_resumes=4)
 
 
 def which_from(present: set[str]):
@@ -34,13 +36,19 @@ def runner_returning(returncode: int, calls: list[list[str]] | None = None):
 
 
 def test_run_preflight_shapes_three_checks_when_ready() -> None:
-    result = run_preflight(which_from(ALL_TOOLS), runner_returning(0))
+    result = run_preflight(which_from(ALL_TOOLS), runner_returning(0), SETTINGS)
     assert result.ok is True
     assert [check.name for check in result.checks] == ["gh auth", "pdftotext", "markdownlint-cli2"]
     assert result.failures == ()
-    assert result.summary_lines[0] == "gh auth: ok - authenticated"
-    assert result.summary_lines[1] == "pdftotext: ok - /nix/store/bin/pdftotext"
+    assert result.summary_lines[0] == "grading: team_batch_size=10, max_agent_resumes=4"
+    assert result.summary_lines[1] == "gh auth: ok - authenticated"
+    assert result.summary_lines[2] == "pdftotext: ok - /nix/store/bin/pdftotext"
     assert result.summary_lines[-1] == "result: ready - all 3 checks passed"
+
+
+def test_run_preflight_reads_the_batch_settings_from_grading_json() -> None:
+    result = run_preflight(which_from(ALL_TOOLS), runner_returning(0))
+    assert result.summary_lines[0] == load_grading_config().line
 
 
 def test_missing_tool_reports_failure_and_a_path_hint() -> None:

@@ -6,6 +6,9 @@ locates each binary, and ``gh auth status`` decides whether GitHub access is
 ready.  Both are injectable so the result shaping can be tested without a real
 environment or network access.
 
+The batch settings from ``grading.json`` are printed first as context: they are
+not checks, so a defaulted or missing value does not change the exit code.
+
 ``scripts/preflight.py`` prints one line per check; the exit code is 0 when
 every check passes and 1 when any check fails.
 """
@@ -16,6 +19,8 @@ import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
+
+from tools.grader_tools.grading_config import GradingConfig, load_grading_config
 
 GH = "gh"
 PDFTOTEXT = "pdftotext"
@@ -79,13 +84,17 @@ def check_gh_auth(which: Which = shutil.which, runner: Runner = subprocess.run) 
     return PreflightCheck("gh auth", False, "not authenticated; run: gh auth login")
 
 
-def run_preflight(which: Which = shutil.which, runner: Runner = subprocess.run) -> PreflightResult:
+def run_preflight(
+    which: Which = shutil.which,
+    runner: Runner = subprocess.run,
+    settings: GradingConfig | None = None,
+) -> PreflightResult:
     checks = (
         check_gh_auth(which, runner),
         check_tool(PDFTOTEXT, which),
         check_tool(MARKDOWNLINT, which),
     )
-    lines = [check.line for check in checks]
+    lines = [(settings or load_grading_config()).line, *(check.line for check in checks)]
     failures = sum(1 for check in checks if not check.ok)
     if failures:
         lines.append(f"result: not ready - {failures} of {len(checks)} check(s) failed")

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 
 from tests.report_builder import build_report
 from tools.grader_tools.extract_reports import parse_team_name, run_extraction
+from tools.grader_tools.grading_config import load_grading_config
 
 
 def write_team(root: Path, team_dir: str, text: str | None) -> None:
@@ -70,3 +72,55 @@ def test_next_steps_section_never_reaches_the_export(tmp_path: Path) -> None:
     assert "Suggested next steps" not in records[0]["feedback"]
     assert "Read the ADR index next." not in records[0]["feedback"]
     assert records[0]["feedback"].startswith("- First shortfall.\\n")
+
+
+def write_resume_count(work_root: Path, team_dir: str, attempts: int, finished: bool = False) -> None:
+    directory = work_root / team_dir
+    directory.mkdir(parents=True, exist_ok=True)
+    payload = {"attempts": attempts, "finished": finished}
+    (directory / "resume-count.json").write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_team_that_spent_the_resume_cap_is_left_out_of_both_exports(tmp_path: Path, capsys) -> None:
+    blocked = "Team 5_5_assignfile"
+    healthy = "Team 7_7_assignfile"
+    feedback_dir = tmp_path / "A1" / "feedback"
+    write_team(feedback_dir, blocked, build_report("A1", team=5))
+    write_team(feedback_dir, healthy, build_report("A1", team=7))
+    cap = load_grading_config().max_agent_resumes
+    write_resume_count(tmp_path / "A1" / "work", blocked, attempts=cap)
+
+    dev = tmp_path / "A1" / "dev.md"
+    release = tmp_path / "A1" / "feedback_release.csv"
+    assert run_extraction("A1", feedback_dir, dev, release) == 0
+
+    dev_text = dev.read_text(encoding="utf-8")
+    with open(release, encoding="utf-8", newline="") as handle:
+        records = list(csv.DictReader(handle, delimiter="|"))
+    assert "Team 5" not in dev_text
+    assert [record["group"] for record in records] == ["Team 7"]
+    assert f"{blocked}: excluded, resume budget spent ({cap}/{cap})" in capsys.readouterr().err
+
+
+def test_finished_team_at_the_cap_is_still_exported(tmp_path: Path) -> None:
+    team = "Team 5_5_assignfile"
+    feedback_dir = tmp_path / "A1" / "feedback"
+    write_team(feedback_dir, team, build_report("A1", team=5))
+    cap = load_grading_config().max_agent_resumes
+    write_resume_count(tmp_path / "A1" / "work", team, attempts=cap, finished=True)
+
+    dev = tmp_path / "A1" / "dev.md"
+    release = tmp_path / "A1" / "feedback_release.csv"
+    assert run_extraction("A1", feedback_dir, dev, release) == 0
+    assert "Team 5" in dev.read_text(encoding="utf-8")
+
+
+def test_extraction_fails_when_every_team_is_blocked(tmp_path: Path, capsys) -> None:
+    team = "Team 5_5_assignfile"
+    feedback_dir = tmp_path / "A1" / "feedback"
+    write_team(feedback_dir, team, build_report("A1", team=5))
+    cap = load_grading_config().max_agent_resumes
+    write_resume_count(tmp_path / "A1" / "work", team, attempts=cap)
+
+    assert run_extraction("A1", feedback_dir, tmp_path / "dev.md", tmp_path / "out.csv") == 1
+    assert "No team feedback directories left to extract." in capsys.readouterr().err
