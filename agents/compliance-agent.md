@@ -381,7 +381,7 @@ The collector writes `issues/<n>.timeline.json` and rebuilds `evidence.sqlite`, 
 The semantic pass is a separate agent, `agents/semantic-agent.md`.
 Do not write `agent-semantic-feedback.md` from this prompt, and do not edit a saved semantic file during a regrade: the semantic agent owns it.
 
-- Finish this review with a validated report and a disposable work directory.
+- Finish this review with a validated report and a work directory that stays intact for the semantic pass; it is disposable only after that pass.
   Leave `agent-feedback.md`, `payload.json`, `summary.md`, `inventory.md`, `evidence.sqlite`, `pdf-info.json`, and `snapshot/` in `{TEAM_WORK}` for the semantic agent.
 - Write the snapshot inventory before the handoff when it is missing, so the semantic agent reads one short tree digest instead of walking the snapshot:
 

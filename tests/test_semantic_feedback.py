@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from tools.grader_tools.semantic_feedback import validate_semantic_feedback
+import hashlib
+
+from tools.grader_tools.semantic_feedback import (
+    validate_claim_ledger,
+    validate_semantic_feedback,
+)
 
 SNAPSHOT = "a" * 40
 REPOSITORY = "https://github.com/example/repo"
@@ -179,3 +184,38 @@ def test_assignment_without_dimensions_fails() -> None:
     text = build_semantic(title_assignment="4")
     errors = validate_semantic_feedback(text, "A4", report_text=None)
     assert any("no semantic dimensions" in error for error in errors)
+
+
+def _ledger(report_text: str) -> dict[str, object]:
+    return {
+        "assignment": "A5",
+        "team_dir": "Team 5 - TmpTeam_12345_assignsubmission_file",
+        "snapshot": SNAPSHOT,
+        "report_sha256": hashlib.sha256(report_text.encode("utf-8")).hexdigest(),
+        "claims": [],
+        "conflicts": [],
+    }
+
+
+def test_ledger_with_the_current_report_hash_passes() -> None:
+    report = build_report()
+    assert validate_claim_ledger(_ledger(report), report) == []
+
+
+def test_ledger_with_a_stale_report_hash_fails() -> None:
+    report = build_report()
+    ledger = _ledger(report)
+    ledger["report_sha256"] = "0" * 64
+    errors = validate_claim_ledger(ledger, report)
+    assert errors and "does not match agent-feedback.md" in errors[0]
+
+
+def test_ledger_without_a_report_hash_fails() -> None:
+    ledger = _ledger(build_report())
+    del ledger["report_sha256"]
+    errors = validate_claim_ledger(ledger, build_report())
+    assert errors == ["the claim ledger has no `report_sha256`"]
+
+
+def test_ledger_must_be_a_json_object() -> None:
+    assert validate_claim_ledger([], build_report()) == ["the claim ledger must be a JSON object"]

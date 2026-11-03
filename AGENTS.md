@@ -87,7 +87,8 @@ If a command must run from elsewhere, pass `--config-file <repo>/uv.toml` or set
    **Keep every team's `work/<team_dir>/` until the batch has been extracted in step 7**, because the semantic pass and the final `scripts/scan_privacy.py` run both read `pdf-info.json` and the fetched snapshot from it.
 4. Validate changed reports with `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>`, then run `markdownlint-cli2 --fix "itpd-assignments-feedback/A<N>/feedback/**/*.md"`.
 5. For an assignment that defines `semantic_dimensions`, run one semantic agent per team after its report is final (see below).
-   Validate each companion with `uv run python scripts/check_semantic_feedback.py A<N> <agent-semantic-feedback.md>` and scan it for private-only material.
+   Launch `semantic review` when the team has no companion and `semantic regrade` when it has one.
+   Validate each companion with `uv run python scripts/check_semantic_feedback.py A<N> <agent-semantic-feedback.md> --ledger "itpd-assignments-feedback/A<N>/work/<team_dir>/semantic-claims.json"` and scan it for private-only material.
    The semantic file is report-only: the extractor ignores it.
 6. Check batch readiness before extraction: run `list_agents` and stop while any compliance or semantic agent for the batch is still running, then run `uv run python scripts/check_batch_ready.py A<N> [--active "<team_dir>" ...]`, passing every team `list_agents` still reports as running or registered.
    Refuse extraction while the gate exits non-zero.
@@ -149,7 +150,8 @@ It uses the same `{ASSIGNMENT_DIR}`, `{TEAM_DIR}`, and `{TEAM_WORK}` placeholder
 1. Run it only for an assignment that defines `semantic_dimensions` in `tools/grader_tools/assignment_config.py`, currently A5.
    The team's `agent-feedback.md` must be final and must pass `scripts/check_feedback_report.py`.
 2. Read `agents/semantic-agent.md`.
-3. Launch one semantic agent per team in `semantic review` mode, passing the assignment directory, the exact team directory name, and the absolute work-directory path.
+3. Launch one semantic agent per team, passing the assignment directory, the exact team directory name, and the absolute work-directory path.
+   Use `semantic review` when `feedback/<team_dir>/agent-semantic-feedback.md` does not exist, and `semantic regrade` when it does; `semantic review` refuses an existing companion rather than keeping or overwriting it.
    Reuse the same `team_batch_size`; a semantic agent is lighter than a compliance agent, but the provider concurrency limit is unchanged.
 4. Keep one writer per team: the semantic agent writes only `agent-semantic-feedback.md` and `work/<team_dir>/semantic-claims.json`, and never edits the report.
 5. When the semantic agent reports a conflict with a status, schedule a compliance regrade.
@@ -179,8 +181,8 @@ The compliance and semantic prompts use them and keep the raw `gh` and `jq` comm
 - `uv run python scripts/scan_privacy.py A<N> "<team_dir>" [--feedback <agent-feedback.md>] [--no-snapshot]` — privacy findings grouped per file with a hit count plus per-rule hit and file totals, by path and kind only; `--no-snapshot` with `--feedback` derives the tokens from the submission PDF after `work/<team_dir>/` is cleaned.
 - `uv run python scripts/snapshot_inventory.py A<N> "<team_dir>" [--snapshot <dir>] [--output <path>]` — writes `work/<team_dir>/inventory.md`, a bounded digest of the fetched snapshot: the root files, the `QR-nn`, `FR-nnn`, and `ADR-nnn` counts, the `docs/` and `reports/` trees, the workflow names, and the site-config candidates; it prints the path and the counts only, so an agent reads one short file instead of walking the tree.
 - `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>` — report validation plus `markdownlint-cli2` in one command.
-- `uv run python scripts/check_semantic_feedback.py A<N> <agent-semantic-feedback.md>` — companion-file validation plus `markdownlint-cli2`; it also compares the team, repository, and snapshot with the sibling `agent-feedback.md`.
-  It does not read the claim ledger yet; `work/<team_dir>/semantic-claims.json` is the semantic agent's audit trail.
+- `uv run python scripts/check_semantic_feedback.py A<N> <agent-semantic-feedback.md> [--ledger <semantic-claims.json>]` — companion-file validation plus `markdownlint-cli2`; it also compares the team, repository, and snapshot with the sibling `agent-feedback.md`.
+  With `--ledger`, it compares the ledger's `report_sha256` with the report and refuses a companion whose report changed after the semantic pass; the ledger is disposable, so omit `--ledger` once the work directory is cleaned.
 - `uv run python scripts/render_feedback_report.py A<N> <payload.json>` — renders a complete report from one structured payload.
 - `uv run python scripts/image_info.py <files>` — PNG and JPEG dimensions, byte size, and PNG transparency.
 
@@ -347,8 +349,9 @@ These are the failure modes the A3 and A4 batches produced, with the remedy for 
   3. Shrink to one or two segments per turn when turns keep dying, and check the judged segment count in the payload before re-sending a batch, because a message that arrives as a turn ends is never executed.
   4. Skip the collector rerun and the snapshot refetch on resume: they add context without adding evidence.
   5. Write `work/<team_dir>/inventory.md` with `scripts/snapshot_inventory.py` and tell the compliance agent to read it instead of exploring the tree.
-- **Semantic pass without a clean handoff:** the semantic agent stops when `agent-feedback.md` is missing or invalid, when the snapshot is gone, or when the report's snapshot SHA does not match `pdf-info.json`.
+- **Semantic pass without a clean handoff:** the semantic agent stops when `agent-feedback.md` is missing or invalid, when the snapshot is gone, when the report's snapshot SHA does not match `pdf-info.json`, or when `summary.md`, `inventory.md`, or `evidence.sqlite` is missing.
   That is a handoff failure, not a semantic finding: finish or repair the compliance run first, and do not let the semantic agent re-fetch the snapshot or edit the report.
+  A report that says `Snapshot reviewed: none` has no snapshot to verify against; it cannot carry a verified companion, so record the team and skip or fail the semantic pass rather than writing an unverified file.
   A semantic conflict with a status is a regrade request; the operator schedules the compliance regrade and then reruns the semantic agent.
 - **Bare-SHA PDF:** a submission PDF may carry only `Submission commit: <sha40>` and no GitHub URL.
   `scripts/fetch_team_snapshot.py` resolves it with `gh search commits <sha> --json repository --jq 'map(.repository.fullName) | unique'` and adopts the repository only when exactly one matches; zero or several matches keep the stop path and name the candidates and the command tried.

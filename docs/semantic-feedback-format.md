@@ -19,7 +19,7 @@ It is written by the semantic agent, not the compliance agent, after the structu
 The semantic agent starts from the report as a map, then verifies each claim its judgement depends on against the snapshot at the saved SHA or the saved live evidence.
 The report is never evidence for this file.
 It never collects a new evidence dump or re-fetches the snapshot.
-The release export ignores it by default; only `## Summary` goes into `feedback_release.csv`, and the full report directory is the channel that carries this file.
+The release export ignores it; only `## Summary` goes into `feedback_release.csv`, and the full report directory is the channel that carries this file.
 A change to that export rule is a change to this document and to the extractor together.
 
 ## Voice
@@ -99,7 +99,7 @@ A `partial` or `missing` segment does not make its whole dimension `not yet adeq
 
 ## Rules
 
-- Ground every claim in an artifact you verified at the saved SHA or a live URL.
+- Ground every claim in an artifact you verified at the saved SHA, a live URL, or the saved handoff evidence in `work/<team_dir>/`.
   The structural report is a map, not evidence.
 - Verify the claims your judgement depends on, not every claim in the report; do not re-audit the segments.
 - Prefer `work/<team_dir>/evidence.sqlite` and the saved dumps.
@@ -115,12 +115,14 @@ A `partial` or `missing` segment does not make its whole dimension `not yet adeq
 - Every evidence bullet holds at least one link.
   A repository file link cites the reviewed snapshot, `https://github.com/<org>/<repo>/blob/<snapshot-sha>/<path>`, not `main`.
   A live link (a run, a release, an issue, a pull request) cites the exact URL.
-- Omit a dimension only when its evidence could not be read; keep at least three dimensions.
+- Omit a dimension only when all of its segments are unverified (a status in the report; the file must not use that word); keep at least three dimensions.
+  If fewer than three dimensions remain, do not write the file.
 - Stop when the file stops being grounded: a shorter, honest file beats a longer, speculative one.
 
 ## Verification
 
 The semantic agent keeps `itpd-assignments-feedback/<assignment>/work/<team_dir>/semantic-claims.json` as its audit trail.
+The ledger is disposable, like the rest of the work directory; it is not a committed artifact.
 Each load-bearing claim records `id`, `dimension`, `statement`, `locator`, `link`, `check`, `result`, and a short `quote`.
 
 `result` is one of:
@@ -132,18 +134,21 @@ Each load-bearing claim records `id`, `dimension`, `statement`, `locator`, `link
   It may be a caveat, never the basis of a verdict.
 
 Only `supported` claims feed the prose and the `**Evidence:**` bullets.
-The ledger also records `report_sha256`, so a report change after the semantic pass marks the file stale and the operator reruns the semantic agent.
+The ledger also records `report_sha256`; while the ledger is still present, `scripts/check_semantic_feedback.py --ledger` compares it with the report and refuses a companion whose report changed after the pass.
+The operator then reruns the semantic agent in `semantic regrade` mode.
 
 ## Validation
 
 ```console
-uv run python scripts/check_semantic_feedback.py A5 "itpd-assignments-feedback/A5/feedback/<team_dir>/agent-semantic-feedback.md"
+uv run python scripts/check_semantic_feedback.py A5 "itpd-assignments-feedback/A5/feedback/<team_dir>/agent-semantic-feedback.md" --ledger "itpd-assignments-feedback/A5/work/<team_dir>/semantic-claims.json"
 ```
 
 The checker enforces the metadata, the dimension order, the verdict and block schema, the evidence links, the snapshot SHA in blob links, and the forbidden vocabulary, and it runs `markdownlint-cli2`.
-It does not judge the prose, and it does not read the claim ledger; the ledger is the semantic agent's audit trail.
+It does not judge the prose.
+With `--ledger`, it compares the ledger's recorded report hash with the sibling report; without the flag, or after the work directory is cleaned, the ledger is only the semantic agent's audit trail.
 
 ## Example
 
 The A5 Team 5 file, `itpd-assignments-feedback/A5/feedback/Team 5 - TmpTeam_10941_assignsubmission_file/agent-semantic-feedback.md`, is the reference example for voice and schema: five dimensions, four `thin` and one `adequate`.
+It is committed with the eight-team semantic pass, so it may be absent on an earlier checkout; use the structure above in that case.
 It predates the verification contract, so use it for depth and tone, not as a claim-ledger example.

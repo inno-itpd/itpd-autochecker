@@ -24,7 +24,7 @@ uv run pytest
 - `agents/compliance-agent.md`: the one-team compliance prompt, used through `.claude/agents/` and `.opencode/agents/`.
 - `agents/semantic-agent.md`: the one-team semantic feedback prompt, run after the compliance report is final.
 - `agents/README.md`: the two-role pipeline and handoff contract.
-- `docs/`: the grading policy and the feedback report format.
+- `docs/`: the grading policy, the feedback report format, and the semantic companion format.
 - `scripts/`: validate, inspect, patch, and regrade feedback reports.
 - `uv.toml`: keeps uv's cache inside the checkout (`.local/uv-cache`), so `uv run` also works where `~/.cache/uv` is read-only.
 - `itpd-assignments-feedback/`: the submodule holding submission PDFs, feedback, and exports.

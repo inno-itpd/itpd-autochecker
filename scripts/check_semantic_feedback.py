@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -14,7 +15,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.semantic_feedback import default_report_path, validate_semantic_feedback
+from tools.grader_tools.semantic_feedback import (
+    default_report_path,
+    validate_claim_ledger,
+    validate_semantic_feedback,
+)
 
 LINTER = "markdownlint-cli2"
 
@@ -47,6 +52,15 @@ def main() -> None:
         action="store_true",
         help="Skip the team, repository, and snapshot comparison with agent-feedback.md",
     )
+    parser.add_argument(
+        "--ledger",
+        metavar="PATH",
+        help=(
+            "Path to work/<team_dir>/semantic-claims.json; compare its report_sha256 with "
+            "agent-feedback.md and refuse a stale companion. Omit the flag once the "
+            "disposable work directory is cleaned."
+        ),
+    )
     args = parser.parse_args()
 
     feedback_path = Path(args.feedback_path).resolve()
@@ -62,6 +76,22 @@ def main() -> None:
             raise SystemExit(1)
         report_text = report_path.read_text(encoding="utf-8")
 
+    ledger_errors: list[str] = []
+    if args.ledger:
+        if report_text is None:
+            print("ERROR: --ledger requires the agent-feedback.md comparison; drop --no-report-check")
+            raise SystemExit(1)
+        ledger_path = Path(args.ledger).resolve()
+        if not ledger_path.is_file():
+            print(f"ERROR: {ledger_path} does not exist")
+            raise SystemExit(1)
+        try:
+            ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            print(f"ERROR: {ledger_path} is not valid JSON: {exc}")
+            raise SystemExit(1) from exc
+        ledger_errors = validate_claim_ledger(ledger, report_text)
+
     failures = [
         f"semantic feedback validation: {error}"
         for error in validate_semantic_feedback(
@@ -70,6 +100,7 @@ def main() -> None:
             report_text=report_text,
         )
     ]
+    failures.extend(f"claim ledger: {error}" for error in ledger_errors)
     failures.extend(f"markdownlint: {error}" for error in lint_errors(feedback_path))
     if failures:
         for failure in failures:

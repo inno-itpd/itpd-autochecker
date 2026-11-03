@@ -986,8 +986,8 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 ## Semantic feedback
 
 `agent-semantic-feedback.md` is the optional companion file defined in `docs/semantic-feedback-format.md`.
-The semantic agent writes it after the structural report is final, and only when the operator asks for it.
-The compliance agent does not write this file.
+The semantic agent writes it after the structural report is final, when the operator runs the semantic pass.
+The compliance agent does not write the companion file.
 The semantic agent starts from the report as a map, verifies each claim its verdict rests on against the snapshot at the saved SHA or the saved evidence, and never edits `agent-feedback.md`.
 It never changes a status, an `Evidence gaps` flag, `Manual review required`, the overall assessment, or the grade; a segment may be `met` while its dimension is `thin`.
 
@@ -1052,7 +1052,8 @@ Read the tag and its target, the release body, the changelog, the plan's `Checke
 - A `partial` or `missing` segment does not make its dimension `not yet adequate` by itself; judge the artifact, not the count.
 - If a judgement contradicts a status, record the conflict in the ledger and return it; the status wins until the operator regrades the report.
   Never edit the report to fit the judgement, and never soften the judgement to fit the status.
-- Omit a dimension whose segments are `unverified`; keep at least three.
+- Omit a dimension only when all of its segments are `unverified`; keep at least three.
+  If fewer than three dimensions remain, do not write the file.
 
 ## Assignment-specific procedure deltas
 

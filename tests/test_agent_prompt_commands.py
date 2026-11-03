@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import sqlite3
 import subprocess
 import textwrap
 from pathlib import Path
@@ -270,6 +271,58 @@ def test_documented_commands_accept_a_team_directory_with_spaces_and_parentheses
     assert "[]" in reader_result.stdout
 
 
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required")
+def test_semantic_prompt_commands_accept_a_team_directory_with_spaces_and_parentheses(
+    tmp_path: Path,
+) -> None:
+    work = tmp_path / "itpd-assignments-feedback" / ASSIGNMENT_DIR / "work" / TEAM_DIR
+    feedback = tmp_path / "itpd-assignments-feedback" / ASSIGNMENT_DIR / "feedback" / TEAM_DIR
+    work.mkdir(parents=True)
+    feedback.mkdir(parents=True)
+    (work / "issues.json").write_text("[]\n", encoding="utf-8")
+    (work / "summary.md").write_text("# Summary\n", encoding="utf-8")
+    (work / "inventory.md").write_text("# Inventory\n", encoding="utf-8")
+    (work / "semantic-claims.json").write_text("{}\n", encoding="utf-8")
+    (work / "pdf-info.json").write_text("{}\n", encoding="utf-8")
+    (feedback / "agent-feedback.md").write_text("# Assignment 3 Feedback Report\n", encoding="utf-8")
+    (feedback / "agent-semantic-feedback.md").write_text(
+        "# Assignment 3 Semantic Feedback\n", encoding="utf-8"
+    )
+    with sqlite3.connect(work / "evidence.sqlite") as connection:
+        connection.execute("CREATE TABLE issues (number INTEGER, state TEXT, title TEXT)")
+
+    text = SEMANTIC_PROMPT.read_text(encoding="utf-8")
+    commands: list[str] = []
+    for _, line in _command_lines(text):
+        expanded = _expand(line, team_work=str(work))
+        if TEAM_DIR in expanded:
+            commands.append(expanded)
+    assert commands
+
+    parsed = subprocess.run(
+        ["bash", "-n"], input="\n".join(commands), text=True, capture_output=True, check=False
+    )
+    assert parsed.returncode == 0, parsed.stderr
+
+    readers = [
+        command
+        for command in commands
+        if command.strip().startswith(("sha256sum ", "jq ", "uv run python -m sqlite3 "))
+    ]
+    assert readers
+
+    for command in readers:
+        working_dir = tmp_path if command.strip().startswith("sha256sum ") else ROOT
+        result = subprocess.run(
+            ["bash", "-euo", "pipefail", "-c", command],
+            cwd=working_dir,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode == 0, (command, result.stderr)
+
+
 def _normalized(path: Path) -> str:
     return " ".join(path.read_text(encoding="utf-8").split())
 
@@ -351,16 +404,52 @@ def test_semantic_prompt_never_edits_the_report_and_escalates_conflicts() -> Non
 
 def test_semantic_prompt_keeps_the_file_report_only_and_context_bounded() -> None:
     text = _normalized(SEMANTIC_PROMPT)
-    assert "at most about ten artifact files or sections" in text
+    assert "at most about twenty artifact files or sections" in text
     assert "never re-read them" in text
-    assert "a shorter honest file beats a longer speculative one" in text
+    assert "reuse a locator" in text
+
+
+def test_semantic_prompt_refuses_an_existing_companion_and_names_the_mode() -> None:
+    text = _normalized(SEMANTIC_PROMPT)
+    assert "companion exists; use semantic regrade" in text
+    assert "do not keep or overwrite it here" in text
+
+
+def test_semantic_prompt_requires_the_complete_handoff() -> None:
+    text = _normalized(SEMANTIC_PROMPT)
+    assert "`{TEAM_WORK}/summary.md` and `{TEAM_WORK}/inventory.md` exist" in text
+    assert "`{TEAM_WORK}/evidence.sqlite` exists" in text
+    assert "If any of these is missing or mismatched" in text
+    assert "no snapshot to verify against" in text
+
+
+def test_semantic_prompt_uses_the_optional_ledger_check() -> None:
+    text = _normalized(SEMANTIC_PROMPT)
+    assert "--ledger" in text
+    assert "semantic-claims.json" in text
+
+
+def test_semantic_prompt_omits_only_unverified_dimensions() -> None:
+    text = _normalized(SEMANTIC_PROMPT)
+    assert "Omit a dimension only when all of its segments are `unverified`" in text
+    assert "If fewer than three dimensions remain" in text
 
 
 def test_semantic_wrappers_do_not_grant_edit() -> None:
+    claude = (ROOT / ".claude" / "agents" / "semantic-agent.md").read_text(encoding="utf-8")
+    claude_frontmatter = claude.split("---", 2)[1]
+    assert "tools:" in claude_frontmatter
+    assert "Write" in claude_frontmatter
+    assert "Edit" not in claude_frontmatter
+
+    opencode = (ROOT / ".opencode" / "agents" / "semantic-agent.md").read_text(encoding="utf-8")
+    opencode_frontmatter = opencode.split("---", 2)[1]
+    assert "permission:" in opencode_frontmatter
+    assert "edit: deny" in opencode_frontmatter
+
     for wrapper in SEMANTIC_WRAPPERS:
         text = wrapper.read_text(encoding="utf-8")
         assert "agents/semantic-agent.md" in text
-        assert "Edit" not in text.split("---", 2)[1]
 
 
 def test_compliance_prompt_hands_semantic_feedback_to_the_semantic_agent() -> None:

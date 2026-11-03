@@ -11,6 +11,7 @@ vocabulary.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import hashlib
 from pathlib import Path
 import re
 
@@ -347,6 +348,28 @@ def validate_semantic_feedback(
             if snapshot_match.group(1) != feedback.snapshot:
                 errors.append("`- Snapshot:` does not match `agent-feedback.md`")
     return errors
+
+
+def validate_claim_ledger(ledger: object, report_text: str) -> list[str]:
+    """Return every error in one claim ledger against the report it records.
+
+    The ledger lives in the disposable work directory, so this check runs only
+    while it is present.  It compares the recorded ``report_sha256`` with the
+    sibling report: a mismatch means the report changed after the semantic pass
+    and the companion is stale.
+    """
+    if not isinstance(ledger, dict):
+        return ["the claim ledger must be a JSON object"]
+    recorded = ledger.get("report_sha256")
+    if not isinstance(recorded, str) or not recorded:
+        return ["the claim ledger has no `report_sha256`"]
+    actual = hashlib.sha256(report_text.encode("utf-8")).hexdigest()
+    if recorded != actual:
+        return [
+            "the claim ledger's `report_sha256` does not match agent-feedback.md; "
+            "the report changed after the semantic pass, so rerun `semantic regrade`"
+        ]
+    return []
 
 
 def default_report_path(path: Path) -> Path:

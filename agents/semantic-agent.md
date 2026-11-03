@@ -46,7 +46,8 @@ Follow the operator request to choose one of these modes:
 
 1. `semantic review` (default)
    - Write a new `agent-semantic-feedback.md` for a team whose `agent-feedback.md` is final.
-   - A semantic file that already exists is read first and kept unless the operator says to replace it; otherwise use `semantic regrade`.
+   - Start this mode only when no companion file exists.
+     If one does, stop and return `FAIL — companion exists; use semantic regrade`; do not keep or overwrite it here.
 2. `semantic regrade`
    - Re-verify the claims in the saved semantic file against the current report, snapshot, and saved evidence.
    - Correct or remove unsupported claims, rewrite the claim ledger, and re-render the file.
@@ -71,19 +72,16 @@ Follow the operator request to choose one of these modes:
    The dimension definitions, the adequacy questions, and the probes live there; do not read the whole grading prompt.
 4. Read the report once.
    Read `{TEAM_WORK}/summary.md` and `{TEAM_WORK}/inventory.md` once.
-   If `inventory.md` is missing, write it:
-
-   ```console
-   uv run python scripts/snapshot_inventory.py {ASSIGNMENT_DIR} "{TEAM_DIR}"
-   ```
 
 5. Check the handoff is complete before verifying anything:
 
    - `{TEAM_WORK}/pdf-info.json` holds `org`, `repo`, `sha`, and `snapshot_fetched`.
    - `{TEAM_WORK}/snapshot/` exists and the report's `Snapshot reviewed:` SHA matches `pdf-info.json`.
    - `{TEAM_WORK}/evidence.sqlite` exists.
+   - `{TEAM_WORK}/summary.md` and `{TEAM_WORK}/inventory.md` exist.
 
-   If the snapshot is missing, or the report's SHA does not match `pdf-info.json`, stop and return `FAIL` naming the missing piece.
+   If any of these is missing or mismatched, stop and return `FAIL` naming the missing or mismatched item.
+   A report whose preamble says `Snapshot reviewed: none` has no snapshot to verify against; return `FAIL — no snapshot to verify against` instead of writing an unverified companion.
    Do not re-fetch the snapshot or collect a new evidence dump; that is the compliance agent's handoff, and a mismatch means the report is stale.
 
 6. Record the report hash before you write anything:
@@ -95,7 +93,7 @@ Follow the operator request to choose one of these modes:
 ## Verify your claims
 
 Write `{TEAM_WORK}/semantic-claims.json` before you draft the semantic file.
-The ledger is your audit trail: a claim that is not in it does not belong in the file.
+The ledger is your audit trail, and it lives in the disposable work directory: a claim that is not in it does not belong in the file.
 
 Use this shape:
 
@@ -173,14 +171,15 @@ Follow `docs/semantic-feedback-format.md` exactly:
 - `## Where to start`
 
 Every `**Evidence:**` bullet links to a `supported` claim's `link`, and the prose rests on those claims.
-Omit a dimension you cannot ground; keep at least three.
+Omit a dimension only when all of its segments are `unverified`; keep at least three.
+If fewer than three dimensions remain, return `FAIL` instead of writing a weak file.
 Do not repeat the report's `## Main issues to fix` list, do not use status vocabulary, a grade, a score, a rank, or a cross-team comparison, and do not write `None` or `TBD`.
 A segment may be compliant while its dimension is `thin`; that is the point of this file.
 
 ## Validate
 
 ```console
-uv run python scripts/check_semantic_feedback.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-semantic-feedback.md"
+uv run python scripts/check_semantic_feedback.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-semantic-feedback.md" --ledger "{TEAM_WORK}/semantic-claims.json"
 uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-semantic-feedback.md"
 uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --feedback "{TEAM_WORK}/semantic-claims.json"
 ```
@@ -196,11 +195,11 @@ If it changed, stop and return `FAIL`: the report is not yours to edit.
 ## Context budget
 
 - Read the report, `summary.md`, and `inventory.md` once each; never re-read them.
-- Read at most about ten artifact files or sections in total, chosen from `inventory.md` and the dimension probes.
+- Read at most about twenty artifact files or sections in total, enough for the 2 to 4 load-bearing claims per dimension; reuse a locator when several claims rest on it.
 - Do not walk the whole snapshot, read a whole dump, or read the whole grading prompt.
 - Cap every JSON projection at about 40 lines.
 - At most three live `gh` calls and one access check per live URL.
-- If a dimension cannot be grounded within this budget, omit it; a shorter honest file beats a longer speculative one.
+- If a dimension cannot be grounded within this budget, do not invent evidence; the omission rule in `Write the file` decides whether the dimension may be omitted.
 
 ## One writer per team
 
@@ -210,7 +209,7 @@ The report must be final before this pass starts.
 
 ## Return value
 
-Return exactly one line before you finish, including on partial success.
+Return one status line before you finish, plus the conflicts line when there are conflicts, including on partial success.
 
 For `semantic review` and `semantic regrade`, when a file was written, return:
 
