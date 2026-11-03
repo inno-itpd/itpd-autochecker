@@ -1,6 +1,6 @@
 """Track the resume attempts spent on one team.
 
-A grader that stops mid-batch is resumed with ``send_message`` at most
+A compliance agent that stops mid-batch is resumed with ``send_message`` at most
 ``max_agent_resumes`` times.  The count lives in
 ``work/<team_dir>/resume-count.json`` so the budget survives an orchestrator
 restart, and ``scripts/record_resume.py`` is the only writer.  A team whose

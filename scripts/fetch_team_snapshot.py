@@ -21,8 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.submission_pdf import (
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.submission_pdf import (
     REPO_FULL_PATTERN,
     SnapshotFetchError,
     SubmissionPdfError,

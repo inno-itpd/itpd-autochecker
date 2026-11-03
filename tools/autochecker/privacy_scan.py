@@ -28,8 +28,8 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
-from tools.grader_tools.submission_pdf import (
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
+from tools.autochecker.submission_pdf import (
     PDF_INFO_FILENAME,
     SNAPSHOT_DIRNAME,
     SubmissionPdfError,
@@ -384,7 +384,7 @@ def scan_privacy(
         if tokens.snapshot_fetched is False:
             raise PrivacyScanError(
                 f"{info_path} reports snapshot_fetched=false; repository-dependent checks are stopped, "
-                "so the snapshot cannot be scanned (see docs/grader-policy.md#submission-and-snapshot-rules)"
+                "so the snapshot cannot be scanned (see docs/grading-policy.md#submission-and-snapshot-rules)"
             )
         snapshot_dir = tokens.snapshot_dir or f"{FEEDBACK_ROOT}/{assignment}/work/{team_dir}/{SNAPSHOT_DIRNAME}"
         scan_root = root / snapshot_dir

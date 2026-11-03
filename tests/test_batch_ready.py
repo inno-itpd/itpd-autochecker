@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from scripts.check_batch_ready import run
-from tools.grader_tools.batch_ready import (
+from tools.autochecker.batch_ready import (
     ACTIVE_REASON,
     BatchReadyError,
     check_batch_ready,
@@ -58,7 +58,7 @@ def add_team(
 ) -> None:
     feedback_dir, work_dir = team_paths(root, team)
     if report_ns is not None:
-        write_file(feedback_dir / "agent-feedback.md", report_ns)
+        write_file(feedback_dir / "agent-compliance-feedback.md", report_ns)
     if create_work:
         work_dir.mkdir(parents=True, exist_ok=True)
         if payload_ns is not None:
@@ -113,7 +113,7 @@ def test_active_team_is_refused(tmp_path: Path) -> None:
     result = check_batch_ready(ASSIGNMENT, root, active=[f"{TEAM}/"])
 
     assert result.teams[0].reason == ACTIVE_REASON
-    assert result.summary_lines[0] == f"{TEAM}: refused - grader still registered or running"
+    assert result.summary_lines[0] == f"{TEAM}: refused - agent still registered or running"
 
 
 def test_active_team_outside_the_batch_is_refused(tmp_path: Path) -> None:
@@ -137,7 +137,7 @@ def test_work_directory_without_a_report_is_refused(tmp_path: Path) -> None:
 
     status = result.teams[0]
     assert status.report_mtime_ns is None
-    assert "agent-feedback.md is missing" in status.reason
+    assert "agent-compliance-feedback.md is missing" in status.reason
     assert "a writer started and never wrote a report" in status.reason
     assert result.has_refusals is True
 
@@ -149,7 +149,7 @@ def test_work_directory_with_a_payload_but_no_report_is_refused(tmp_path: Path) 
     result = check_batch_ready(ASSIGNMENT, root)
 
     assert [status.team for status in result.teams] == [TEAM]
-    assert "agent-feedback.md is missing" in result.teams[0].reason
+    assert "agent-compliance-feedback.md is missing" in result.teams[0].reason
     assert result.summary_lines[-1] == "result: not ready - 1 of 1 team(s) refused"
 
 
@@ -197,7 +197,7 @@ def test_mixed_batch_counts_only_refused_teams(tmp_path: Path) -> None:
     assert [status.ok for status in result.teams] == [False, False, False]
     assert result.teams[0].reason == ACTIVE_REASON
     assert "payload.json is newer than the report" in result.teams[1].reason
-    assert "agent-feedback.md is missing" in result.teams[2].reason
+    assert "agent-compliance-feedback.md is missing" in result.teams[2].reason
     assert result.summary_lines[-1] == "result: not ready - 3 of 3 team(s) refused"
 
 
@@ -273,8 +273,8 @@ def test_cli_passes_each_active_team_to_the_gate(tmp_path: Path) -> None:
     )
 
     assert exit_code == 1
-    assert lines[0] == f"{SEVEN_TEAMS[0]}: refused - grader still registered or running"
-    assert lines[1] == f"{SEVEN_TEAMS[1]}: refused - grader still registered or running"
+    assert lines[0] == f"{SEVEN_TEAMS[0]}: refused - agent still registered or running"
+    assert lines[1] == f"{SEVEN_TEAMS[1]}: refused - agent still registered or running"
     assert lines[-1] == "result: not ready - 2 of 2 team(s) refused"
 
 

@@ -14,8 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.semantic_feedback import (
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.semantic_feedback import (
     default_report_path,
     validate_claim_ledger,
     validate_semantic_feedback,
@@ -45,19 +45,19 @@ def main() -> None:
     parser.add_argument("feedback_path", help="Path to agent-semantic-feedback.md")
     parser.add_argument(
         "--report",
-        help="Path to the structural agent-feedback.md; defaults to the sibling file",
+        help="Path to the compliance report; defaults to the sibling file",
     )
     parser.add_argument(
         "--no-report-check",
         action="store_true",
-        help="Skip the team, repository, and snapshot comparison with agent-feedback.md",
+        help="Skip the team, repository, and snapshot comparison with agent-compliance-feedback.md",
     )
     parser.add_argument(
         "--ledger",
         metavar="PATH",
         help=(
             "Path to work/<team_dir>/semantic-claims.json; compare its report_sha256 with "
-            "agent-feedback.md and refuse a stale companion. Omit the flag once the "
+            "agent-compliance-feedback.md and refuse a stale companion. Omit the flag once the "
             "disposable work directory is cleaned."
         ),
     )
@@ -79,7 +79,7 @@ def main() -> None:
     ledger_errors: list[str] = []
     if args.ledger:
         if report_text is None:
-            print("ERROR: --ledger requires the agent-feedback.md comparison; drop --no-report-check")
+            print("ERROR: --ledger requires the agent-compliance-feedback.md comparison; drop --no-report-check")
             raise SystemExit(1)
         ledger_path = Path(args.ledger).resolve()
         if not ledger_path.is_file():

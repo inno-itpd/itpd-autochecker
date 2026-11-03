@@ -9,11 +9,11 @@ It stays a name rather than an absolute path because every helper script takes i
 `{TEAM_WORK}` is the absolute path of `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}`, for example `/home/<user>/itpd-autochecker/itpd-assignments-feedback/A5/work/Team 5 - TmpTeam_12345_assignsubmission_file (1)`; the operator supplies it, and its last component is the exact `{TEAM_DIR}` name.
 
 A semantic agent never changes directory and runs every command from the repository root, and it quotes every path that contains a team directory name or `{TEAM_DIR}`, including `{TEAM_WORK}` and every path built from it.
-It never edits the structural report: the report belongs to the compliance agent.
+It never edits the compliance report: the report belongs to the compliance agent.
 
 ## Role
 
-The structural report answers what is compliant. This file answers a different question: do the artifacts do their job for the reader who has to use them next week?
+The compliance report answers what is compliant. This file answers a different question: do the artifacts do their job for the reader who has to use them next week?
 
 You write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-semantic-feedback.md`, the optional companion file defined in `docs/semantic-feedback-format.md`.
 You do not write a second status record, a second rubric, or a second `## Main issues to fix` list.
@@ -45,7 +45,7 @@ Follow the operator request to choose one of these modes:
 | What the semantic file says and what it rests on, read-only | `semantic inspect` |
 
 1. `semantic review` (default)
-   - Write a new `agent-semantic-feedback.md` for a team whose `agent-feedback.md` is final.
+   - Write a new `agent-semantic-feedback.md` for a team whose `agent-compliance-feedback.md` is final.
    - Start this mode only when no companion file exists.
      If one does, stop and return `FAIL — companion exists; use semantic regrade`; do not keep or overwrite it here.
 2. `semantic regrade`
@@ -58,10 +58,10 @@ Follow the operator request to choose one of these modes:
 
 ## Before writing
 
-1. Confirm the structural report exists and validates:
+1. Confirm the compliance report exists and validates:
 
    ```console
-   uv run python scripts/check_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
+   uv run python scripts/check_compliance_feedback.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-compliance-feedback.md"
    ```
 
    If it fails, stop: a semantic pass needs a valid report.
@@ -87,7 +87,7 @@ Follow the operator request to choose one of these modes:
 6. Record the report hash before you write anything:
 
    ```console
-   sha256sum "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
+   sha256sum "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-compliance-feedback.md"
    ```
 
 ## Verify your claims
@@ -102,7 +102,7 @@ Use this shape:
   "assignment": "{ASSIGNMENT_DIR}",
   "team_dir": "{TEAM_DIR}",
   "snapshot": "<40-character SHA>",
-  "report_sha256": "<sha256 of agent-feedback.md>",
+  "report_sha256": "<sha256 of agent-compliance-feedback.md>",
   "claims": [
     {
       "id": "C1",
@@ -126,7 +126,7 @@ Use this shape:
 - `unverifiable`: you could not check it within the budget; it cannot carry a verdict.
 
 Only `supported` claims may feed the prose or an `**Evidence:**` bullet.
-A claim whose only source is `agent-feedback.md` is `unverifiable` for this purpose.
+A claim whose only source is `agent-compliance-feedback.md` is `unverifiable` for this purpose.
 Quote a short fragment and keep private names and emails out of the ledger.
 
 Verify 2 to 4 claims per dimension, not every claim in the report.
@@ -165,7 +165,7 @@ Do not soften the semantic judgement to fit the status, and do not edit the repo
 Follow `docs/semantic-feedback-format.md` exactly:
 
 - `# Assignment <N> Semantic Feedback`
-- `- Team:`, `- Repository:`, `- Snapshot:`, `- Structural report:` bullets
+- `- Team:`, `- Repository:`, `- Snapshot:`, `- Compliance report:` bullets
 - `## How to read this`
 - one `##` section per dimension, in the assignment prompt's order
 - `## Where to start`
@@ -187,7 +187,7 @@ uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --feedback "
 Then confirm the report hash did not change:
 
 ```console
-sha256sum "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
+sha256sum "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-compliance-feedback.md"
 ```
 
 If it changed, stop and return `FAIL`: the report is not yours to edit.

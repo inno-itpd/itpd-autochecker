@@ -25,8 +25,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
-from tools.grader_tools.submission_pdf import (
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
+from tools.autochecker.submission_pdf import (
     EMAIL_PATTERN,
     OPERATOR_SOURCE,
     PDF_INFO_FILENAME,
@@ -335,7 +335,7 @@ def fetch_markdown_submission(
     if link is None:
         summary.append("  permalink: none (no full 40-character SHA in the Markdown)")
         summary.append(
-            "  commit: not checked; stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules"
+            "  commit: not checked; stopping repository-dependent checks per docs/grading-policy.md#submission-and-snapshot-rules"
         )
     else:
         if repo_full is None and repo is not None:
@@ -361,7 +361,7 @@ def fetch_markdown_submission(
             )
             if not commit.exists:
                 summary.append(
-                    "  snapshot: not fetched; stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules"
+                    "  snapshot: not fetched; stopping repository-dependent checks per docs/grading-policy.md#submission-and-snapshot-rules"
                 )
             else:
                 fetch_snapshot_fn(repo_full, link.sha, snapshot_dir)

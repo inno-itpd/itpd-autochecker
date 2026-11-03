@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from tests.report_builder import REPO, SHA, build_report
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.feedback_report import parse_feedback_text
-from tools.grader_tools.validate import validate_report
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.feedback_report import parse_feedback_text
+from tools.autochecker.validate import validate_report
 
 
 def errors_for(text: str, assignment: str = "A1") -> list[str]:

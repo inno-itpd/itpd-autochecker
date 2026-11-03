@@ -12,12 +12,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.evidence_sqlite import (
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.evidence_sqlite import (
     EvidenceDatabaseError,
     write_evidence_database,
 )
-from tools.grader_tools.live_evidence import (
+from tools.autochecker.live_evidence import (
     LiveEvidenceError,
     LiveEvidenceResult,
     collect_github_evidence,

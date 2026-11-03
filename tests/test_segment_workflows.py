@@ -11,9 +11,9 @@ from scripts.patch_feedback_report import patch_report
 from scripts.regrade_feedback_segments import build_subset_payload
 from tests.conftest import ROOT
 from tests.report_builder import REPO, SHA, build_report, unresolved_preamble
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.feedback_report import apply_structured_segment_update, parse_feedback_text, parse_unresolved_section
-from tools.grader_tools.validate import validate_report
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.feedback_report import apply_structured_segment_update, parse_feedback_text, parse_unresolved_section
+from tools.autochecker.validate import validate_report
 
 A1_DEFS = ASSIGNMENT_CONFIG["A1"]["segment_defs"]
 A1_INDEX = ASSIGNMENT_CONFIG["A1"]["primary_index"]
@@ -60,7 +60,7 @@ def run_script(*args: str) -> subprocess.CompletedProcess[str]:
 def test_regrade_cli_end_to_end(tmp_path: Path) -> None:
     team_dir = tmp_path / "A1" / "feedback" / "Team 3_1_assignsubmission_file"
     team_dir.mkdir(parents=True)
-    feedback = team_dir / "agent-feedback.md"
+    feedback = team_dir / "agent-compliance-feedback.md"
     feedback.write_text(build_report("A1", statuses={4: "unverified"}, gaps={4}), encoding="utf-8")
     payload = tmp_path / "payload.json"
     payload.write_text(json.dumps({"segment_updates": {"S4": CLEAR_S4}}), encoding="utf-8")
@@ -79,7 +79,7 @@ def test_regrade_cli_end_to_end(tmp_path: Path) -> None:
     assert (tmp_path / "A1" / "dev.md").exists()
     assert (tmp_path / "A1" / "feedback_release.csv").exists()
 
-    validate = run_script("scripts/validate_feedback_report.py", "A1", str(feedback))
+    validate = run_script("scripts/validate_compliance_feedback.py", "A1", str(feedback))
     assert validate.returncode == 0, validate.stdout
 
 
@@ -273,7 +273,7 @@ def regrade_payload(include_metadata: bool = True) -> dict[str, object]:
 
 
 def test_inspect_reports_metadata_and_section_changes(tmp_path: Path) -> None:
-    feedback = tmp_path / "A1" / "feedback" / "Team 3_1_assignsubmission_file" / "agent-feedback.md"
+    feedback = tmp_path / "A1" / "feedback" / "Team 3_1_assignsubmission_file" / "agent-compliance-feedback.md"
     feedback.parent.mkdir(parents=True)
     feedback.write_text(build_report("A1", preamble_text=unresolved_preamble("A1")), encoding="utf-8")
     before = feedback.read_text(encoding="utf-8")
@@ -326,7 +326,7 @@ def test_inspect_reports_metadata_and_section_changes(tmp_path: Path) -> None:
 def test_regrade_cli_applies_metadata_and_sections(tmp_path: Path) -> None:
     team_dir = tmp_path / "A1" / "feedback" / "Team 3_1_assignsubmission_file"
     team_dir.mkdir(parents=True)
-    feedback = team_dir / "agent-feedback.md"
+    feedback = team_dir / "agent-compliance-feedback.md"
     feedback.write_text(build_report("A1", preamble_text=unresolved_preamble("A1")), encoding="utf-8")
     payload = tmp_path / "payload.json"
     payload.write_text(json.dumps(regrade_payload()), encoding="utf-8")
@@ -348,7 +348,7 @@ def test_regrade_cli_applies_metadata_and_sections(tmp_path: Path) -> None:
 def test_regrade_fails_closed_and_keeps_the_report(tmp_path: Path) -> None:
     team_dir = tmp_path / "A1" / "feedback" / "Team 3_1_assignsubmission_file"
     team_dir.mkdir(parents=True)
-    feedback = team_dir / "agent-feedback.md"
+    feedback = team_dir / "agent-compliance-feedback.md"
     feedback.write_text(build_report("A1"), encoding="utf-8")
     before = feedback.read_text(encoding="utf-8")
     payload = tmp_path / "payload.json"
@@ -380,7 +380,7 @@ def test_regrade_fails_closed_and_keeps_the_report(tmp_path: Path) -> None:
 def test_regrade_fails_closed_on_invalid_metadata(tmp_path: Path) -> None:
     team_dir = tmp_path / "A1" / "feedback" / "Team 3_1_assignsubmission_file"
     team_dir.mkdir(parents=True)
-    feedback = team_dir / "agent-feedback.md"
+    feedback = team_dir / "agent-compliance-feedback.md"
     feedback.write_text(build_report("A1"), encoding="utf-8")
     before = feedback.read_text(encoding="utf-8")
     payload = tmp_path / "payload.json"
@@ -397,7 +397,7 @@ def test_regrade_fails_closed_on_invalid_metadata(tmp_path: Path) -> None:
 
 
 def test_patch_cli_fails_closed_and_keeps_the_report(tmp_path: Path) -> None:
-    feedback = tmp_path / "agent-feedback.md"
+    feedback = tmp_path / "agent-compliance-feedback.md"
     feedback.write_text(build_report("A1"), encoding="utf-8")
     before = feedback.read_text(encoding="utf-8")
     payload = tmp_path / "payload.json"

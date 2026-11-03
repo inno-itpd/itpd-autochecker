@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from scripts.record_resume import BLOCKED_HINT, run
-from tools.grader_tools.grading_config import load_grading_config
-from tools.grader_tools.resume_state import FILENAME, read_state
+from tools.autochecker.grading_config import load_grading_config
+from tools.autochecker.resume_state import FILENAME, read_state
 
 TEAM = "Team 5 - TmpTeam_12345_assignsubmission_file"
 CAP = load_grading_config().max_agent_resumes

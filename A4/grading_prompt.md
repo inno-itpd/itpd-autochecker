@@ -1,9 +1,9 @@
 # Assignment 4 Grading Criteria
 
-This rubric is for an LLM grading agent that reviews ITPD Assignment 4 team submissions.
-ITPD assigns no points: each segment gets one status, `met`, `partial`, `missing`, or `unverified`, and an `Evidence gaps: yes|no` flag, per `docs/grading-feedback-format.md`.
+This rubric is for the compliance agent that reviews ITPD Assignment 4 team submissions.
+ITPD assigns no points: each segment gets one status, `met`, `partial`, `missing`, or `unverified`, and an `Evidence gaps: yes|no` flag, per `docs/compliance-feedback-format.md`.
 The instructor assigns the grade from the statuses and the evidence, so this rubric never proposes a grade, a score, or a late penalty.
-The shared rules live in `docs/grader-policy.md`: evidence states, verified absence, blocked and conflicting artifacts, snapshot resolution, live GitHub evidence through `gh api`, the single access check for consumer-hosted media, privacy, undeclared deviations, and rule applicability by `Since:` marker.
+The shared rules live in `docs/grading-policy.md`: evidence states, verified absence, blocked and conflicting artifacts, snapshot resolution, live GitHub evidence through `gh api`, the single access check for consumer-hosted media, privacy, undeclared deviations, and rule applicability by `Since:` marker.
 This file states only what is specific to Assignment 4 and does not repeat those rules.
 
 ## Authoritative sources
@@ -114,7 +114,7 @@ Whether the table has each row, and whether each row links, is judged in S15.
 
 ## Status guide
 
-Use the status vocabulary of `docs/grading-feedback-format.md` and the evidence states of `docs/grader-policy.md`.
+Use the status vocabulary of `docs/compliance-feedback-format.md` and the evidence states of `docs/grading-policy.md`.
 A segment is `met` only when every `met` criterion below holds on verified evidence.
 A segment is `partial` when its core artifact exists and at least one verified shortfall remains.
 A segment is `missing` when the `missing` criterion below holds.
@@ -667,8 +667,8 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - Do not re-grade the Week 3 script, report, or transcript.
 - The weekly meeting is the Sprint Review, so no second review meeting is expected; a second meeting in the same week is a quality note, and its artifacts may be read when they exist.
 - A meeting held on or after Friday 16 October 2026 and by `ISSUE_CUTOFF` was held in Week 4; the extension allows a meeting on Saturday 24, Sunday 25, or Monday 26 October 2026 when it is by that team's cutoff.
-- An inaccessible recording, or a recording gated to a sign-in, is an evidence gap for that check only, after the single access check `docs/grader-policy.md` allows.
-- A transcript the customer refused to publish is Moodle-only, per `docs/grader-policy.md`; a recording link outside the meeting artifacts belongs to S15, and a recording link or timecode inside a meeting artifact is a visibility shortfall here.
+- An inaccessible recording, or a recording gated to a sign-in, is an evidence gap for that check only, after the single access check `docs/grading-policy.md` allows.
+- A transcript the customer refused to publish is Moodle-only, per `docs/grading-policy.md`; a recording link outside the meeting artifacts belongs to S15, and a recording link or timecode inside a meeting artifact is a visibility shortfall here.
 - The outcome of the action points the Week 3 report closes belongs to S10; this segment judges only the report's own sections and the verdicts.
 - The report's `## Action points` shape is judged here; whether an open action point reappears from S10 is judged there.
 - The report is not rewritten after the meeting apart from a formatting-only change; a later rewrite is reported in `**Evidence:**` as a quality note.
@@ -775,7 +775,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - The site URL in `reports/week-04/README.md` and the root `README.md`.
 - The Pages workflow under `.github/workflows/` and its Pages settings, in the snapshot.
 - The Pages runs, from `runs_main.json` and `runs_sha.json`.
-- The site's default page and its navigation, with the single access check `docs/grader-policy.md#consumer-hosted-media` allows.
+- The site's default page and its navigation, with the single access check `docs/grading-policy.md#consumer-hosted-media` allows.
 
 **met:**
 
@@ -862,7 +862,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - The release's content, the verdicts, the retrospective, and the AI usage are judged in S12, S11, S13, and S16; here only the week report's summary lines, the coverage rows, and their links are judged.
 - The minimum usable product candidate's record was Week 2's, and the plan's `MLS-03` owns its core task after Week 3; the report repeats neither, and this segment judges only a candidate story that moved out this week.
 - The Documentation site row links the site's URL; the site's own state is S14's.
-- The Submission Procedure's snapshot upload to Moodle is not judged: the autochecker receives only the PDF and rebuilds the snapshot from the permalink SHA, per `docs/grader-policy.md`.
+- The Submission Procedure's snapshot upload to Moodle is not judged: the autochecker receives only the PDF and rebuilds the snapshot from the permalink SHA, per `docs/grading-policy.md`.
 - Record the snapshot commit date against the team's deadline in `**Evidence:**`, and never change a status for lateness.
 - Report a privacy finding by path and kind, such as "a personal email address in `docs/glossary.md`", never by value.
 - A report that links a file at a commit other than the snapshot is accepted when the target exists; record the hash in `**Evidence:**`.
@@ -928,7 +928,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
    When the submission directory holds no PDF and one Markdown file instead, run `uv run python scripts/fetch_markdown_snapshot.py A4 "<team_dir>"`: it reads the Markdown, writes `pdf-info.json` with `permalink_source=operator` and the member name/email tokens, and fetches the snapshot. Treat the missing PDF as an S15 shortfall, and say in `**Evidence:**` that the wrapper was Markdown rather than a PDF. Fall back to reading the Markdown by hand and writing `pdf-info.json` only when the helper cannot parse it.
 
-3. The fetcher in step 2 resolves the snapshot per `docs/grader-policy.md` and refetches it into a freshly emptied `itpd-assignments-feedback/A4/work/<team_dir>/snapshot/`.
+3. The fetcher in step 2 resolves the snapshot per `docs/grading-policy.md` and refetches it into a freshly emptied `itpd-assignments-feedback/A4/work/<team_dir>/snapshot/`.
    When it cannot, resolve and fetch by hand as in `agents/compliance-agent.md`.
 4. Read the snapshot commit time and the on-`main` result from `pdf-info.json` (`snapshot_time`, `on_main`, `on_main_status`), or re-check them with `REPO=<org>/<repo>` and `SHA=<full SHA>`:
 
@@ -1007,7 +1007,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    - Pull requests, Actions runs, repository files, tags, and releases stay judged as of `ISSUE_CUTOFF`, and the snapshot stays the evidence for files.
 
 7. Identify the Week 4 pull requests: every pull request created on or after Friday 16 October 2026, 00:00 Innopolis time, the start of Week 4 in `course/syllabus.md`.
-   A pull request merged at or before the team's Assignment 3 snapshot commit is part of the Week 3 submission, not a Week 4 pull request. Read that SHA from the saved A3 feedback report's `Primary index reviewed` link at `itpd-assignments-feedback/A3/feedback/<team_dir>/agent-feedback.md`, or from the A3 submission PDF. When neither is available, use the A3 cutoff `2026-10-17T23:59:59+03:00` as the boundary and say so in `**Evidence:**`.
+   A pull request merged at or before the team's Assignment 3 snapshot commit is part of the Week 3 submission, not a Week 4 pull request. Read that SHA from the saved A3 feedback report's `Primary index reviewed` link at `itpd-assignments-feedback/A3/feedback/<team_dir>/agent-compliance-feedback.md`, or from the A3 submission PDF. When neither is available, use the A3 cutoff `2026-10-17T23:59:59+03:00` as the boundary and say so in `**Evidence:**`.
    The in-scope pull requests for the release and the report's evidence run from the start of Week 4 to `ISSUE_CUTOFF`, without Dependabot pull requests and pull requests a workflow opened.
 
 8. Gather the pull-request facts below as evidence. These are Week 1 and Week 2 mechanics and are not re-graded in Assignment 4, except where a criterion names them: S8's catch-up comment and S12's release merge. Record an anomaly in `**Evidence:**` only; never make it a shortfall in S15 or S8.
@@ -1191,7 +1191,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
     The raw fallback is email addresses with `grep -rnE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'`, phone numbers, the real names from the PDF member table, recording links in the submission and outside the meeting artifacts, and `.env` files.
     Report each finding by path and kind only, with the number of hits per file.
 
-16. Open the documentation site's default page once, follow its navigation to the four Week 4 pages, and open the recording link once, per `docs/grader-policy.md#consumer-hosted-media`.
+16. Open the documentation site's default page once, follow its navigation to the four Week 4 pages, and open the recording link once, per `docs/grading-policy.md#consumer-hosted-media`.
 
 17. Grade each of the 16 segments independently, and report each shortfall only in the segment that owns it in the [segment overview](#segment-overview).
 

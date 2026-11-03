@@ -1,4 +1,4 @@
-"""Check the tools a grader batch needs before it starts.
+"""Check the tools an agent batch needs before it starts.
 
 The required environment is ``gh`` with a live login, ``pdftotext`` for the
 Moodle PDF, and ``markdownlint-cli2`` for the report lint.  ``shutil.which``
@@ -20,7 +20,7 @@ import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from tools.grader_tools.grading_config import GradingConfig, load_grading_config
+from tools.autochecker.grading_config import GradingConfig, load_grading_config
 
 GH = "gh"
 PDFTOTEXT = "pdftotext"

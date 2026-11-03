@@ -5,7 +5,7 @@ The collector writes ``issues.json``, ``prs.json``, ``labels.json``,
 directory.  Those dumps are large and their optional arrays are sometimes
 ``null``, so ad-hoc ``jq`` over them fails with ``Cannot iterate over null``.
 This module writes ``evidence.sqlite`` beside them with the Python standard
-library only, so a grader can answer the S6 and S7 questions with one SQL query.
+library only, so an agent can answer the S6 and S7 questions with one SQL query.
 
 ``build_evidence_database`` works from already-parsed dumps and a target path,
 so it is unit-testable without touching ``gh``.  ``write_evidence_database``
@@ -47,7 +47,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from tools.grader_tools.assignment_config import issue_cutoff_for
+from tools.autochecker.assignment_config import issue_cutoff_for
 
 EVIDENCE_DB_FILENAME = "evidence.sqlite"
 ISSUES_FILENAME = "issues.json"

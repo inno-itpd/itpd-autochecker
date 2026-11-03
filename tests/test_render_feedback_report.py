@@ -16,9 +16,9 @@ from scripts.render_feedback_report import (
 )
 from tests.conftest import ROOT
 from tests.report_builder import REPO, SHA, build_report
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.feedback_report import parse_feedback_text, parse_unresolved_section
-from tools.grader_tools.validate import validate_report
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.feedback_report import parse_feedback_text, parse_unresolved_section
+from tools.autochecker.validate import validate_report
 
 A1_DEFS = ASSIGNMENT_CONFIG["A1"]["segment_defs"]
 
@@ -82,15 +82,15 @@ def fail_render(tmp_path: Path, payload: dict[str, object], match: str, *, assig
 
 
 def test_render_matches_the_report_builder(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md", statuses={4: "unverified"}, gaps={4})
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md", statuses={4: "unverified"}, gaps={4})
     rendered, output_path = render_feedback_report("A1", payload)
     assert rendered == build_report("A1", statuses={4: "unverified"}, gaps={4})
-    assert output_path == tmp_path / "agent-feedback.md"
+    assert output_path == tmp_path / "agent-compliance-feedback.md"
     assert not output_path.exists()
 
 
 def test_next_steps_payload_renders_the_optional_section(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md")
     payload["next_steps"] = ["Read the ADR index next.", "Name US-04 in DEC-004."]
     rendered, _ = render_feedback_report("A1", payload)
     assert rendered == build_report("A1", next_steps=payload["next_steps"])
@@ -98,20 +98,20 @@ def test_next_steps_payload_renders_the_optional_section(tmp_path: Path) -> None
 
 
 def test_empty_next_steps_payload_omits_the_section(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md")
     payload["next_steps"] = []
     rendered, _ = render_feedback_report("A1", payload)
     assert "## Suggested next steps" not in rendered
 
 
 def test_next_steps_payload_rejects_more_than_three_bullets(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md")
     payload["next_steps"] = ["One.", "Two.", "Three.", "Four."]
     fail_render(tmp_path, payload, "at most 3")
 
 
 def test_a2_payload_renders_a_valid_report(tmp_path: Path) -> None:
-    output = tmp_path / "agent-feedback.md"
+    output = tmp_path / "agent-compliance-feedback.md"
     payload = full_payload(output, assignment="A2", statuses={2: "missing", 5: "partial", 8: "unverified"}, gaps={8})
     rendered, _ = render_feedback_report("A2", payload)
     defs = ASSIGNMENT_CONFIG["A2"]["segment_defs"]
@@ -119,7 +119,7 @@ def test_a2_payload_renders_a_valid_report(tmp_path: Path) -> None:
 
 
 def test_cli_writes_a_report_that_passes_the_validator(tmp_path: Path) -> None:
-    output = tmp_path / "A1" / "feedback" / "Team 3_1_assignsubmission_file" / "agent-feedback.md"
+    output = tmp_path / "A1" / "feedback" / "Team 3_1_assignsubmission_file" / "agent-compliance-feedback.md"
     payload = full_payload(output, statuses={1: "partial", 4: "unverified"}, gaps={4, 7})
     payload_path = tmp_path / "payload.json"
     payload_path.write_text(json.dumps(payload), encoding="utf-8")
@@ -130,7 +130,7 @@ def test_cli_writes_a_report_that_passes_the_validator(tmp_path: Path) -> None:
     assert validate_report("A1", parse_feedback_text(output.read_text(encoding="utf-8"), A1_DEFS)) == []
 
     validate = subprocess.run(
-        [sys.executable, "scripts/validate_feedback_report.py", "A1", str(output)],
+        [sys.executable, "scripts/validate_compliance_feedback.py", "A1", str(output)],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -139,7 +139,7 @@ def test_cli_writes_a_report_that_passes_the_validator(tmp_path: Path) -> None:
 
 
 def test_missing_snapshot_uses_none_and_notes(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md")
     payload.pop("repository")
     payload.pop("snapshot")
     payload["snapshot_notes"] = "The PDF permalink could not be resolved."
@@ -152,7 +152,7 @@ def test_missing_snapshot_uses_none_and_notes(tmp_path: Path) -> None:
 
 
 def test_partial_payload_renders_unverified_placeholders(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md", statuses={4: "unverified"}, gaps={4})
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md", statuses={4: "unverified"}, gaps={4})
     updates = payload["segment_updates"]
     assert isinstance(updates, dict)
     for selector in ("S8", "S9"):
@@ -182,7 +182,7 @@ def test_partial_payload_renders_unverified_placeholders(tmp_path: Path) -> None
 
 
 def test_placeholder_segments_never_render_as_met(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md")
     payload["segment_updates"].pop("S9")
 
     rendered, _ = render_feedback_report("A1", payload)
@@ -196,7 +196,7 @@ def test_placeholder_segments_never_render_as_met(tmp_path: Path) -> None:
 
 
 def test_partial_payload_preserves_supplied_gap_bullets(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md", statuses={4: "unverified"}, gaps={4})
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md", statuses={4: "unverified"}, gaps={4})
     payload["segment_updates"].pop("S9")
     payload["unresolved_evidence_gaps"] = {"S4": ["A hand-written S4 bullet."]}
 
@@ -209,7 +209,7 @@ def test_partial_payload_preserves_supplied_gap_bullets(tmp_path: Path) -> None:
 
 
 def test_cli_writes_a_partial_report_that_passes_the_validator(tmp_path: Path) -> None:
-    output = tmp_path / "A1" / "feedback" / "Team 3_1_assignsubmission_file" / "agent-feedback.md"
+    output = tmp_path / "A1" / "feedback" / "Team 3_1_assignsubmission_file" / "agent-compliance-feedback.md"
     payload = full_payload(output)
     updates = payload["segment_updates"]
     assert isinstance(updates, dict)
@@ -223,7 +223,7 @@ def test_cli_writes_a_partial_report_that_passes_the_validator(tmp_path: Path) -
     assert lines == [f"Wrote {output}"]
 
     validate = subprocess.run(
-        [sys.executable, "scripts/validate_feedback_report.py", "A1", str(output)],
+        [sys.executable, "scripts/validate_compliance_feedback.py", "A1", str(output)],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -232,7 +232,7 @@ def test_cli_writes_a_partial_report_that_passes_the_validator(tmp_path: Path) -
 
 
 def test_failed_render_keeps_an_existing_report(tmp_path: Path) -> None:
-    output = tmp_path / "agent-feedback.md"
+    output = tmp_path / "agent-compliance-feedback.md"
     output.write_text("old report\n", encoding="utf-8")
     payload = full_payload(output)
     updates = payload["segment_updates"]
@@ -266,7 +266,7 @@ def test_rejects_non_object_payload(tmp_path: Path) -> None:
 
 def test_rejects_unknown_assignment(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="Unknown assignment"):
-        render_feedback_report("A9", full_payload(tmp_path / "agent-feedback.md"))
+        render_feedback_report("A9", full_payload(tmp_path / "agent-compliance-feedback.md"))
 
 
 @pytest.mark.parametrize(
@@ -289,19 +289,19 @@ def test_rejects_unknown_assignment(tmp_path: Path) -> None:
     ],
 )
 def test_rejects_bad_top_level_fields(tmp_path: Path, mutate, match: str) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md")
     mutate(payload)
     fail_render(tmp_path, payload, match)
 
 
 def test_rejects_notes_when_metadata_is_complete(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md")
     payload["snapshot_notes"] = "Not needed."
     fail_render(tmp_path, payload, "snapshot_notes")
 
 
 def test_requires_notes_when_snapshot_is_missing(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md")
     payload["snapshot"] = None
     fail_render(tmp_path, payload, "snapshot_notes")
 
@@ -365,37 +365,37 @@ def test_requires_notes_when_snapshot_is_missing(tmp_path: Path) -> None:
     ],
 )
 def test_rejects_bad_segment_updates(tmp_path: Path, mutate, match: str) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md")
     mutate(payload)
     fail_render(tmp_path, payload, match)
 
 
 def test_rejects_unresolved_bullets_for_a_segment_without_gaps(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md")
     payload["unresolved_evidence_gaps"] = {"S3": ["Not a gap."]}
     fail_render(tmp_path, payload, "evidence_gaps")
 
 
 def test_requires_unresolved_bullets_for_gap_segments(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md", statuses={4: "unverified"}, gaps={4})
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md", statuses={4: "unverified"}, gaps={4})
     payload["unresolved_evidence_gaps"] = {}
     fail_render(tmp_path, payload, "needs bullets for: S4")
 
 
 def test_rejects_empty_unresolved_bullets(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md", statuses={4: "unverified"}, gaps={4})
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md", statuses={4: "unverified"}, gaps={4})
     payload["unresolved_evidence_gaps"] = {"S4": []}
     fail_render(tmp_path, payload, "at least 1 bullet")
 
 
 def test_rejects_multi_line_bullets(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md")
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md")
     payload["summary"] = ["One.", "Two.\nThree.", "Four."]
     fail_render(tmp_path, payload, "single lines")
 
 
 def test_payload_is_not_mutated(tmp_path: Path) -> None:
-    payload = full_payload(tmp_path / "agent-feedback.md", statuses={4: "unverified"}, gaps={4})
+    payload = full_payload(tmp_path / "agent-compliance-feedback.md", statuses={4: "unverified"}, gaps={4})
     before = copy.deepcopy(payload)
     render_feedback_report("A1", payload)
     assert payload == before

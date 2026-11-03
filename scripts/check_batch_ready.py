@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Refuse extraction while a team still has a running grader or a half-rendered report.
+"""Refuse extraction while a team still has a running agent or a half-rendered report.
 
 The gate lists every team in ``itpd-assignments-feedback/<assignment>/`` from
 its feedback report and its ``work/<team_dir>/``, prints one line per team, and
 refuses the batch when:
 
-- ``list_agents`` still reports a grader for the team; pass each one on
+- ``list_agents`` still reports an agent for the team; pass each one on
   ``--active <team_dir>``, because this script cannot call ``list_agents``
   itself and the harness registry has to come from the orchestrator;
-- a non-empty work directory has no ``agent-feedback.md``, so a writer started
+- a non-empty work directory has no ``agent-compliance-feedback.md``, so a writer started
   and never wrote a report;
 - ``work/<team_dir>/payload.json`` is newer than the report, because the report
   was not rendered after the last payload update; that mtime ordering is the
@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.grader_tools.batch_ready import BatchReadyError, check_batch_ready
+from tools.autochecker.batch_ready import BatchReadyError, check_batch_ready
 
 
 def build_parser() -> argparse.ArgumentParser:

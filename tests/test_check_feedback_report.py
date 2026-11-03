@@ -23,7 +23,7 @@ def run_check(tmp_path: Path, feedback: Path, linter_exit: int | None) -> subpro
         linter.chmod(0o755)
         env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
     return subprocess.run(
-        [sys.executable, "scripts/check_feedback_report.py", "A1", str(feedback)],
+        [sys.executable, "scripts/check_compliance_feedback.py", "A1", str(feedback)],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -32,7 +32,7 @@ def run_check(tmp_path: Path, feedback: Path, linter_exit: int | None) -> subpro
 
 
 def test_check_passes_valid_report(tmp_path: Path) -> None:
-    feedback = tmp_path / "agent-feedback.md"
+    feedback = tmp_path / "agent-compliance-feedback.md"
     feedback.write_text(build_report("A1"), encoding="utf-8")
     result = run_check(tmp_path, feedback, linter_exit=0)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -40,7 +40,7 @@ def test_check_passes_valid_report(tmp_path: Path) -> None:
 
 
 def test_check_fails_invalid_report_and_still_lints(tmp_path: Path) -> None:
-    feedback = tmp_path / "agent-feedback.md"
+    feedback = tmp_path / "agent-compliance-feedback.md"
     feedback.write_text(build_report("A1").replace("## Summary", "## Wrong", 1), encoding="utf-8")
     result = run_check(tmp_path, feedback, linter_exit=0)
     assert result.returncode != 0
@@ -48,7 +48,7 @@ def test_check_fails_invalid_report_and_still_lints(tmp_path: Path) -> None:
 
 
 def test_check_fails_on_lint_findings(tmp_path: Path) -> None:
-    feedback = tmp_path / "agent-feedback.md"
+    feedback = tmp_path / "agent-compliance-feedback.md"
     feedback.write_text(build_report("A1"), encoding="utf-8")
     result = run_check(tmp_path, feedback, linter_exit=1)
     assert result.returncode != 0
@@ -56,7 +56,7 @@ def test_check_fails_on_lint_findings(tmp_path: Path) -> None:
 
 
 def test_check_reports_missing_linter_without_traceback(tmp_path: Path) -> None:
-    feedback = tmp_path / "agent-feedback.md"
+    feedback = tmp_path / "agent-compliance-feedback.md"
     feedback.write_text(build_report("A1"), encoding="utf-8")
     result = run_check(tmp_path, feedback, linter_exit=None)
     assert result.returncode != 0

@@ -1,8 +1,8 @@
 """Write a bounded digest of a fetched snapshot into a team work directory.
 
-A grader that explores a snapshot with broad searches spends its run on the tree
+An agent that explores a snapshot with broad searches spends its run on the tree
 instead of on the judgment, and a provider failure then costs the whole review.
-This module writes the tree once, as a short Markdown digest, so the grader reads
+This module writes the tree once, as a short Markdown digest, so the agent reads
 one bounded file instead of walking directories: the root files, the counts that
 decide an assignment's segment minima, the ``docs/`` and ``reports/`` trees, the
 workflow names, and the site-config candidates.
@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from tools.grader_tools.assignment_config import FEEDBACK_ROOT
+from tools.autochecker.assignment_config import FEEDBACK_ROOT
 
 INVENTORY_FILENAME = "inventory.md"
 SNAPSHOT_DIRNAME = "snapshot"
@@ -49,7 +49,7 @@ class SnapshotInventoryError(Exception):
 
 @dataclass(frozen=True)
 class Inventory:
-    """One written digest and the counts the grader needs beside it."""
+    """One written digest and the counts the agent needs beside it."""
 
     path: Path
     line_count: int

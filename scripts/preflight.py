@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check gh authentication, pdftotext, and markdownlint-cli2 before a grader batch.
+"""Check gh authentication, pdftotext, and markdownlint-cli2 before an agent batch.
 
 Each required tool is reported with an ok or FAIL line, and gh additionally
 reports whether it is authenticated.  The exit code is 0 when every check
@@ -17,14 +17,14 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.grader_tools.preflight import PreflightResult, run_preflight
+from tools.autochecker.preflight import PreflightResult, run_preflight
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Report whether gh is authenticated and whether pdftotext and "
-            "markdownlint-cli2 are on PATH. Run this before a grader batch; "
+            "markdownlint-cli2 are on PATH. Run this before an agent batch; "
             "the exit code is non-zero when a check fails."
         )
     )

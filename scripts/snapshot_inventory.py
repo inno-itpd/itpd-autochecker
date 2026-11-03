@@ -3,7 +3,7 @@
 
 The digest lists the snapshot's root files, the ``QR-nn``, ``FR-nnn``, and
 ``ADR-nnn`` counts, the ``docs/`` and ``reports/`` trees, the workflow names, and
-the site-config candidates, so a grader reads one short file instead of walking
+the site-config candidates, so an agent reads one short file instead of walking
 the tree.  It prints counts and the path only.  The exit code is 0 when the
 digest was written and 2 when it could not be, for example when the snapshot has
 not been fetched yet.
@@ -20,8 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.snapshot_inventory import SnapshotInventoryError, write_inventory
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.snapshot_inventory import SnapshotInventoryError, write_inventory
 
 
 def build_parser() -> argparse.ArgumentParser:

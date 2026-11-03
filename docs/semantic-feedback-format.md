@@ -3,7 +3,7 @@
 This document defines the optional companion file that judges whether a team's artifacts do their job.
 It is not a second status record and not a second rubric.
 
-The structural report stays `agent-feedback.md`, defined in `docs/grading-feedback-format.md`.
+The compliance report stays `agent-compliance-feedback.md`, defined in `docs/compliance-feedback-format.md`.
 It records what is met, what is partial, the evidence, and the shortfalls.
 The semantic feedback answers a different question: would a reader who was not in the room be able to use this artifact, and what breaks first if the team leans on it next week.
 
@@ -13,9 +13,9 @@ The semantic feedback never changes a status, an `Evidence gaps` flag, `Manual r
 
 `itpd-assignments-feedback/<assignment>/feedback/<team_dir>/agent-semantic-feedback.md`
 
-The file sits beside the structural report in the same team directory.
+The file sits beside the compliance report in the same team directory.
 It is optional: a report without it stays valid.
-It is written by the semantic agent, not the compliance agent, after the structural report is validated.
+It is written by the semantic agent, not the compliance agent, after the compliance report is validated.
 The semantic agent starts from the report as a map, then verifies each claim its judgement depends on against the snapshot at the saved SHA or the saved live evidence.
 The report is never evidence for this file.
 It never collects a new evidence dump or re-fetches the snapshot.
@@ -34,7 +34,7 @@ No praise that is not tied to an artifact, and no criticism that is not tied to 
 Every file has these parts, in this order:
 
 1. `# Assignment <N> Semantic Feedback`
-2. Four metadata bullets: `- Team:`, `- Repository:`, `- Snapshot:`, `- Structural report:`
+2. Four metadata bullets: `- Team:`, `- Repository:`, `- Snapshot:`, `- Compliance report:`
 3. `## How to read this`
 4. One `##` section per dimension, in the assignment's order
 5. `## Where to start`
@@ -48,15 +48,15 @@ Other assignments define their own dimensions in their own prompt; the schema is
 - Team: 5
 - Repository: `https://github.com/<org>/<repo>`
 - Snapshot: `<full 40-character lowercase commit SHA>`
-- Structural report: [`agent-feedback.md`](./agent-feedback.md)
+- Compliance report: [`agent-compliance-feedback.md`](./agent-compliance-feedback.md)
 ```
 
-The repository and snapshot must match the structural report's metadata.
-The structural report link is relative, because the two files share a directory.
+The repository and snapshot must match the compliance report's metadata.
+The compliance report link is relative, because the two files share a directory.
 
 ### How to read this
 
-One short paragraph: what this file judges, that the structural report holds the statuses and the evidence, and that nothing here changes them.
+One short paragraph: what this file judges, that the compliance report holds the statuses and the evidence, and that nothing here changes them.
 Do not repeat the counts or the shortfall list.
 If a dimension is omitted, say why here.
 
@@ -84,7 +84,7 @@ The last block is `**What would make it stronger.**` when the verdict is `adequa
 
 Two or three bullets, one sentence each, starting with a verb.
 Each names the artifact it changes.
-Do not repeat the structural report's `## Main issues to fix` list; this is the one or two moves that change the judgement.
+Do not repeat the compliance report's `## Main issues to fix` list; this is the one or two moves that change the judgement.
 
 ## Verdict scale
 
@@ -100,12 +100,12 @@ A `partial` or `missing` segment does not make its whole dimension `not yet adeq
 ## Rules
 
 - Ground every claim in an artifact you verified at the saved SHA, a live URL, or the saved handoff evidence in `work/<team_dir>/`.
-  The structural report is a map, not evidence.
+  The compliance report is a map, not evidence.
 - Verify the claims your judgement depends on, not every claim in the report; do not re-audit the segments.
 - Prefer `work/<team_dir>/evidence.sqlite` and the saved dumps.
   At most three live `gh` lookups for one file, and record each one.
 - A claim whose only source is the report is unverifiable and cannot carry a verdict.
-- Do not edit `agent-feedback.md`.
+- Do not edit `agent-compliance-feedback.md`.
   A claim that contradicts a status is a conflict, not an edit; the status wins until the operator regrades the report.
 - No status vocabulary: do not use `met`, `partial`, `missing`, or `unverified`.
 - No grade, score, rank, or cross-team comparison.

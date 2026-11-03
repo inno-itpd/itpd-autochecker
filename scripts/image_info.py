@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.grader_tools.image_info import collect_image_info
+from tools.autochecker.image_info import collect_image_info
 
 
 def build_parser() -> argparse.ArgumentParser:

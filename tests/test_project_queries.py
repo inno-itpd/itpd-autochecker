@@ -17,7 +17,7 @@ STALE_SELECTIONS = (
 
 DOCUMENTED_SOURCES = (
     *sorted((ROOT / "scripts").glob("*.py")),
-    *sorted((ROOT / "tools" / "grader_tools").glob("*.py")),
+    *sorted((ROOT / "tools" / "autochecker").glob("*.py")),
     ROOT / "agents" / "compliance-agent.md",
     PROMPT,
 )

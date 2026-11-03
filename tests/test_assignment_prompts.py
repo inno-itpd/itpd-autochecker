@@ -6,7 +6,7 @@ import re
 import pytest
 
 from tests.conftest import ROOT
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, issue_cutoff_for
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG, issue_cutoff_for
 
 SEGMENT_LINE = re.compile(r"^- S(\d+): (.+)$", re.MULTILINE)
 STATUS_HEADING = re.compile(r"^### S(\d+) — (.+)$", re.MULTILINE)

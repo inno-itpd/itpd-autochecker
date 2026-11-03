@@ -5,7 +5,7 @@ import json
 import re
 from pathlib import Path
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
 
 STATUSES = ("met", "partial", "missing", "unverified")
 SHORTFALL_STATUSES = ("partial", "missing")

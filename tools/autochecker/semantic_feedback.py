@@ -15,7 +15,7 @@ import hashlib
 from pathlib import Path
 import re
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
 
 VERDICTS = ("adequate", "thin", "not yet adequate")
 HELP_HEADINGS = {
@@ -28,7 +28,7 @@ TITLE_PATTERN = re.compile(r"^# Assignment (\d+) Semantic Feedback$")
 TEAM_PATTERN = re.compile(r"^- Team: (\d+)$")
 REPOSITORY_PATTERN = re.compile(r"^- Repository: `(https://github\.com/[^/`\s]+/[^/`\s]+)`$")
 SNAPSHOT_PATTERN = re.compile(r"^- Snapshot: `([0-9a-f]{40})`$")
-STRUCTURAL_PATTERN = re.compile(r"^- Structural report: \[`agent-feedback\.md`\]\(\./agent-feedback\.md\)$")
+COMPLIANCE_REPORT_PATTERN = re.compile(r"^- Compliance report: \[`agent-compliance-feedback\.md`\]\(\./agent-compliance-feedback\.md\)$")
 VERDICT_PATTERN = re.compile(r"^\*\*Verdict:\*\*\s*(.*)$")
 BLOCK_PATTERNS = {
     "What works": re.compile(r"^\*\*What works\.\*\*\s*(.*)$"),
@@ -126,10 +126,10 @@ def _metadata(preamble: list[str]) -> tuple[int, str, str]:
     team_match = TEAM_PATTERN.match(bullets[0])
     repository_match = REPOSITORY_PATTERN.match(bullets[1])
     snapshot_match = SNAPSHOT_PATTERN.match(bullets[2])
-    if not (team_match and repository_match and snapshot_match and STRUCTURAL_PATTERN.match(bullets[3])):
+    if not (team_match and repository_match and snapshot_match and COMPLIANCE_REPORT_PATTERN.match(bullets[3])):
         raise SemanticFeedbackError(
             "the metadata must be `- Team:`, `- Repository:`, `- Snapshot:`, and the relative "
-            "`- Structural report:` bullet, in that order"
+            "`- Compliance report:` bullet, in that order"
         )
     team = int(team_match.group(1))
     if team < 1:
@@ -279,7 +279,7 @@ def validate_semantic_feedback(
     errors: list[str] = []
     expected_names = _dimension_names(assignment)
     if not expected_names:
-        return [f"{assignment} defines no semantic dimensions in `tools/grader_tools/assignment_config.py`"]
+        return [f"{assignment} defines no semantic dimensions in `tools/autochecker/assignment_config.py`"]
 
     if not feedback.how_to_read:
         errors.append(f"`## {HEADING_HOW_TO_READ}` must carry a short paragraph")
@@ -339,14 +339,14 @@ def validate_semantic_feedback(
         repository_match = REPORT_REPOSITORY_PATTERN.search(report_text)
         snapshot_match = REPORT_SNAPSHOT_PATTERN.search(report_text)
         if team_match is None or repository_match is None or snapshot_match is None:
-            errors.append("the structural report does not carry a readable Team, Repository, and Snapshot preamble")
+            errors.append("the compliance report does not carry a readable Team, Repository, and Snapshot preamble")
         else:
             if int(team_match.group(1)) != feedback.team:
-                errors.append("`- Team:` does not match `agent-feedback.md`")
+                errors.append("`- Team:` does not match `agent-compliance-feedback.md`")
             if repository_match.group(1) != feedback.repository:
-                errors.append("`- Repository:` does not match `agent-feedback.md`")
+                errors.append("`- Repository:` does not match `agent-compliance-feedback.md`")
             if snapshot_match.group(1) != feedback.snapshot:
-                errors.append("`- Snapshot:` does not match `agent-feedback.md`")
+                errors.append("`- Snapshot:` does not match `agent-compliance-feedback.md`")
     return errors
 
 
@@ -366,12 +366,12 @@ def validate_claim_ledger(ledger: object, report_text: str) -> list[str]:
     actual = hashlib.sha256(report_text.encode("utf-8")).hexdigest()
     if recorded != actual:
         return [
-            "the claim ledger's `report_sha256` does not match agent-feedback.md; "
+            "the claim ledger's `report_sha256` does not match agent-compliance-feedback.md; "
             "the report changed after the semantic pass, so rerun `semantic regrade`"
         ]
     return []
 
 
 def default_report_path(path: Path) -> Path:
-    """Return the structural report that must sit beside the semantic file."""
-    return path.parent / "agent-feedback.md"
+    """Return the compliance report that must sit beside the semantic file."""
+    return path.parent / "agent-compliance-feedback.md"

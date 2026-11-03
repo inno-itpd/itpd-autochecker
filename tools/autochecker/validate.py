@@ -1,12 +1,12 @@
-"""Validation of feedback reports against `docs/grading-feedback-format.md`."""
+"""Validation of feedback reports against `docs/compliance-feedback-format.md`."""
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.feedback_report import (
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.feedback_report import (
     HEADER_NEXT_STEPS,
     HEADING_UNVERIFIED,
     HEADING_VERIFIED,

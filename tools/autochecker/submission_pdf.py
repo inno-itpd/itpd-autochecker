@@ -21,7 +21,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
 
 PDF_INFO_FILENAME = "pdf-info.json"
 SNAPSHOT_DIRNAME = "snapshot"
@@ -467,7 +467,7 @@ class BareShaResolution:
 
     @property
     def detail(self) -> str:
-        stop = "stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules"
+        stop = "stopping repository-dependent checks per docs/grading-policy.md#submission-and-snapshot-rules"
         if self.error is not None:
             return f"`{self.command}` failed: {self.error}; {stop}"
         if self.candidates:
@@ -744,7 +744,7 @@ def fetch_team_snapshot(
             summary.append(f"  note: --repo {repo} ignored; the permalink override names {repo_full}")
     elif link is None:
         summary.append("  permalink: none (no full 40-character SHA in the PDF)")
-        summary.append("  commit: not checked; stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules")
+        summary.append("  commit: not checked; stopping repository-dependent checks per docs/grading-policy.md#submission-and-snapshot-rules")
     elif repo_full is None and repo is not None:
         repo_full = repo
         permalink_source = OPERATOR_SOURCE
@@ -756,7 +756,7 @@ def fetch_team_snapshot(
                 f"  permalink: repo=unresolved sha={link.sha} path=(root) source={permalink_source}"
             )
             summary.append(f"  repo resolution: {resolution.detail}")
-            summary.append("  commit: not checked; stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules")
+            summary.append("  commit: not checked; stopping repository-dependent checks per docs/grading-policy.md#submission-and-snapshot-rules")
         else:
             repo_full = resolution.repo
             permalink_source = GH_SEARCH_SOURCE
@@ -786,7 +786,7 @@ def fetch_team_snapshot(
             f"snapshot_time={commit.snapshot_time or 'n/a'}"
         )
         if not commit.exists:
-            summary.append("  snapshot: not fetched; stopping repository-dependent checks per docs/grader-policy.md#submission-and-snapshot-rules")
+            summary.append("  snapshot: not fetched; stopping repository-dependent checks per docs/grading-policy.md#submission-and-snapshot-rules")
         else:
             fetch_snapshot_fn(repo_full, link.sha, snapshot_dir)
             fetched = True

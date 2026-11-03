@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.feedback_report import (
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.feedback_report import (
     SegmentBlock,
     render_bullet_body,
     render_report,

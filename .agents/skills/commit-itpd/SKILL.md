@@ -6,7 +6,7 @@ description: "Create a git commit with this repository's conventions: use when t
 # Commit
 
 - Write Conventional Commits with a path scope, matching the Git conventions in `AGENTS.md`.
-- Use a scope that names the area changed, following the repository map in `AGENTS.md`: `A<N>/prompt` for an assignment's rubric and segments, `agents` for the canonical prompts and their harness wrappers, `tools` for `tools/grader_tools/`, `scripts` for the CLI scripts, `docs` for the policy and feedback-format docs, `tests`, `backlog`, `feedback` for a feedback submodule bump, `deps`, and `nix`.
+- Use a scope that names the area changed, following the repository map in `AGENTS.md`: `A<N>/prompt` for an assignment's rubric and segments, `agents` for the canonical prompts and their harness wrappers, `tools` for `tools/autochecker/`, `scripts` for the CLI scripts, `docs` for the policy and feedback-format docs, `tests`, `backlog`, `feedback` for a feedback submodule bump, `deps`, and `nix`.
   Scopes name the area, not the directory, so they survive a file moving.
 - Use this required format:
 

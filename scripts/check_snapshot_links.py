@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.grader_tools.snapshot_links import SnapshotLinksError, check_snapshot_links
+from tools.autochecker.snapshot_links import SnapshotLinksError, check_snapshot_links
 
 
 def build_parser() -> argparse.ArgumentParser:

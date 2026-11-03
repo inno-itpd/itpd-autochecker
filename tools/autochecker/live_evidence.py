@@ -14,7 +14,7 @@ It also writes ``summary.md``, a bounded digest of the process evidence:
 issue counts, pull-request numbers, failing runs, tags, releases, and the
 milestones with their due dates and open and closed issue counts.  The digest
 is capped at ``SUMMARY_LINE_CAP`` lines, and each list is truncated visibly, so
-a grader can read it before opening any dump.  ``regenerate_evidence_summary``
+an agent can read it before opening any dump.  ``regenerate_evidence_summary``
 rebuilds it from the saved dumps without calling ``gh``.
 
 The ``--issue-fields`` mode is a separate, one-call dump: it reads every issue
@@ -31,7 +31,7 @@ at the cutoff.  ``--summary`` rebuilds the events from the saved timeline files
 without calling ``gh``.
 
 Every mode that writes dumps also rebuilds ``evidence.sqlite`` from the saved
-files through ``tools.grader_tools.evidence_sqlite``, so a grader can query the
+files through ``tools.autochecker.evidence_sqlite``, so an agent can query the
 same evidence with SQL; ``--summary`` rebuilds it without calling ``gh``.
 """
 
@@ -44,12 +44,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
-from tools.grader_tools.evidence_sqlite import (
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
+from tools.autochecker.evidence_sqlite import (
     EvidenceDatabaseError,
     write_evidence_database,
 )
-from tools.grader_tools.submission_pdf import (
+from tools.autochecker.submission_pdf import (
     PDF_INFO_FILENAME,
     CommandResult,
     run_gh,
@@ -507,7 +507,7 @@ def stop_summary(assignment: str, team_dir: str, info_path: Path, root: Path) ->
     return (
         f"{assignment} / {team_dir}",
         f"  {_display(info_path, root)} has no repository and SHA; "
-        "repository-dependent checks are stopped per docs/grader-policy.md#submission-and-snapshot-rules",
+        "repository-dependent checks are stopped per docs/grading-policy.md#submission-and-snapshot-rules",
         "  result: skipped (no snapshot)",
         "  hint: pair the PDF's SHA by hand with scripts/fetch_team_snapshot.py <assignment> \"<team_dir>\" --repo org/repo",
     )

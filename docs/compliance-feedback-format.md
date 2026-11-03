@@ -1,8 +1,8 @@
-# Grading Feedback Format
+# Compliance Feedback Format
 
 This document defines the canonical feedback report structure for this repository.
 
-General grading policy lives in `docs/grader-policy.md`.
+General grading policy lives in `docs/grading-policy.md`.
 
 ITPD assignments are not scored with points.
 Each segment gets a status, and the instructor decides the grade.
@@ -26,7 +26,7 @@ Assignment-specific prompts remain responsible for:
 | `met` | Every requirement of the segment is satisfied by verified evidence. |
 | `partial` | Some requirements are satisfied, and at least one verified shortfall remains. |
 | `missing` | The segment's required artifacts are absent, or none of its requirements are satisfied. |
-| `unverified` | The grader could not check the segment because its evidence was inaccessible or conflicting. |
+| `unverified` | The compliance agent could not check the segment because its evidence was inaccessible or conflicting. |
 
 Rules:
 
@@ -167,7 +167,7 @@ It sits between `## Main issues to fix` and `## Segment details`.
 - Bring one proposed answer for the open timeout question to the next review and record the Customer's verdict as a `DEC-nnn`.
 ```
 
-The section is optional, so every report written before it existed still validates, and `scripts/validate_feedback_report.py` accepts a report with or without it.
+The section is optional, so every report written before it existed still validates, and `scripts/validate_compliance_feedback.py` accepts a report with or without it.
 `scripts/render_feedback_report.py` and `scripts/patch_feedback_report.py` accept a `next_steps` bullet list; an empty list removes the section.
 
 ## Segment details

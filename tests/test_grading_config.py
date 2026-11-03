@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 from tests.conftest import ROOT
-from tools.grader_tools.grading_config import (
+from tools.autochecker.grading_config import (
     DEFAULT_MAX_AGENT_RESUMES,
     DEFAULT_TEAM_BATCH_SIZE,
     GradingConfig,

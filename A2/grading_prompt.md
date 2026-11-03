@@ -1,9 +1,9 @@
 # Assignment 2 Grading Criteria
 
-This rubric is for an LLM grading agent that reviews ITPD Assignment 2 team submissions.
-ITPD assigns no points: each segment gets one status, `met`, `partial`, `missing`, or `unverified`, and an `Evidence gaps: yes|no` flag, per `docs/grading-feedback-format.md`.
+This rubric is for the compliance agent that reviews ITPD Assignment 2 team submissions.
+ITPD assigns no points: each segment gets one status, `met`, `partial`, `missing`, or `unverified`, and an `Evidence gaps: yes|no` flag, per `docs/compliance-feedback-format.md`.
 The instructor assigns the grade from the statuses and the evidence, so this rubric never proposes a grade, a score, or a late penalty.
-The shared rules live in `docs/grader-policy.md`: evidence states, verified absence, blocked and conflicting artifacts, snapshot resolution, live GitHub evidence through `gh api`, the single access check for consumer-hosted media, privacy, undeclared deviations, and rule applicability by `Since:` marker.
+The shared rules live in `docs/grading-policy.md`: evidence states, verified absence, blocked and conflicting artifacts, snapshot resolution, live GitHub evidence through `gh api`, the single access check for consumer-hosted media, privacy, undeclared deviations, and rule applicability by `Since:` marker.
 This file states only what is specific to Assignment 2 and does not repeat those rules.
 
 ## Authoritative sources
@@ -84,7 +84,7 @@ Whether the table has the row and links it is judged in S9.
 
 ## Status guide
 
-Use the status vocabulary of `docs/grading-feedback-format.md` and the evidence states of `docs/grader-policy.md`.
+Use the status vocabulary of `docs/compliance-feedback-format.md` and the evidence states of `docs/grading-policy.md`.
 A segment is `met` only when every `met` criterion below holds on verified evidence.
 A segment is `partial` when its core artifact exists and at least one verified shortfall remains.
 A segment is `missing` when the `missing` criterion below holds.
@@ -392,7 +392,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 **Guardrails:**
 
 - A decision that confirms the current direction settles the meeting's target, but it is not the change this segment requires.
-- When nothing changed and the team declared it as a deviation, the status is `partial` and the honesty is recorded as a strength; an undeclared absence of change is handled per `docs/grader-policy.md`.
+- When nothing changed and the team declared it as a deviation, the status is `partial` and the honesty is recorded as a strength; an undeclared absence of change is handled per `docs/grading-policy.md`.
 - A change invented only to satisfy the rule, such as a reworded criterion with no link to the customer's reaction, is a shortfall.
 - An inaccessible external view is an evidence gap for that view only; the rest of the record is still judged.
 - Only prototype code is banned from `main`.
@@ -454,7 +454,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - When the kickoff had no action points due in Week 2 or no open questions, `None` in the matching section is correct.
 - Do not re-grade the kickoff script, report, or transcript.
 - A later meeting has no per-area question floor, and the planned length is the team's choice.
-- An inaccessible recording is an evidence gap for that check only, after the single access check `docs/grader-policy.md` allows.
+- An inaccessible recording is an evidence gap for that check only, after the single access check `docs/grading-policy.md` allows.
 - Personal data in a meeting artifact is reported here; personal data anywhere else is reported in S9.
 - The format of the decision entries belongs to S2, the candidate section to S6, and the customer-driven change chain to S7.
 
@@ -554,7 +554,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    - the privacy confirmation line;
    - the page count, for example from `pdfinfo`, and anything outside the six allowed items.
 
-3. The fetcher in step 2 resolves the snapshot per `docs/grader-policy.md` and refetches it into a freshly emptied `itpd-assignments-feedback/A2/work/<team_dir>/snapshot/`.
+3. The fetcher in step 2 resolves the snapshot per `docs/grading-policy.md` and refetches it into a freshly emptied `itpd-assignments-feedback/A2/work/<team_dir>/snapshot/`.
    When it cannot, resolve and fetch by hand as in `agents/compliance-agent.md`.
 4. Read the snapshot commit time and the on-`main` result from `pdf-info.json` (`snapshot_time`, `on_main`, `on_main_status`), or re-check them with `REPO=<org>/<repo>` and `SHA=<full SHA>`:
 
@@ -667,7 +667,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
     It reads `itpd-assignments-feedback/A2/work/<team_dir>/pdf-info.json` and checks email addresses, phone numbers, `.env` and key files, recording links outside meeting artifacts, and the real names from the PDF member table, reporting each finding by path and kind only; the exit code is 1 when it finds any.
     The raw fallback is email addresses with `grep -rnE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'`, phone numbers, the real names from the PDF member table, recording links in meeting files, and `.env` files.
     Report each finding by path and kind only.
-13. Make one access check per external prototype view and on the recording link, per `docs/grader-policy.md`.
+13. Make one access check per external prototype view and on the recording link, per `docs/grading-policy.md`.
 14. Grade each of the 10 segments independently, and report each shortfall only in the segment that owns it in the [segment overview](#segment-overview).
 
 ## Assignment-specific constraints

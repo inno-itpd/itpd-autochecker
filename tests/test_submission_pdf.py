@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-import tools.grader_tools.submission_pdf as submission_pdf_module
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.submission_pdf import (
+import tools.autochecker.submission_pdf as submission_pdf_module
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.submission_pdf import (
     BARE_SHA_SOURCE,
     BareShaResolution,
     CommandResult,

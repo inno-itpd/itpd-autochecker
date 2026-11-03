@@ -28,9 +28,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.patch_feedback_report import SECTION_BODY_KEYS, patch_report
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.extract_reports import run_extraction
-from tools.grader_tools.feedback_report import (
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.extract_reports import run_extraction
+from tools.autochecker.feedback_report import (
     SegmentBlock,
     apply_structured_segment_update,
     compute_report_impact,
@@ -44,7 +44,7 @@ from tools.grader_tools.feedback_report import (
     parse_unresolved_section,
     segment_selector_to_int,
 )
-from tools.grader_tools.validate import validate_report
+from tools.autochecker.validate import validate_report
 
 
 def build_subset_payload(
@@ -145,7 +145,7 @@ def run(args: argparse.Namespace) -> int:
     if markdownlint:
         subprocess.run([markdownlint, "--fix", str(feedback_path)], check=True, cwd=ROOT, stdout=subprocess.DEVNULL if args.quiet else None)
 
-    # agent-feedback.md lives at <assignment root>/feedback/<team_dir>/agent-feedback.md.
+    # agent-compliance-feedback.md lives at <assignment root>/feedback/<team_dir>/agent-compliance-feedback.md.
     feedback_dir = feedback_path.parent.parent
     assignment_root = feedback_dir.parent
     dev_output = assignment_root / "dev.md"
@@ -162,7 +162,7 @@ def run(args: argparse.Namespace) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Apply structured segment regrades and rerun the exports.")
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
-    parser.add_argument("feedback_path", help="Path to agent-feedback.md")
+    parser.add_argument("feedback_path", help="Path to agent-compliance-feedback.md")
     parser.add_argument("fresh_payload", help="Path to a structured fresh payload JSON")
     parser.add_argument("segments", nargs="+", help="Segment IDs such as S1 S4")
     parser.add_argument("--quiet", action="store_true", help="Print only a one-line result")

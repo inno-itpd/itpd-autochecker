@@ -6,7 +6,7 @@ from __future__ import annotations
 # the only timezone the course states, so the deadline facts live in one place.
 # A team whose deadline differs from the assignment's default is listed in
 # `team_issue_cutoffs` under its exact `submissions/` directory name; `issue_cutoff_for`
-# reads the override. The prompt states the same rule for the grader.
+# reads the override. The prompt states the same rule for the compliance agent.
 ASSIGNMENT_CONFIG: dict[str, dict] = {
     "A1": {
         "week": 1,

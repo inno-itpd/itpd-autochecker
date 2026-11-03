@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 
-from tools.grader_tools.semantic_feedback import (
+from tools.autochecker.semantic_feedback import (
     validate_claim_ledger,
     validate_semantic_feedback,
 )
@@ -63,7 +63,7 @@ def build_semantic(
 - Team: {team}
 - Repository: `{repository}`
 - Snapshot: `{snapshot}`
-- Structural report: [`agent-feedback.md`](./agent-feedback.md)
+- Compliance report: [`agent-compliance-feedback.md`](./agent-compliance-feedback.md)
 
 ## How to read this
 
@@ -157,7 +157,7 @@ def test_blob_link_with_another_snapshot_fails() -> None:
 
 def test_metadata_mismatch_with_the_report_fails() -> None:
     text = build_semantic(team=6)
-    assert any("does not match `agent-feedback.md`" in error for error in errors_for(text))
+    assert any("does not match `agent-compliance-feedback.md`" in error for error in errors_for(text))
 
 
 def test_missing_report_preamble_fails() -> None:
@@ -207,7 +207,7 @@ def test_ledger_with_a_stale_report_hash_fails() -> None:
     ledger = _ledger(report)
     ledger["report_sha256"] = "0" * 64
     errors = validate_claim_ledger(ledger, report)
-    assert errors and "does not match agent-feedback.md" in errors[0]
+    assert errors and "does not match agent-compliance-feedback.md" in errors[0]
 
 
 def test_ledger_without_a_report_hash_fails() -> None:

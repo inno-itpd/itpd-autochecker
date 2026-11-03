@@ -1,4 +1,4 @@
-# Grader Policy
+# Grading Policy
 
 This document is the authoritative source for general grading policy in this repository.
 It applies to every assignment unless the assignment's `A<N>/grading_prompt.md` explicitly overrides it.
@@ -14,15 +14,15 @@ It applies to every assignment unless the assignment's `A<N>/grading_prompt.md` 
 
 ## Authority and document boundaries
 
-- `docs/grader-policy.md` (this file) is the authority for general policy.
-- `docs/grading-feedback-format.md` is the authority for the exact report format.
+- `docs/grading-policy.md` (this file) is the authority for general policy.
+- `docs/compliance-feedback-format.md` is the authority for the exact report format.
 - `A<N>/grading_prompt.md` is the authority for the segments, their status criteria, and the assignment-specific procedure.
 - `A<N>/itpd/` is the course repository pinned at the commit the assignment is reviewed against.
   It overrides the current course repository.
 
 ## Status policy
 
-- Use the status vocabulary from `docs/grading-feedback-format.md`: `met`, `partial`, `missing`, `unverified`.
+- Use the status vocabulary from `docs/compliance-feedback-format.md`: `met`, `partial`, `missing`, `unverified`.
 - Be conservative.
   `met` requires verified evidence for every requirement of the segment.
 - Use `unverified` only when the segment could not be judged at all.
@@ -33,7 +33,7 @@ It applies to every assignment unless the assignment's `A<N>/grading_prompt.md` 
 
 - `Evidence gaps: yes` is reserved for a blocked, conflicting, or otherwise unresolved check that could still change the segment's status.
   The test is the status-changing one: if a later review of the blocked artifact could not change the status, there is no evidence gap.
-- A criterion the grader could not check that cannot change the status is an `**Evidence:**` caveat, never an evidence gap and never a `**Why not met (unverified):**` bullet.
+- A criterion the compliance agent could not check that cannot change the status is an `**Evidence:**` caveat, never an evidence gap and never a `**Why not met (unverified):**` bullet.
   State what was checked, what could not be read, and why the verified evidence already settles the status.
 - This policy takes precedence over an assignment prompt that says "an evidence gap for that criterion".
   Apply the status-changing test there too, and record the blocker as a caveat when the verified evidence is enough for the status.
@@ -45,7 +45,7 @@ It applies to every assignment unless the assignment's `A<N>/grading_prompt.md` 
 ## Evidence-state definitions
 
 - `missing`: the required artifact or information is absent.
-- `inaccessible`: the artifact may exist, but the grader cannot verify it through the snapshot, the public GitHub repository, the GitHub API with `GITHUB_TOKEN`, or the Moodle PDF where the assignment allows PDF evidence.
+- `inaccessible`: the artifact may exist, but the compliance agent cannot verify it through the snapshot, the public GitHub repository, the GitHub API with `GITHUB_TOKEN`, or the Moodle PDF where the assignment allows PDF evidence.
 - `conflicting`: the PDF, the repository, GitHub metadata, or the linked artifacts disagree materially.
 
 ## Submission and snapshot rules
@@ -76,7 +76,7 @@ Process evidence lives on GitHub, not in the snapshot files: branch protection, 
   An assignment prompt may set a later cut-off for an artifact family, such as issues judged as of the hard deadline.
 - Changes made after the hard deadline do not repair the submission.
   Note them in the evidence, but do not credit them.
-- The grader usually lacks admin rights, so admin-only endpoints such as `repos/<org>/<repo>/branches/main/protection` are expected to return 403 or 404.
+- The agent usually lacks admin rights, so admin-only endpoints such as `repos/<org>/<repo>/branches/main/protection` are expected to return 403 or 404.
   That alone is not an evidence gap.
   Use the readable routes instead: `repos/<org>/<repo>/branches/main` (`.protected`), `repos/<org>/<repo>/rules/branches/main` (rulesets), and the evidence the assignment asks for, such as the branch-protection screenshot.
   Set `Evidence gaps: yes` only when those readable routes disagree or cannot settle the requirement.
@@ -98,7 +98,7 @@ Process evidence lives on GitHub, not in the snapshot files: branch protection, 
   For example, describe the branch by its number and purpose rather than repeating `week4-<name>-...`.
 - Re-run the report privacy scan after the rewrite; the scan is what catches a name token the prose reviewer missed.
 - There are two scans, and a batch needs both:
-  - `scripts/scan_privacy.py A<N> "<team_dir>" --feedback <agent-feedback.md>` scans the finished report against the PDF tokens.
+  - `scripts/scan_privacy.py A<N> "<team_dir>" --feedback <agent-compliance-feedback.md>` scans the finished report against the PDF tokens.
   - `scripts/scan_privacy.py A<N> "<team_dir>"` scans the fetched snapshot before extraction.
   After `work/<team_dir>/` is cleaned, the first scan still works with `--no-snapshot`, because it derives the tokens from the submission PDF.
 - Do not mark down a team for keeping private material out of the repository when the course requires or allows that.
@@ -138,7 +138,7 @@ Process evidence lives on GitHub, not in the snapshot files: branch protection, 
 4. Review the files offline from the fetched snapshot.
 5. Collect the live GitHub evidence the assignment requires.
 6. Judge each segment independently with the assignment's status guide.
-7. Write the report in the canonical format and validate it with `scripts/validate_feedback_report.py`.
+7. Write the report in the canonical format and validate it with `scripts/validate_compliance_feedback.py`.
 
 ## Report content policy
 
@@ -153,7 +153,7 @@ Process evidence lives on GitHub, not in the snapshot files: branch protection, 
   It preserves the team work directory, rebuilds the payload, and re-renders the report; it does not re-fetch or re-review from zero.
 - Treat the existing report as an unverified draft, not as evidence.
   A claim survives only when the saved dumps or a fresh lookup still support it.
-- Regrades do not depend on when a grader reruns them.
+- Regrades do not depend on when an agent reruns them.
   Re-read the artifact instead of trusting the previous wording, and give every changed claim a new `**Evidence:**` bullet.
 - Regrades re-check previously blocked artifacts instead of reusing old observations.
 - Segment-targeted regrades refresh the requested segments plus any segment whose status depends on the same newly checked artifact.

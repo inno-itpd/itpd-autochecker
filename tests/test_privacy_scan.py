@@ -7,8 +7,8 @@ import shutil
 import pytest
 
 from scripts.scan_privacy import run
-from tools.grader_tools import privacy_scan
-from tools.grader_tools.privacy_scan import (
+from tools.autochecker import privacy_scan
+from tools.autochecker.privacy_scan import (
     PrivacyScanError,
     classify_secret_file,
     is_meeting_artifact,
@@ -412,14 +412,14 @@ def test_no_snapshot_scans_the_report_with_tokens_from_the_submission_pdf(tmp_pa
     shutil.copyfile(FIXTURES / "submission-text-only.pdf", submissions / "submission.pdf")
     assert not (tmp_path / "itpd-assignments-feedback" / "A1" / "work" / TEAM).exists()
 
-    report = tmp_path / "report" / "agent-feedback.md"
+    report = tmp_path / "report" / "agent-compliance-feedback.md"
     report.parent.mkdir()
     report.write_text("Mira Sample prepared the week report.\n", encoding="utf-8")
 
     lines: list[str] = []
     assert run(["A1", TEAM, "--feedback", str(report), "--no-snapshot"], root=tmp_path, out=lines.append) == 1
     assert any("member name token: 1 hit(s) in 1 file(s)" in line for line in lines)
-    assert any("report/agent-feedback.md: member name token (x1)" in line for line in lines)
+    assert any("report/agent-compliance-feedback.md: member name token (x1)" in line for line in lines)
     assert any("result: 1 finding(s), 1 hit(s) in 1 file(s)" in line for line in lines)
     assert all("Mira" not in line and "Sample" not in line for line in lines)
 
@@ -435,7 +435,7 @@ def test_run_no_snapshot_without_feedback_exits_2_with_a_clear_error(tmp_path: P
 
 
 def test_run_no_snapshot_without_a_submission_pdf_exits_2(tmp_path: Path) -> None:
-    report = tmp_path / "agent-feedback.md"
+    report = tmp_path / "agent-compliance-feedback.md"
     report.write_text("A clean report.\n", encoding="utf-8")
     lines: list[str] = []
     assert run(["A1", TEAM, "--feedback", str(report), "--no-snapshot"], root=tmp_path, out=lines.append) == 2
@@ -465,7 +465,7 @@ def test_feedback_mode_scans_the_report_instead_of_the_snapshot(tmp_path: Path) 
         {"docs/notes.md": "secret.person@university.edu\n"},
         name_tokens=("ivanov",),
     )
-    report = tmp_path / "report" / "agent-feedback.md"
+    report = tmp_path / "report" / "agent-compliance-feedback.md"
     report.parent.mkdir()
     report.write_text("Contact secret.person@university.edu about Ivanov.\n", encoding="utf-8")
     result = scan_privacy("A1", TEAM, tmp_path, feedback_path=report)
@@ -474,7 +474,7 @@ def test_feedback_mode_scans_the_report_instead_of_the_snapshot(tmp_path: Path) 
         ("email", 1, (1,)),
         ("member-name", 1, (1,)),
     ]
-    assert all(finding.path == "report/agent-feedback.md" for finding in result.findings)
+    assert all(finding.path == "report/agent-compliance-feedback.md" for finding in result.findings)
     assert "secret.person" not in "\n".join(result.summary_lines)
 
 

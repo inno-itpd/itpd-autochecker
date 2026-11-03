@@ -25,7 +25,7 @@ node_modules/
 .vscode/
 .idea/
 
-# Agent harness state (keep the grader agent definitions and the commit command)
+# Agent harness state (keep the agent definitions and the commit command)
 .claude/*
 !.claude/agents/
 .opencode/*

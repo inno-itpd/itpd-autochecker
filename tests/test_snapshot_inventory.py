@@ -6,7 +6,7 @@ import pytest
 
 from scripts import snapshot_inventory as script
 from scripts.snapshot_inventory import run
-from tools.grader_tools.snapshot_inventory import (
+from tools.autochecker.snapshot_inventory import (
     INVENTORY_FILENAME,
     SnapshotInventoryError,
     build_inventory,

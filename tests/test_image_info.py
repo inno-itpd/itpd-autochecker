@@ -7,7 +7,7 @@ import zlib
 import pytest
 
 from scripts.image_info import run
-from tools.grader_tools.image_info import (
+from tools.autochecker.image_info import (
     ImageInfoError,
     collect_image_info,
     read_image_info,

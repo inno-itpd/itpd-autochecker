@@ -9,7 +9,7 @@ import sys
 import pytest
 
 from scripts.collect_github_evidence import run as collect_run
-from tools.grader_tools.evidence_sqlite import (
+from tools.autochecker.evidence_sqlite import (
     EVIDENCE_DB_FILENAME,
     ISSUE_DUMP_KEYS,
     ISSUE_FIELDS_DUMP_KEYS,
@@ -18,7 +18,7 @@ from tools.grader_tools.evidence_sqlite import (
     EvidenceDatabaseError,
     write_evidence_database,
 )
-from tools.grader_tools.live_evidence import (
+from tools.autochecker.live_evidence import (
     ISSUE_FIELDS,
     PR_FIELDS,
     SUMMARY_FILENAME,

@@ -1,6 +1,6 @@
 """Confirm that every team in an assignment has one finished report writer.
 
-Extraction trusts ``itpd-assignments-feedback/<assignment>/feedback/<team_dir>/agent-feedback.md``,
+Extraction trusts ``itpd-assignments-feedback/<assignment>/feedback/<team_dir>/agent-compliance-feedback.md``,
 so a batch must stop before extraction while a report is still being written.
 Three signals decide that from what is on disk and from what the harness reports:
 
@@ -11,7 +11,7 @@ Three signals decide that from what is on disk and from what the harness reports
   half-rendered: the signature of an interrupted render or of a second writer
   that overwrote the payload after the first one rendered; equal mtimes are
   fine, because a render writes the report after it writes the payload;
-- a team listed as active still has a grader registered or running.
+- a team listed as active still has an agent registered or running.
 
 This module cannot call ``list_agents``, so the harness registry arrives on
 ``scripts/check_batch_ready.py --active <team_dir>`` and is passed to
@@ -30,12 +30,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
 
-FEEDBACK_FILENAME = "agent-feedback.md"
+FEEDBACK_FILENAME = "agent-compliance-feedback.md"
 PAYLOAD_FILENAME = "payload.json"
 
-ACTIVE_REASON = "grader still registered or running"
+ACTIVE_REASON = "agent still registered or running"
 
 
 class BatchReadyError(RuntimeError):

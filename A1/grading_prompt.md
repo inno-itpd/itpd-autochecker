@@ -1,8 +1,8 @@
 # Assignment 1 Grading Criteria
 
-This rubric is for an LLM grading agent that reviews ITPD Assignment 1 (Initial Project Research) team submissions.
+This rubric is for the compliance agent that reviews ITPD Assignment 1 (Initial Project Research) team submissions.
 There are no points: the agent assigns each segment a status (`met`, `partial`, `missing`, or `unverified`) and an `Evidence gaps` flag, and the instructor assigns the grade.
-General rules live in `docs/grader-policy.md`, and the report contract lives in `docs/grading-feedback-format.md`; this file adds only what is specific to Assignment 1.
+General rules live in `docs/grading-policy.md`, and the report contract lives in `docs/compliance-feedback-format.md`; this file adds only what is specific to Assignment 1.
 
 ## Authoritative sources
 
@@ -64,7 +64,7 @@ Every item of the Assignment 1 checklist maps to exactly one segment.
 
 ## Status guide
 
-Use the status vocabulary and evidence-state rules from `docs/grader-policy.md` and `docs/grading-feedback-format.md`.
+Use the status vocabulary and evidence-state rules from `docs/grading-policy.md` and `docs/compliance-feedback-format.md`.
 The headings below use an em dash; in the feedback report, write each segment heading as `### S<n>: <name>`, exactly as the format requires.
 Each shortfall belongs to exactly one segment, the one named as its owner below.
 Do not record the same shortfall in a second segment.
@@ -106,7 +106,7 @@ Guardrails:
 - GitHub never lets a pull request author approve their own pull request, so do not require a separate visible "no self-approval" setting when a pull request and an approval are required.
 - Rulesets and classic branch protection are equivalent.
 - Do not require the file name `branch-protection.png`; any clearly named image in `reports/week-01/images/` counts.
-- When the admin-only protection endpoint returns 403 or 404, follow `docs/grader-policy.md`; the screenshot together with `.protected: true` is the evidence for the settings.
+- When the admin-only protection endpoint returns 403 or 404, follow `docs/grading-policy.md`; the screenshot together with `.protected: true` is the evidence for the settings.
 - `.protected: false` with no applicable ruleset is verified absence, whatever the screenshot shows.
 - Do not mark down for extra collaborators, for example instructors.
 - Do not require the team number in the organization or repository name.
@@ -152,7 +152,7 @@ Guardrails:
 - Accepting `429` is fine, because the course example does it; accepting `403` needs a justification like any exclusion.
 - An absent or empty `.lycheeignore` is not a shortfall when nothing is excluded.
 - Local actions (`uses: ./...`) need no SHA pin.
-- A red `main` run that happened only after the hard deadline does not change the status; judge the run current at the snapshot under `docs/grader-policy.md`.
+- A red `main` run that happened only after the hard deadline does not change the status; judge the run current at the snapshot under `docs/grading-policy.md`.
 - If Actions runs are inaccessible, judge configuration from the snapshot, and set `Evidence gaps: yes` for the run status.
 - Do not require stack-specific CI (linting, tests, build); it is `Since: W5`.
 
@@ -186,7 +186,7 @@ Check:
 
 Guardrails:
 
-- Count only events at or before the snapshot commit date, per `docs/grader-policy.md`.
+- Count only events at or before the snapshot commit date, per `docs/grading-policy.md`.
 - A review whose state is `COMMENTED` or `CHANGES_REQUESTED` is not an approval.
 - When a commit's `author.login` is `null` because the commit email is not linked to an account, attribute it to the pull request author and say so in the evidence.
 - A commit in a pull request that was still open at the snapshot counts for the member, but say so in the evidence.
@@ -200,7 +200,7 @@ Guardrails:
 Check:
 
 - Snapshot files: `docs/research/alternatives.md` and `reports/week-01/candidate-list.md`.
-- The board link in `docs/research/alternatives.md`, with one access check under `docs/grader-policy.md`.
+- The board link in `docs/research/alternatives.md`, with one access check under `docs/grading-policy.md`.
 - Any screenshots under `reports/week-01/images/` used as alternative evidence.
 
 `met`:
@@ -228,7 +228,7 @@ Guardrails:
 - Do not require a specific board tool; Figma, Miro, Excalidraw, and similar are all acceptable.
 - A pricing-page screenshot does not count toward the two per alternative.
 - If the board cannot be opened after one access check, set `Evidence gaps: yes`, and judge the screenshot requirement from repository screenshots only.
-- Treat an accessible board as view-only unless the grader is offered editing without signing in.
+- Treat an accessible board as view-only unless the agent is offered editing without signing in.
 - Do not mark down because the order "properties before evaluation" cannot be proven from the files.
 - The comparison table and the property quality belong to S5; reference accuracy and depth honesty belong to S9.
 
@@ -395,7 +395,7 @@ Guardrails:
 - A team of 2 or 5 is a verified shortfall here; say so without naming anyone.
 - Never copy a real name, email address, or recording link into the feedback, including when reporting that one was committed; give the path and line number instead.
 - The `.lycheeignore` justification and the browser-check confirmation belong to S2, even though they sit in the week report.
-- The snapshot-resolution rules are in `docs/grader-policy.md`; record the effect on this segment here.
+- The snapshot-resolution rules are in `docs/grading-policy.md`; record the effect on this segment here.
 - Teams submit no ZIP; do not require or report on one.
 
 ### S9 — AI usage and research honesty
@@ -414,7 +414,7 @@ Check:
 - The spot-checked references exist and support the claims that cite them.
 - Inferences are labelled as inferences, and confidence is stated where the evidence is thin.
 - The research does not make claims about a product's roadmap, funding, or business.
-- The free prose contains no filler under `docs/grader-policy.md`, and no leftover generated output such as chat preambles, placeholder brackets, or "as an AI" phrasing.
+- The free prose contains no filler under `docs/grading-policy.md`, and no leftover generated output such as chat preambles, placeholder brackets, or "as an AI" phrasing.
 
 `partial`:
 
@@ -440,7 +440,7 @@ Guardrails:
    If a team directory holds more than one PDF, use the one that carries the permalink.
 3. From the PDF, extract: the project name, the team number, the member table as GitHub usernames only, the permalink and its SHA, the recording link, whether a transcript is included, the privacy confirmation line, and the page count.
    Keep real names and emails out of notes and feedback.
-4. Resolve the snapshot under `docs/grader-policy.md`, and fetch it from GitHub into a freshly emptied `itpd-assignments-feedback/A1/work/<team_dir>/snapshot/`, as in `agents/compliance-agent.md`.
+4. Resolve the snapshot under `docs/grading-policy.md`, and fetch it from GitHub into a freshly emptied `itpd-assignments-feedback/A1/work/<team_dir>/snapshot/`, as in `agents/compliance-agent.md`.
 5. Record the snapshot commit date and confirm the snapshot is on `main`:
 
    ```bash

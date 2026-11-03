@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Count a team's resume attempts against the budget in grading.json.
 
-Run this before every ``send_message`` resume of a grader session so the count
+Run this before every ``send_message`` resume of a compliance agent session so the count
 survives an orchestrator restart and the extractor can recognize a blocked
 team.  ``--show`` prints the state without writing, and ``--done`` clears the
 block once a resume produced the final report.
@@ -22,9 +22,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
-from tools.grader_tools.grading_config import load_grading_config
-from tools.grader_tools.resume_state import ResumeState, mark_finished, read_state, record_attempt
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG, FEEDBACK_ROOT
+from tools.autochecker.grading_config import load_grading_config
+from tools.autochecker.resume_state import ResumeState, mark_finished, read_state, record_attempt
 
 BLOCKED_HINT = "stop resuming and report the team as blocked"
 

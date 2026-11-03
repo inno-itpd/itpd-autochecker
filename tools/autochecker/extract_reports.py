@@ -11,11 +11,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import quote
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG, default_paths
-from tools.grader_tools.feedback_report import format_status_counts, parse_feedback_report, status_counts
-from tools.grader_tools.grading_config import load_grading_config
-from tools.grader_tools.resume_state import load_resume_states
-from tools.grader_tools.validate import validate_report
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG, default_paths
+from tools.autochecker.feedback_report import format_status_counts, parse_feedback_report, status_counts
+from tools.autochecker.grading_config import load_grading_config
+from tools.autochecker.resume_state import load_resume_states
+from tools.autochecker.validate import validate_report
 
 # Moodle exports one directory per team, e.g. `Team 3_12345_assignsubmission_file`.
 TEAM_NAME_PATTERN = re.compile(r"(Team\s+\d+)")
@@ -77,15 +77,15 @@ def scan_feedback_dir(assignment: str, input_dir: Path) -> tuple[list[ExtractedE
     for team_dir in sorted(input_dir.iterdir()):
         if not team_dir.is_dir():
             continue
-        feedback_path = team_dir / "agent-feedback.md"
+        feedback_path = team_dir / "agent-compliance-feedback.md"
         if not feedback_path.exists():
-            warnings.append(f"{team_dir.name}: missing agent-feedback.md")
+            warnings.append(f"{team_dir.name}: missing agent-compliance-feedback.md")
             entries.append(_blank_entry(team_dir, "missing feedback"))
             continue
         try:
             entries.append(parse_feedback_file(assignment, feedback_path))
         except ValueError as exc:
-            warnings.append(f"{team_dir.name}: malformed agent-feedback.md: " + str(exc).replace("\n", " ; "))
+            warnings.append(f"{team_dir.name}: malformed agent-compliance-feedback.md: " + str(exc).replace("\n", " ; "))
             entries.append(_blank_entry(team_dir, "malformed feedback"))
 
     entries.sort(key=lambda entry: team_sort_key(entry.group))

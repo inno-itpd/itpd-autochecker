@@ -8,8 +8,8 @@ import sqlite3
 import pytest
 
 from scripts.collect_github_evidence import run as collect_run
-from tools.grader_tools.evidence_sqlite import EVIDENCE_DB_FILENAME, SCHEMA_TABLES
-from tools.grader_tools.live_evidence import (
+from tools.autochecker.evidence_sqlite import EVIDENCE_DB_FILENAME, SCHEMA_TABLES
+from tools.autochecker.live_evidence import (
     EDIT_FIELDS,
     ISSUE_FIELDS,
     ISSUE_FIELDS_FILENAME,
@@ -33,7 +33,7 @@ from tools.grader_tools.live_evidence import (
     build_evidence_digest,
     collect_github_evidence,
 )
-from tools.grader_tools.live_evidence import (
+from tools.autochecker.live_evidence import (
     comments_command,
     commits_command,
     edits_command,
@@ -49,7 +49,7 @@ from tools.grader_tools.live_evidence import (
     tags_command,
     timeline_command,
 )
-from tools.grader_tools.submission_pdf import CommandResult
+from tools.autochecker.submission_pdf import CommandResult
 
 ROOT = Path(__file__).resolve().parents[1]
 TEAM = "Team 1 - Absolute Cinema_10937_assignsubmission_file"

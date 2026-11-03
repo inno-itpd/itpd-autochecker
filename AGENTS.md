@@ -20,14 +20,14 @@
 ├── .agents/skills/commit-itpd/ # commit skill for this repo's Git conventions
 ├── .opencode/command/commit.md # /commit command → commit-itpd skill
 ├── docs/
-│   ├── grader-policy.md            # General grading policy
-│   ├── grading-feedback-format.md  # Canonical feedback report format
+│   ├── grading-policy.md            # General grading policy
+│   ├── compliance-feedback-format.md  # Canonical feedback report format
 │   └── semantic-feedback-format.md # Companion semantic feedback file
 ├── A<N>/
 │   ├── grading_prompt.md      # Segments and status guide for the assignment
 │   ├── extract_feedback.py    # Feedback → dev.md + feedback_release.csv
 │   └── itpd/                  # Course repo submodule pinned to the reviewed commit
-├── tools/grader_tools/        # Report parsing, rendering, validation, extraction, PDF/evidence/privacy/link logic
+├── tools/autochecker/        # Report parsing, rendering, validation, extraction, PDF/evidence/privacy/link logic
 ├── scripts/                   # Per-team fetch, evidence, check, privacy, link, render, and regrade CLIs
 ├── tests/                     # pytest suite
 ├── backlog/                   # Backlog.md tasks for this repo
@@ -41,7 +41,7 @@
         │   ├── semantic-claims.json # semantic agent's verified-claim ledger
         │   ├── resume-count.json # resume attempts spent per team, so a restart keeps the budget
         │   └── snapshot/      # repository fetched from GitHub at the permalink SHA
-        ├── feedback/<team_dir>/agent-feedback.md
+        ├── feedback/<team_dir>/agent-compliance-feedback.md
         ├── feedback/<team_dir>/agent-semantic-feedback.md  # optional judgement companion
         ├── dev.md             # Instructor triage table
         └── feedback_release.csv
@@ -85,7 +85,7 @@ If a command must run from elsewhere, pass `--config-file <repo>/uv.toml` or set
 2. Run `uv run python scripts/preflight.py` before a review batch; it prints the `grading.json` batch size and resume cap, then checks `gh` auth, `pdftotext`, and `markdownlint-cli2`.
 3. Review teams with the compliance agent (see below).
    **Keep every team's `work/<team_dir>/` until the batch has been extracted in step 7**, because the semantic pass and the final `scripts/scan_privacy.py` run both read `pdf-info.json` and the fetched snapshot from it.
-4. Validate changed reports with `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>`, then run `markdownlint-cli2 --fix "itpd-assignments-feedback/A<N>/feedback/**/*.md"`.
+4. Validate changed reports with `uv run python scripts/check_compliance_feedback.py A<N> <agent-compliance-feedback.md>`, then run `markdownlint-cli2 --fix "itpd-assignments-feedback/A<N>/feedback/**/*.md"`.
 5. For an assignment that defines `semantic_dimensions`, run one semantic agent per team after its report is final (see below).
    Launch `semantic review` when the team has no companion and `semantic regrade` when it has one.
    Validate each companion with `uv run python scripts/check_semantic_feedback.py A<N> <agent-semantic-feedback.md> --ledger "itpd-assignments-feedback/A<N>/work/<team_dir>/semantic-claims.json"` and scan it for private-only material.
@@ -123,8 +123,9 @@ When the user asks to review or re-review teams:
 1. Read `agents/compliance-agent.md`.
 2. Read `grading.json` and use `team_batch_size` as the batch size and `max_agent_resumes` as the per-team resume cap.
    Default to `8` and `4` if the file or a value is missing or invalid.
-3. Pick the teams: the ones the user names, or every directory in `itpd-assignments-feedback/A<N>/submissions/` that has no `feedback/<team_dir>/agent-feedback.md` yet.
-   A segment count always comes from `ASSIGNMENT_CONFIG[A<N>]["segment_defs"]` in `tools/grader_tools/assignment_config.py`, never from another assignment's number.
+   The cap is the compliance budget: a semantic resume is not recorded against it.
+3. Pick the teams: the ones the user names, or every directory in `itpd-assignments-feedback/A<N>/submissions/` that has no `feedback/<team_dir>/agent-compliance-feedback.md` yet.
+   A segment count always comes from `ASSIGNMENT_CONFIG[A<N>]["segment_defs"]` in `tools/autochecker/assignment_config.py`, never from another assignment's number.
 4. For each batch, launch one subagent per team in parallel:
    - Claude Code: the `compliance-agent` agent (`.claude/agents/compliance-agent.md`).
    - opencode: the `compliance-agent` subagent (`.opencode/agents/compliance-agent.md`) via the `task` tool.
@@ -147,8 +148,8 @@ When the user asks to review or re-review teams:
 `agents/semantic-agent.md` is the executable prompt for one semantic pass.
 It uses the same `{ASSIGNMENT_DIR}`, `{TEAM_DIR}`, and `{TEAM_WORK}` placeholders.
 
-1. Run it only for an assignment that defines `semantic_dimensions` in `tools/grader_tools/assignment_config.py`, currently A5.
-   The team's `agent-feedback.md` must be final and must pass `scripts/check_feedback_report.py`.
+1. Run it only for an assignment that defines `semantic_dimensions` in `tools/autochecker/assignment_config.py`, currently A5.
+   The team's `agent-compliance-feedback.md` must be final and must pass `scripts/check_compliance_feedback.py`.
 2. Read `agents/semantic-agent.md`.
 3. Launch one semantic agent per team, passing the assignment directory, the exact team directory name, and the absolute work-directory path.
    Use `semantic review` when `feedback/<team_dir>/agent-semantic-feedback.md` does not exist, and `semantic regrade` when it does; `semantic review` refuses an existing companion rather than keeping or overwriting it.
@@ -157,6 +158,7 @@ It uses the same `{ASSIGNMENT_DIR}`, `{TEAM_DIR}`, and `{TEAM_WORK}` placeholder
 5. When the semantic agent reports a conflict with a status, schedule a compliance regrade.
    Rerun the semantic agent after the report is final; never edit either file to remove the conflict.
 6. Resume a failed semantic session separately with `send_message`.
+   A semantic resume does not spend `max_agent_resumes`, which covers compliance sessions only.
    A semantic failure does not invalidate the report; do not rerun the compliance agent for it, and never launch a fresh semantic agent while one is running.
 7. Validate the companion with `scripts/check_semantic_feedback.py` and scan it for private-only material.
    Extraction ignores it: the semantic file is report-only.
@@ -178,10 +180,10 @@ The compliance and semantic prompts use them and keep the raw `gh` and `jq` comm
   `--timelines` writes `issues/<n>.timeline.json` for the listed issues, or for every issue in `issues.json` when no number is given, at one paginated request per issue; those timelines feed the `issue_events` table and the `issue_state_at_cutoff` view.
   Every write mode also rebuilds the `evidence.sqlite` projection, and `--summary` rebuilds it and the digest from the saved dumps, `issue-fields.json`, and the saved timelines without calling `gh`.
 - `uv run python scripts/check_snapshot_links.py <snapshot_dir> [--issue-bodies <issues.json>]` — broken relative links, missing anchors, and pre-cut research anchors.
-- `uv run python scripts/scan_privacy.py A<N> "<team_dir>" [--feedback <agent-feedback.md>] [--no-snapshot]` — privacy findings grouped per file with a hit count plus per-rule hit and file totals, by path and kind only; `--no-snapshot` with `--feedback` derives the tokens from the submission PDF after `work/<team_dir>/` is cleaned.
+- `uv run python scripts/scan_privacy.py A<N> "<team_dir>" [--feedback <agent-compliance-feedback.md>] [--no-snapshot]` — privacy findings grouped per file with a hit count plus per-rule hit and file totals, by path and kind only; `--no-snapshot` with `--feedback` derives the tokens from the submission PDF after `work/<team_dir>/` is cleaned.
 - `uv run python scripts/snapshot_inventory.py A<N> "<team_dir>" [--snapshot <dir>] [--output <path>]` — writes `work/<team_dir>/inventory.md`, a bounded digest of the fetched snapshot: the root files, the `QR-nn`, `FR-nnn`, and `ADR-nnn` counts, the `docs/` and `reports/` trees, the workflow names, and the site-config candidates; it prints the path and the counts only, so an agent reads one short file instead of walking the tree.
-- `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>` — report validation plus `markdownlint-cli2` in one command.
-- `uv run python scripts/check_semantic_feedback.py A<N> <agent-semantic-feedback.md> [--ledger <semantic-claims.json>]` — companion-file validation plus `markdownlint-cli2`; it also compares the team, repository, and snapshot with the sibling `agent-feedback.md`.
+- `uv run python scripts/check_compliance_feedback.py A<N> <agent-compliance-feedback.md>` — report validation plus `markdownlint-cli2` in one command.
+- `uv run python scripts/check_semantic_feedback.py A<N> <agent-semantic-feedback.md> [--ledger <semantic-claims.json>]` — companion-file validation plus `markdownlint-cli2`; it also compares the team, repository, and snapshot with the sibling `agent-compliance-feedback.md`.
   With `--ledger`, it compares the ledger's `report_sha256` with the report and refuses a companion whose report changed after the semantic pass; the ledger is disposable, so omit `--ledger` once the work directory is cleaned.
 - `uv run python scripts/render_feedback_report.py A<N> <payload.json>` — renders a complete report from one structured payload.
 - `uv run python scripts/image_info.py <files>` — PNG and JPEG dimensions, byte size, and PNG transparency.
@@ -240,11 +242,11 @@ uv run python -m sqlite3 "<path>" \
 
 ## Segment inspection and targeted regrades
 
-- Inspect the saved state: `uv run python scripts/inspect_feedback_segments.py A<N> <agent-feedback.md> S<n> ... [--fresh-payload <payload.json>] [--format text|json]`
-- Preview a regrade: `uv run python scripts/regrade_feedback_segments.py A<N> <agent-feedback.md> <payload.json> S<n> ... --dry-run`
+- Inspect the saved state: `uv run python scripts/inspect_feedback_segments.py A<N> <agent-compliance-feedback.md> S<n> ... [--fresh-payload <payload.json>] [--format text|json]`
+- Preview a regrade: `uv run python scripts/regrade_feedback_segments.py A<N> <agent-compliance-feedback.md> <payload.json> S<n> ... --dry-run`
 - Apply a regrade (patches, validates, lints, and re-extracts): the same command without `--dry-run`.
-- Low-level patch: `uv run python scripts/patch_feedback_report.py A<N> <agent-feedback.md> <payload.json>`
-- Validate one report: `uv run python scripts/validate_feedback_report.py A<N> <agent-feedback.md>`
+- Low-level patch: `uv run python scripts/patch_feedback_report.py A<N> <agent-compliance-feedback.md> <payload.json>`
+- Validate one report: `uv run python scripts/validate_compliance_feedback.py A<N> <agent-compliance-feedback.md>`
 
 Payload shape:
 
@@ -288,11 +290,11 @@ Decision rules:
 1. `git submodule add https://github.com/inno-itpd/itpd A<N>/itpd`, then check out the commit the assignment is reviewed against.
 2. Write `A<N>/grading_prompt.md` with `## Authoritative sources`, `## Assignment parameters` (with the `- S<n>: <name>` lines), and `## Status guide`.
    Add a `## Semantic feedback` section only when the assignment has semantic dimensions; the semantic agent reads only that section of the prompt.
-3. Add `A<N>` to `tools/grader_tools/assignment_config.py`: segment names identical to the prompt, plus `primary_index`, `week_window_start`, and `issue_cutoff` as ISO 8601 Innopolis (UTC+3) strings.
+3. Add `A<N>` to `tools/autochecker/assignment_config.py`: segment names identical to the prompt, plus `primary_index`, `week_window_start`, and `issue_cutoff` as ISO 8601 Innopolis (UTC+3) strings.
    Add `team_issue_cutoffs`, keyed by the exact `submissions/` directory name, when one team's deadline differs from the assignment's; `issue_cutoff_for` returns the team's value.
    Add `semantic_dimensions` only when the prompt defines the `## Semantic feedback` section; the semantic pass is launched only for those assignments.
    The grading prompt states the same per-team rule, so keep the two in step.
-   `scripts/fetch_team_snapshot.py`, `collect_github_evidence.py`, `scan_privacy.py`, `check_feedback_report.py`, and `render_feedback_report.py` all read this config.
+   `scripts/fetch_team_snapshot.py`, `collect_github_evidence.py`, `scan_privacy.py`, `check_compliance_feedback.py`, and `render_feedback_report.py` all read this config.
 4. Copy `A1/extract_feedback.py` to `A<N>/` and change `ASSIGNMENT`.
 5. Create `itpd-assignments-feedback/A<N>/feedback/` (with a `.gitkeep`).
 6. Smoke-check the helpers against one submission: `uv run python scripts/preflight.py`, then `uv run python scripts/fetch_team_snapshot.py A<N> "<team_dir>"` and `uv run python scripts/collect_github_evidence.py A<N> "<team_dir>"`.
@@ -349,7 +351,7 @@ These are the failure modes the A3 and A4 batches produced, with the remedy for 
   3. Shrink to one or two segments per turn when turns keep dying, and check the judged segment count in the payload before re-sending a batch, because a message that arrives as a turn ends is never executed.
   4. Skip the collector rerun and the snapshot refetch on resume: they add context without adding evidence.
   5. Write `work/<team_dir>/inventory.md` with `scripts/snapshot_inventory.py` and tell the compliance agent to read it instead of exploring the tree.
-- **Semantic pass without a clean handoff:** the semantic agent stops when `agent-feedback.md` is missing or invalid, when the snapshot is gone, when the report's snapshot SHA does not match `pdf-info.json`, or when `summary.md`, `inventory.md`, or `evidence.sqlite` is missing.
+- **Semantic pass without a clean handoff:** the semantic agent stops when `agent-compliance-feedback.md` is missing or invalid, when the snapshot is gone, when the report's snapshot SHA does not match `pdf-info.json`, or when `summary.md`, `inventory.md`, or `evidence.sqlite` is missing.
   That is a handoff failure, not a semantic finding: finish or repair the compliance run first, and do not let the semantic agent re-fetch the snapshot or edit the report.
   A report that says `Snapshot reviewed: none` has no snapshot to verify against; it cannot carry a verified companion, so record the team and skip or fail the semantic pass rather than writing an unverified file.
   A semantic conflict with a status is a regrade request; the operator schedules the compliance regrade and then reruns the semantic agent.

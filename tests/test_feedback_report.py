@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 
 from tests.report_builder import build_report, unresolved_preamble
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.feedback_report import (
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.feedback_report import (
     NO_REVIEW_TEXT,
     apply_structured_segment_update,
     format_status_counts,

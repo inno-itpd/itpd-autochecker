@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from tools.grader_tools.resume_state import (
+from tools.autochecker.resume_state import (
     FILENAME,
     ResumeState,
     load_resume_states,

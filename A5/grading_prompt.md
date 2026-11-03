@@ -1,9 +1,9 @@
 # Assignment 5 Grading Criteria
 
-This rubric is for an LLM grading agent that reviews ITPD Assignment 5 team submissions.
-ITPD assigns no points: each segment gets one status, `met`, `partial`, `missing`, or `unverified`, and an `Evidence gaps: yes|no` flag, per `docs/grading-feedback-format.md`.
+This rubric is for the compliance agent that reviews ITPD Assignment 5 team submissions.
+ITPD assigns no points: each segment gets one status, `met`, `partial`, `missing`, or `unverified`, and an `Evidence gaps: yes|no` flag, per `docs/compliance-feedback-format.md`.
 The instructor assigns the grade from the statuses and the evidence, so this rubric never proposes a grade, a score, or a late penalty.
-The shared rules live in `docs/grader-policy.md`: evidence states, verified absence, blocked and conflicting artifacts, snapshot resolution, live GitHub evidence through `gh api`, the single access check for consumer-hosted media, privacy, undeclared deviations, and rule applicability by `Since:` marker.
+The shared rules live in `docs/grading-policy.md`: evidence states, verified absence, blocked and conflicting artifacts, snapshot resolution, live GitHub evidence through `gh api`, the single access check for consumer-hosted media, privacy, undeclared deviations, and rule applicability by `Since:` marker.
 This file states only what is specific to Assignment 5 and does not repeat those rules.
 
 ## Authoritative sources
@@ -115,7 +115,7 @@ S10 owns the deploy-and-retest sequence and the identity of the released commit;
 
 ## Status guide
 
-Use the status vocabulary of `docs/grading-feedback-format.md` and the evidence states of `docs/grader-policy.md`.
+Use the status vocabulary of `docs/compliance-feedback-format.md` and the evidence states of `docs/grading-policy.md`.
 A segment is `met` only when every `met` criterion below holds on verified evidence.
 A segment is `partial` when its core artifact exists and at least one verified shortfall remains.
 A segment is `missing` when the `missing` criterion below holds.
@@ -357,7 +357,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 - The deployment is judged from the runbook plus the evidence routes this segment lists, not from one screenshot: a runbook that a teammate could follow and a record that the deploy happened are two criteria, and either may fail alone.
 - The real addresses are Moodle-only, so the runbook's job is to name where to get them; the PDF's own shape, page count, and item list belong to S13, and this segment reads the PDF only for the addresses and the network note.
-- An address that does not respond, or a staging instance that is not reachable from the grader's network, is an evidence gap for that check only, after the single access check `docs/grader-policy.md` allows.
+- An address that does not respond, or a staging instance that is not reachable from the agent's network, is an evidence gap for that check only, after the single access check `docs/grading-policy.md` allows.
   The runbook, the deploy record, and the verification are still judged, and an unreachable external view is never by itself a shortfall.
 - A VM that was unavailable with a declared deviation and a recorded postponement is the assignment's own fallback and is not a shortfall; a VM claimed but never reached, with no deviation, is.
 - A deployment claim that cannot be reached and that no other evidence route supports is a shortfall here; the same claim repeated in the week report is judged once, in this segment.
@@ -610,7 +610,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - Every `DEC-nnn` in `## Decisions`, in `docs/decisions.md`, and every story issue the meeting showed or changed, with its comments, timeline, and edit history.
 - The meeting artifacts for a recording link or timecode, and the Moodle PDF's transcript appendix when the customer refused publication; the recording link's access check is S13's, and the transcript appendix is read here only to see that no transcript leaked into the repository.
 - The quality requirements index, the architecture document, the testing plan, and the other implemented test's evidence, for what the meeting showed.
-- The deployed production instance, after the single access check `docs/grader-policy.md` allows.
+- The deployed production instance, after the single access check `docs/grading-policy.md` allows.
 
 **met:**
 
@@ -924,8 +924,8 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - The underlying tests, deployment, features, release, retrospective, and AI usage are judged in S5 to S12 and S14; here only the week report's summary lines, the coverage rows, their links, the report's own evidence, and the submission are judged.
 - The Deployment row links `docs/deployment.md` and the report's deployment line; whether the deployment happened is S4's.
 - The Testing plan row and the summary's pointer are judged here as a pointer and a link, while the plan's columns, rows, and results are S6's.
-- The Submission Procedure's snapshot upload to Moodle is not judged: the autochecker receives only the PDF and rebuilds the snapshot from the permalink SHA, per `docs/grader-policy.md`.
-- The PDF's recording link gets one access check per `docs/grader-policy.md#consumer-hosted-media`; an inaccessible or sign-in-gated recording is an evidence gap for that item only, and the PDF's other items are still judged.
+- The Submission Procedure's snapshot upload to Moodle is not judged: the autochecker receives only the PDF and rebuilds the snapshot from the permalink SHA, per `docs/grading-policy.md`.
+- The PDF's recording link gets one access check per `docs/grading-policy.md#consumer-hosted-media`; an inaccessible or sign-in-gated recording is an evidence gap for that item only, and the PDF's other items are still judged.
 - Record the snapshot commit date against the deadline in `**Evidence:**`, and never change a status for lateness.
 - Report a privacy finding by path and kind, such as "the VM's IPv4 address in `docs/deployment.md`", never by value.
 - The privacy line is a repository-wide claim: the scan covers the whole snapshot, so a member-name, email, phone, `.env`, or key-file hit in a Week 1 to Week 4 file, including an earlier week's meeting artifact, is a shortfall here even though that week's own artifacts are not re-graded; a hit inside a Week 5 meeting artifact is reported in S9.
@@ -986,9 +986,9 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 ## Semantic feedback
 
 `agent-semantic-feedback.md` is the optional companion file defined in `docs/semantic-feedback-format.md`.
-The semantic agent writes it after the structural report is final, when the operator runs the semantic pass.
+The semantic agent writes it after the compliance report is final, when the operator runs the semantic pass.
 The compliance agent does not write the companion file.
-The semantic agent starts from the report as a map, verifies each claim its verdict rests on against the snapshot at the saved SHA or the saved evidence, and never edits `agent-feedback.md`.
+The semantic agent starts from the report as a map, verifies each claim its verdict rests on against the snapshot at the saved SHA or the saved evidence, and never edits `agent-compliance-feedback.md`.
 It never changes a status, an `Evidence gaps` flag, `Manual review required`, the overall assessment, or the grade; a segment may be `met` while its dimension is `thin`.
 
 The five dimensions, in this order:
@@ -1043,7 +1043,7 @@ Read the tag and its target, the release body, the changelog, the plan's `Checke
 
 ### Guardrails
 
-- Ground every claim in an artifact you verified at the saved SHA or a live URL; the structural report is a map, not evidence.
+- Ground every claim in an artifact you verified at the saved SHA or a live URL; the compliance report is a map, not evidence.
 - Verify the claims your judgement depends on, not every report claim, and do not re-audit the segments.
 - Prefer `evidence.sqlite` and the saved dumps; at most three live `gh` lookups for this file, and record each one.
 - Write `work/<team_dir>/semantic-claims.json` and mark each claim `supported`, `contradicted`, or `unverifiable`; only supported claims feed the semantic file.
@@ -1079,7 +1079,7 @@ Read the tag and its target, the release body, the changelog, the plan's `Checke
    When the submission directory holds no PDF and one Markdown file instead, run `uv run python scripts/fetch_markdown_snapshot.py A5 "<team_dir>"`: it reads the Markdown, writes `pdf-info.json` with `permalink_source=operator` and the member name/email tokens, and fetches the snapshot.
    Treat the missing PDF as an S13 shortfall, and say in `**Evidence:**` that the wrapper was Markdown rather than a PDF.
    Fall back to reading the Markdown by hand and writing `pdf-info.json` only when the helper cannot parse it.
-3. The fetcher in step 2 resolves the snapshot per `docs/grader-policy.md` and refetches it into a freshly emptied `itpd-assignments-feedback/A5/work/<team_dir>/snapshot/`.
+3. The fetcher in step 2 resolves the snapshot per `docs/grading-policy.md` and refetches it into a freshly emptied `itpd-assignments-feedback/A5/work/<team_dir>/snapshot/`.
    When it cannot, resolve and fetch by hand as in `agents/compliance-agent.md`.
    A permalink that points at `reports/week-04/README.md` is a wrong-week permalink: the fetcher prints a `warn:` line, records `permalink_week_mismatch`, skips the commit check and the snapshot fetch, and exits 1 with a rerun command.
    Do not grade the wrong-week target; the wrong week is the S13 shortfall, and the operator supplies the right permalink with `uv run python scripts/fetch_team_snapshot.py A5 "<team_dir>" --permalink <url>`, recorded as `permalink_source=operator`, so the snapshot fetched from that permalink governs every file check.
@@ -1157,7 +1157,7 @@ Read the tag and its target, the release body, the changelog, the plan's `Checke
    - Pull requests, Actions runs, repository files, tags, and releases stay judged as of `ISSUE_CUTOFF`, and the snapshot stays the evidence for files.
 7. Identify the Week 5 pull requests: every pull request created on or after Friday 23 October 2026, 00:00 Innopolis time, the start of Week 5 in `course/syllabus.md`, and by `ISSUE_CUTOFF`.
    A pull request merged at or before the team's Assignment 4 snapshot commit is part of the Week 4 submission, not a Week 5 pull request.
-   Read that SHA from the saved A4 feedback report's `Primary index reviewed` link at `itpd-assignments-feedback/A4/feedback/<team_dir>/agent-feedback.md`, or from the A4 submission PDF.
+   Read that SHA from the saved A4 feedback report's `Primary index reviewed` link at `itpd-assignments-feedback/A4/feedback/<team_dir>/agent-compliance-feedback.md`, or from the A4 submission PDF.
    When neither is available, use the team's A4 cutoff as the boundary: `2026-10-25T23:59:59+03:00` for every team, and `2026-10-26T23:59:59+03:00` for `Team 2 - OK_10938_assignsubmission_file`, whose Week 4 deadline was extended; say in `**Evidence:**` which boundary was used.
    The in-scope pull requests for the release, the rework sequence, and the report's evidence run from the start of Week 5 to `ISSUE_CUTOFF`, without Dependabot pull requests and pull requests a workflow opened.
 8. Gather the pull-request facts below as evidence. These are Week 1 and Week 2 mechanics and are not re-graded in Assignment 5, except where a criterion names them: S10's rework sequence, S11's merge order, and S13's repository-evidence pull request. Record an anomaly in `**Evidence:**` only; never make it a shortfall in S13 or S2.
@@ -1200,7 +1200,7 @@ Read the tag and its target, the release body, the changelog, the plan's `Checke
     - Read `docs/deployment.md`, `.env.example`, and `docs/setup.md` at the snapshot, and check the four environments, the VM access, the two ports, the separate configuration and secrets, the manual deploy, the verification, and the rollback.
     - Search every snapshot file for a real IPv4 address, host name, password, token, or secret, and compare the hits with the addresses in the PDF; report a hit by path and kind, never by value.
     - Find the deployment record: the report's deployment line, the testing plan's `deployed` row, an issue or pull-request comment, a dated screenshot under `reports/week-05/images/`, or the meeting report.
-    - Open the production and staging addresses once, from the university network if the grader can reach it, per `docs/grader-policy.md#consumer-hosted-media`; a view that cannot be reached is an evidence gap for that check only.
+    - Open the production and staging addresses once, from the university network if the agent can reach it, per `docs/grading-policy.md#consumer-hosted-media`; a view that cannot be reached is an evidence gap for that check only.
     - A VM that was not available is judged by its recorded postponement, its announced date, and its `## Deviations` entry, not by a deploy that could not happen.
     - The Moodle PDF's addresses are read once in step 2 and never copied into feedback.
 

@@ -70,8 +70,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.grader_tools.assignment_config import ASSIGNMENT_CONFIG
-from tools.grader_tools.feedback_report import (
+from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.feedback_report import (
     ParsedFeedbackReport,
     ReportMetadata,
     SHA_PATTERN,
@@ -90,7 +90,7 @@ from tools.grader_tools.feedback_report import (
     segment_selector_to_int,
     single_line_text,
 )
-from tools.grader_tools.validate import validate_report
+from tools.autochecker.validate import validate_report
 
 REPORT_KEYS = {"snapshot", "repository", "primary_index", "notes"}
 SECTION_BODY_KEYS = ("summary", "strengths", "main_issues_to_fix", "next_steps")
@@ -304,9 +304,9 @@ def patch_report(assignment: str, report: ParsedFeedbackReport, payload: dict[st
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Patch selected segments or metadata in agent-feedback.md.")
+    parser = argparse.ArgumentParser(description="Patch selected segments or metadata in agent-compliance-feedback.md.")
     parser.add_argument("assignment", choices=sorted(ASSIGNMENT_CONFIG))
-    parser.add_argument("feedback_path", help="Path to agent-feedback.md")
+    parser.add_argument("feedback_path", help="Path to agent-compliance-feedback.md")
     parser.add_argument("patch_payload", help="Path to JSON patch payload")
     args = parser.parse_args()
 

@@ -6,8 +6,8 @@ from types import SimpleNamespace
 import pytest
 
 from scripts.preflight import run
-from tools.grader_tools.grading_config import GradingConfig, load_grading_config
-from tools.grader_tools.preflight import (
+from tools.autochecker.grading_config import GradingConfig, load_grading_config
+from tools.autochecker.preflight import (
     PreflightCheck,
     PreflightResult,
     check_gh_auth,

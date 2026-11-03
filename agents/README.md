@@ -3,7 +3,7 @@
 One team review is split into two agents so that compliance work and semantic judgement do not compete for the same context window.
 
 ```text
-compliance-agent  ->  validated agent-feedback.md + work/<team_dir>/
+compliance-agent  ->  validated agent-compliance-feedback.md + work/<team_dir>/
         |
         v
 semantic-agent    ->  agent-semantic-feedback.md + work/<team_dir>/semantic-claims.json
@@ -16,7 +16,7 @@ There is no LLM orchestrator: the operator or a script starts each role, and the
 
 | Agent | Question | Writes | Must not |
 | --- | --- | --- | --- |
-| [`compliance-agent.md`](compliance-agent.md) | What is the status of each segment? | `agent-feedback.md`, `payload.json`, evidence, `summary.md`, `inventory.md` | Write semantic feedback or change the semantic file |
+| [`compliance-agent.md`](compliance-agent.md) | What is the status of each segment? | `agent-compliance-feedback.md`, `payload.json`, evidence, `summary.md`, `inventory.md` | Write semantic feedback or change the semantic file |
 | [`semantic-agent.md`](semantic-agent.md) | Does the artifact do its job, and does the evidence support that claim? | `agent-semantic-feedback.md`, `semantic-claims.json` | Change a status, edit the report, edit the handoff, or re-run the whole audit |
 
 The two prompts share the same conventions: the operator supplies `{ASSIGNMENT_DIR}`, `{TEAM_DIR}`, and the absolute `{TEAM_WORK}`; commands run from the repository root; every path containing a team name is quoted.
@@ -36,14 +36,14 @@ The semantic agent must not re-fetch the snapshot or collect new dumps. It reads
 
 ## Sequence
 
-1. Run the compliance agent for each team. Its report must pass `scripts/check_feedback_report.py` and the privacy scan before semantic work starts.
-2. Run the semantic agent for that team. It writes `agent-semantic-feedback.md` next to `agent-feedback.md` and validates it with `scripts/check_semantic_feedback.py`.
+1. Run the compliance agent for each team. Its report must pass `scripts/check_compliance_feedback.py` and the privacy scan before semantic work starts.
+2. Run the semantic agent for that team. It writes `agent-semantic-feedback.md` next to `agent-compliance-feedback.md` and validates it with `scripts/check_semantic_feedback.py`.
 3. Run semantic passes only for assignments that define `semantic_dimensions`, currently A5.
    - `semantic review` creates the file and refuses an existing companion; use `semantic regrade` for that case.
    - `semantic regrade` re-verifies an existing file after a report or artifact change.
    - `semantic inspect` reports without writing.
 
-The semantic companion does not change the release export: `agent-feedback.md` is the only file `dev.md` and `feedback_release.csv` read.
+The semantic companion does not change the release export: `agent-compliance-feedback.md` is the only file `dev.md` and `feedback_release.csv` read.
 The pre-extraction gate still waits while a semantic agent is running.
 
 ## One writer per team

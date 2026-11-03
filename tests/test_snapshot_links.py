@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from scripts.check_snapshot_links import run
-from tools.grader_tools.snapshot_links import (
+from tools.autochecker.snapshot_links import (
     SnapshotLinksError,
     check_snapshot_links,
     github_slug,

@@ -1,6 +1,6 @@
 ---
 name: semantic-agent
-description: Reviews one ITPD team's artifacts for semantic feedback. Launch one per team after agent-feedback.md is final. Verifies its own claims against the snapshot and saved evidence, writes agent-semantic-feedback.md, and never changes a status.
+description: Reviews one ITPD team's artifacts for semantic feedback. Launch one per team after agent-compliance-feedback.md is final. Verifies its own claims against the snapshot and saved evidence, writes agent-semantic-feedback.md, and never changes a status.
 tools: Bash, Read, Write, Glob, Grep, WebFetch
 ---
 

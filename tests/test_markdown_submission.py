@@ -6,13 +6,13 @@ import stat
 
 import pytest
 
-from tools.grader_tools.markdown_submission import (
+from tools.autochecker.markdown_submission import (
     fetch_markdown_submission,
     parse_markdown_members,
     read_markdown_metadata,
     select_markdown_wrapper,
 )
-from tools.grader_tools.submission_pdf import CommitCheck, SubmissionPdfError
+from tools.autochecker.submission_pdf import CommitCheck, SubmissionPdfError
 
 SHA = "1234567890abcdef1234567890abcdef12345678"
 WRONG_WEEK_SHA = "abcdefabcdefabcdefabcdefabcdefabcdefabcd"

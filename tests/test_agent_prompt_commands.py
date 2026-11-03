@@ -27,7 +27,7 @@ TEAM_WORK = f"/repo/itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}"
 ASSIGNMENT_PROMPTS = tuple(
     ROOT / assignment / "grading_prompt.md" for assignment in ("A1", "A2", "A3", "A4", "A5")
 )
-POLICY = ROOT / "docs" / "grader-policy.md"
+POLICY = ROOT / "docs" / "grading-policy.md"
 TEAM_DIR_PLACEHOLDER = "<team_dir>"
 SCRIPT_COMMAND = re.compile(r"(?:^|[\s`])(?:uv run python\s+)?scripts/[\w.]+\.py\b")
 INLINE_CODE = re.compile(r"`([^`\n]+)`")
@@ -284,7 +284,7 @@ def test_semantic_prompt_commands_accept_a_team_directory_with_spaces_and_parent
     (work / "inventory.md").write_text("# Inventory\n", encoding="utf-8")
     (work / "semantic-claims.json").write_text("{}\n", encoding="utf-8")
     (work / "pdf-info.json").write_text("{}\n", encoding="utf-8")
-    (feedback / "agent-feedback.md").write_text("# Assignment 3 Feedback Report\n", encoding="utf-8")
+    (feedback / "agent-compliance-feedback.md").write_text("# Assignment 3 Feedback Report\n", encoding="utf-8")
     (feedback / "agent-semantic-feedback.md").write_text(
         "# Assignment 3 Semantic Feedback\n", encoding="utf-8"
     )
@@ -397,7 +397,7 @@ def test_semantic_prompt_requires_a_claim_ledger_and_verification() -> None:
 
 def test_semantic_prompt_never_edits_the_report_and_escalates_conflicts() -> None:
     text = _normalized(SEMANTIC_PROMPT)
-    assert "It never edits the structural report" in text
+    assert "It never edits the compliance report" in text
     assert "record it in `conflicts` and keep the report untouched" in text
     assert "sha256sum" in text
 

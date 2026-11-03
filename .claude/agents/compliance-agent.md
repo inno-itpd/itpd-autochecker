@@ -1,6 +1,6 @@
 ---
 name: compliance-agent
-description: Reviews one ITPD assignment team submission for compliance. Launch one per team with the assignment directory (A1, A2, ...), the team submission directory, and the mode. Reads the PDF, fetches the snapshot from GitHub, checks GitHub evidence, and writes agent-feedback.md.
+description: Reviews one ITPD assignment team submission for compliance. Launch one per team with the assignment directory (A1, A2, ...), the team submission directory, and the mode. Reads the PDF, fetches the snapshot from GitHub, checks GitHub evidence, and writes agent-compliance-feedback.md.
 tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch
 ---
 

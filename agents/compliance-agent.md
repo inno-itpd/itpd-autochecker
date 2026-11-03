@@ -35,7 +35,7 @@ Follow the operator request to choose one of these modes:
 | What the report currently says, read-only | `segment inspect` |
 
 1. `full review` (default)
-   - Review the submission and write a complete `agent-feedback.md`.
+   - Review the submission and write a complete `agent-compliance-feedback.md`.
    - This is the only mode that empties the work directory, and only for a first review.
 2. `full regrade`
    - Re-audit every segment of the saved report against freshly checked evidence, then rebuild the payload and re-render the report.
@@ -43,14 +43,14 @@ Follow the operator request to choose one of these modes:
    - Follow [Full regrade](#full-regrade).
 3. `partial regrade`
    - Used when the operator names segment IDs such as `S3,S4`.
-   - Read the existing `agent-feedback.md` first.
+   - Read the existing `agent-compliance-feedback.md` first.
    - Refresh only the requested segments plus any segment whose status depends on the same newly checked artifact.
    - Apply instructor notes directly when the operator provides them.
    - Patch with `uv run python scripts/regrade_feedback_segments.py` using a structured `segment_updates` payload.
      Use `uv run python scripts/patch_feedback_report.py` as the low-level fallback.
 4. `segment inspect`
    - Used when the operator asks what the compliance agent currently sees for specific segments.
-   - Read the existing `agent-feedback.md` first and do not edit any files.
+   - Read the existing `agent-compliance-feedback.md` first and do not edit any files.
    - Separate the saved report state from any fresh checks.
 
 ## Full regrade
@@ -70,7 +70,7 @@ It re-checks every segment, keeps the saved work, and can change a status only o
   ```
 
   Collect one dump again only when a claim needs a field the saved dumps do not hold, such as a new timeline or path history.
-- Treat the saved `agent-feedback.md` and `payload.json` as a draft, not as evidence.
+- Treat the saved `agent-compliance-feedback.md` and `payload.json` as a draft, not as evidence.
   For each segment, run the audit below.
 - Rebuild `payload.json` rather than editing the report prose:
   write the payload first and render the report last, so `scripts/check_batch_ready.py` sees the report at or after the payload's mtime.
@@ -103,7 +103,7 @@ The audit is the point of the mode: the A4 regrade found saved reports that cite
   Other compliance agents run in parallel, so never write to a shared scratchpad, to `/tmp` directly, or into another team's directory, and never read another team's files.
 - Snapshot working copy, fetched from GitHub at the permalink SHA: `{TEAM_WORK}/snapshot/`.
   It is disposable: every review rebuilds it, and it can be deleted after grading.
-- Report: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md`
+- Report: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-compliance-feedback.md`
 
 The helper scripts share two contracts; never edit those files by hand:
 
@@ -188,7 +188,7 @@ Runs, commits, tags, releases, comments, and edit history are not in the databas
 
 ### Judging at the cutoff
 
-The `cutoffs` table holds the team's `ISSUE_CUTOFF` from `tools/grader_tools/assignment_config.py`, so `Team 2 - OK_10938_assignsubmission_file` gets its later Monday cutoff without the compliance agent copying a date.
+The `cutoffs` table holds the team's `ISSUE_CUTOFF` from `tools/autochecker/assignment_config.py`, so `Team 2 - OK_10938_assignsubmission_file` gets its later Monday cutoff without the compliance agent copying a date.
 `issue_events` holds one row per issue-timeline event, and `issue_state_at_cutoff` reconstructs the state at that cutoff. Read it before the current state:
 
 ```sql
@@ -224,13 +224,13 @@ The collector writes `issues/<n>.timeline.json` and rebuilds `evidence.sqlite`, 
    mkdir -p "{TEAM_WORK}"
    ```
 
-2. Read `docs/grader-policy.md`.
-3. Read `docs/grading-feedback-format.md`.
+2. Read `docs/grading-policy.md`.
+3. Read `docs/compliance-feedback-format.md`.
 4. Read `{ASSIGNMENT_DIR}/grading_prompt.md`.
 5. Read every file listed in its `## Authoritative sources` section.
    They live under `{ASSIGNMENT_DIR}/itpd/`, pinned at the commit the assignment is reviewed against.
 6. In `full regrade`, `partial regrade`, or `segment inspect` mode, read the current report.
-   For a structured view, run `uv run python scripts/inspect_feedback_segments.py {ASSIGNMENT_DIR} <agent-feedback.md> S<n> ...`.
+   For a structured view, run `uv run python scripts/inspect_feedback_segments.py {ASSIGNMENT_DIR} <agent-compliance-feedback.md> S<n> ...`.
    Add `--fresh-payload <payload.json> --format text` to compare saved and fresh state.
 7. Run the submission fetcher, which reads the PDF, checks the commit, and fetches the snapshot in one pass.
    In `full regrade` mode, skip the fetcher when `{TEAM_WORK}/pdf-info.json` already exists, because a rerun replaces an operator permalink override; re-fetch only `{TEAM_WORK}/snapshot/` from the saved repository and SHA, as in step 9.
@@ -272,7 +272,7 @@ The collector writes `issues/<n>.timeline.json` and rebuilds `evidence.sqlite`, 
 
    `--permalink` replaces the PDF permalink, requires a 40-character SHA, records `permalink_source=operator`, and lets the run continue; it does not repair a mismatch, because an override that still names the wrong week stops the same way.
    When `--repo` is also given, the override's repository wins and the fetcher prints a note.
-8. Resolve the authoritative snapshot with `docs/grader-policy.md#submission-and-snapshot-rules`, reading `sha`, `repo`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_time`, `snapshot_fetched`, `permalink_week`, `expected_week`, and `permalink_week_mismatch` from `pdf-info.json`.
+8. Resolve the authoritative snapshot with `docs/grading-policy.md#submission-and-snapshot-rules`, reading `sha`, `repo`, `commit_exists`, `on_main`, `on_main_status`, `snapshot_time`, `snapshot_fetched`, `permalink_week`, `expected_week`, and `permalink_week_mismatch` from `pdf-info.json`.
    - When `sha` is `null`, `commit_exists` is false, or `snapshot_fetched` is false, stop repository-dependent checks and say so.
    - When `permalink_week_mismatch` is true, the PDF permalink names a different week than `expected_week`.
      That is a submission shortfall in S12 (the week-report-and-submission segment; S8 in A1 and S9 in A2), and the fetcher has already stopped before the commit check and the snapshot fetch.
@@ -316,7 +316,7 @@ The collector writes `issues/<n>.timeline.json` and rebuilds `evidence.sqlite`, 
 
     Work from the saved evidence instead of re-running `gh`; the collector prints counts and paths only.
     Fallback: the raw `gh` and `jq` commands in `{ASSIGNMENT_DIR}/grading_prompt.md`, for fields the collector does not cover.
-    Follow `docs/grader-policy.md#live-github-evidence`.
+    Follow `docs/grading-policy.md#live-github-evidence`.
 12. For recordings and other consumer-hosted media, make one access check only.
     Scan the snapshot for private-only material:
 
@@ -334,10 +334,10 @@ The collector writes `issues/<n>.timeline.json` and rebuilds `evidence.sqlite`, 
 ## Output
 
 - In `full review` mode, write the validated report as soon as all segment statuses are decided, then run the gates below.
-  The segment count is the assignment's own: read it from `len(ASSIGNMENT_CONFIG[ASSIGNMENT_DIR]["segment_defs"])` in `tools/grader_tools/assignment_config.py`, never from a hard-coded number or another assignment's count.
+  The segment count is the assignment's own: read it from `len(ASSIGNMENT_CONFIG[ASSIGNMENT_DIR]["segment_defs"])` in `tools/autochecker/assignment_config.py`, never from a hard-coded number or another assignment's count.
   A crash must leave a validated report on disk, not a half-written one; refine the prose after that first write instead of deferring it.
 - Build the payload for that write incrementally: judge the first group of segments, then the next, and rewrite `{TEAM_WORK}/payload.json` after each group, so a crash loses at most the group being reviewed.
-  Add the `summary`, `strengths`, `main_issues_to_fix`, and optional `next_steps` bullets once the statuses are decided, then write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md` in the format from `docs/grading-feedback-format.md`, or render it from the payload:
+  Add the `summary`, `strengths`, `main_issues_to_fix`, and optional `next_steps` bullets once the statuses are decided, then write `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-compliance-feedback.md` in the format from `docs/compliance-feedback-format.md`, or render it from the payload:
 
   ```console
   uv run python scripts/render_feedback_report.py {ASSIGNMENT_DIR} "{TEAM_WORK}/payload.json"
@@ -354,21 +354,21 @@ The collector writes `issues/<n>.timeline.json` and rebuilds `evidence.sqlite`, 
 - Validate the rendered report, and fix it until it passes:
 
   ```console
-  uv run python scripts/check_feedback_report.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
+  uv run python scripts/check_compliance_feedback.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-compliance-feedback.md"
   ```
 
   It runs the report validator and `markdownlint-cli2` together.
-  Fallback: `uv run python scripts/validate_feedback_report.py {ASSIGNMENT_DIR} <agent-feedback.md>` and `markdownlint-cli2 <agent-feedback.md>`.
+  Fallback: `uv run python scripts/validate_compliance_feedback.py {ASSIGNMENT_DIR} <agent-compliance-feedback.md>` and `markdownlint-cli2 <agent-compliance-feedback.md>`.
 - Scan the finished report for private-only material:
 
   ```console
-  uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md"
+  uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-compliance-feedback.md"
   ```
 
 - In `partial regrade` mode, prefer:
 
   ```console
-  uv run python scripts/regrade_feedback_segments.py {ASSIGNMENT_DIR} <agent-feedback.md> <payload.json> S<n> ...
+  uv run python scripts/regrade_feedback_segments.py {ASSIGNMENT_DIR} <agent-compliance-feedback.md> <payload.json> S<n> ...
   ```
 
   The payload format is `{"segment_updates": {"S<n>": {"status", "evidence_gaps", "evidence", "verified_shortfalls", "unverified_checks"}}, "unresolved_evidence_gaps": {"S<n>": ["..."]}}`.
@@ -382,7 +382,7 @@ The semantic pass is a separate agent, `agents/semantic-agent.md`.
 Do not write `agent-semantic-feedback.md` from this prompt, and do not edit a saved semantic file during a regrade: the semantic agent owns it.
 
 - Finish this review with a validated report and a work directory that stays intact for the semantic pass; it is disposable only after that pass.
-  Leave `agent-feedback.md`, `payload.json`, `summary.md`, `inventory.md`, `evidence.sqlite`, `pdf-info.json`, and `snapshot/` in `{TEAM_WORK}` for the semantic agent.
+  Leave `agent-compliance-feedback.md`, `payload.json`, `summary.md`, `inventory.md`, `evidence.sqlite`, `pdf-info.json`, and `snapshot/` in `{TEAM_WORK}` for the semantic agent.
 - Write the snapshot inventory before the handoff when it is missing, so the semantic agent reads one short tree digest instead of walking the snapshot:
 
   ```console
@@ -416,7 +416,7 @@ Return exactly one line before you finish, including on partial success.
 For `full review` and `full regrade`, when a report was written, return:
 
 ```text
-{TEAM_DIR}: OK met <n> · partial <n> · missing <n> · unverified <n> — manual review <yes|no> — report itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md
+{TEAM_DIR}: OK met <n> · partial <n> · missing <n> · unverified <n> — manual review <yes|no> — report itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-compliance-feedback.md
 ```
 
 Substitute the placeholders so the line names the exact path written, not a pattern and not the work directory.
