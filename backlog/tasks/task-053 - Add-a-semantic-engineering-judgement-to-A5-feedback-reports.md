@@ -1,10 +1,10 @@
 ---
 id: TASK-053
 title: Add a companion semantic feedback file for A5
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-03 08:45'
-updated_date: '2026-11-03 16:45'
+updated_date: '2026-11-03 15:40'
 labels: []
 dependencies: []
 references:
@@ -37,13 +37,19 @@ The A5 structural reports answer what is missing and what is met, but not whethe
 - [x] #2 A5/grading_prompt.md defines the five A5 dimensions with their segment mapping, the adequacy question, the probes, the verdict signals, and the guardrails, including that a segment may be met while its dimension is thin and that the semantic agent verifies its own claims.
 - [x] #3 agents/compliance-agent.md hands off the validated report and work directory; agents/semantic-agent.md and AGENTS.md say when to write the companion, that the report is a map rather than evidence, that the semantic agent verifies its load-bearing claims, that it never changes a status, and how a regrade treats it.
 - [x] #4 scripts/check_semantic_feedback.py validates the schema against the format doc, compares the metadata with the sibling agent-feedback.md, checks the snapshot SHA in blob links, rejects the forbidden vocabulary, and runs markdownlint; tests cover a valid file and each rejection.
-- [ ] #5 The Team 5 trial file exists, passes the checker, markdownlint, and the privacy scan, and remains the voice and schema reference; it predates the claim ledger.
+- [x] #5 The Team 5 trial file exists, passes the checker, markdownlint, and the privacy scan, and remains the voice and schema reference; it predates the claim ledger.
   The trial file is local until it is committed with the eight-team pass; the docs note that it may be absent on an earlier checkout.
-- [ ] #6 The remaining eight A5 teams each carry a semantic file written by the semantic agent from their saved report and verified evidence in a later session.
+- [x] #6 The remaining eight A5 teams each carry a semantic file written by the semantic agent from their saved report and verified evidence in a later session.
 - [x] #7 The release export stays `## Summary`-only and the semantic file is documented as report-only; no extractor change is made.
 <!-- AC:END -->
 
-
+## Definition of Done
+<!-- DOD:BEGIN -->
+- [x] #1 All acceptance criteria are satisfied
+- [x] #2 `uv run pytest` passes
+- [x] #3 `markdownlint-cli2` passes on the changed Markdown
+- [x] #4 Implementation notes record the decisions made and the validation results
+<!-- DOD:END -->
 
 ## Implementation Plan
 
@@ -226,12 +232,18 @@ Validation: `uv run pytest` 450 passed; `markdownlint-cli2` from the dev shell (
 - `scripts/check_semantic_feedback.py --ledger` compares `report_sha256` with the sibling report while the disposable ledger is present.
 - The opencode semantic wrapper denies `edit`; tests cover the semantic prompt's commands and the wrapper tool policy.
 - The trial file is deferred to the eight-team pass, so AC5 stays open and the docs say the example may be absent until then.
-<!-- SECTION:NOTES:END -->
 
-## Definition of Done
-<!-- DOD:BEGIN -->
-- [ ] #1 All acceptance criteria are satisfied
-- [ ] #2 `uv run pytest` passes
-- [ ] #3 `markdownlint-cli2` passes on the changed Markdown
-- [ ] #4 Implementation notes record the decisions made and the validation results
-<!-- DOD:END -->
+## Nine-team semantic pass (2026-11-03)
+
+All nine A5 teams now carry `agent-semantic-feedback.md`. Teams 1, 2, 3, 4, 6, 7, 8, 9 were written in `semantic review`; Team 5 was rerun in `semantic regrade` and now carries a 24-claim ledger. Verdict totals across 45 dimensions: adequate 4, thin 35, not yet adequate 6; conflicts 0.
+
+Validation for every team: `scripts/check_semantic_feedback.py --ledger` exits 0, both `scripts/scan_privacy.py --feedback` scans report `no findings`, and all nine compliance-report sha256 values are unchanged from the pre-pass baseline. `scripts/check_batch_ready.py A5` reports `ready`, `markdownlint-cli2` on the A5 feedback tree reports 0 issues, and `uv run pytest` reports 450 passed.
+
+The Team 5 regrade corrected the trial file's claim that the generation path had no automated check: `backend/tests/conftest.py` sets `LLM_PROVIDER=fake` and `test_flow.py` exercises `/generate` and `/regenerate`. The Tests section now rests on `QR-02 QRT-01`'s pass criterion instead. Other Team 5 corrections: plan merge was 29 October, `## Deployment` names 248b766 only, and the unverifiable release-body/tag-ruleset claims were dropped.
+
+One report-accuracy note, not a status conflict: Team 1's S7 evidence says `docs/features.md` carries twelve `##` capability entries; the snapshot has eleven. S7 remains `partial` on the other evidence, so no compliance regrade is scheduled.
+
+AC5's 'predates the claim ledger' clause is superseded for Team 5: the regrade gave it a ledger, and it still passes the checker as the voice/schema reference. Team 8 needed an operator repair of two link typos (repository name `Team8TemporaryDebuggingGym` and one SHA character) before it validated; the ledger was unaffected.
+
+The semantic files are report-only. `A5/extract_feedback.py` was not rerun because `dev.md` and `feedback_release.csv` already cover all nine teams and the semantic companion is not part of either export. Nothing is committed yet.
+<!-- SECTION:NOTES:END -->
