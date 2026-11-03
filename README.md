@@ -1,7 +1,7 @@
 # ITPD autochecker
 
 AI-agent tooling that reviews team submissions for the ITPD course ([`inno-itpd/itpd`](https://github.com/inno-itpd/itpd)).
-The agent writes structured feedback for each segment, and the instructor decides the grade.
+A compliance agent produces the per-segment report, a separate semantic agent assesses whether the artifacts do their job, and the instructor decides the grade.
 
 <!-- TODO how to ask an agent to grade? Maybe need a skill and need to document it somewhere here -->
 <!-- TODO where to store submissions -->
@@ -21,7 +21,9 @@ uv run pytest
 - `A<N>/grading_prompt.md`: segments and status guide for assignment N.
 - `A<N>/itpd`: the course repository pinned at the commit assignment N is reviewed against.
 - `A<N>/extract_feedback.py`: turns feedback reports into `dev.md` and `feedback_release.csv`.
-- `agents/grader.md`: the one-team grader prompt, used through `.claude/agents/` and `.opencode/agents/`.
+- `agents/compliance-agent.md`: the one-team compliance prompt, used through `.claude/agents/` and `.opencode/agents/`.
+- `agents/semantic-agent.md`: the one-team semantic feedback prompt, run after the compliance report is final.
+- `agents/README.md`: the two-role pipeline and handoff contract.
 - `docs/`: the grading policy and the feedback report format.
 - `scripts/`: validate, inspect, patch, and regrade feedback reports.
 - `uv.toml`: keeps uv's cache inside the checkout (`.local/uv-cache`), so `uv run` also works where `~/.cache/uv` is read-only.

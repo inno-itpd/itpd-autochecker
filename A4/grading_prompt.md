@@ -929,7 +929,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    When the submission directory holds no PDF and one Markdown file instead, run `uv run python scripts/fetch_markdown_snapshot.py A4 "<team_dir>"`: it reads the Markdown, writes `pdf-info.json` with `permalink_source=operator` and the member name/email tokens, and fetches the snapshot. Treat the missing PDF as an S15 shortfall, and say in `**Evidence:**` that the wrapper was Markdown rather than a PDF. Fall back to reading the Markdown by hand and writing `pdf-info.json` only when the helper cannot parse it.
 
 3. The fetcher in step 2 resolves the snapshot per `docs/grader-policy.md` and refetches it into a freshly emptied `itpd-assignments-feedback/A4/work/<team_dir>/snapshot/`.
-   When it cannot, resolve and fetch by hand as in `agents/grader.md`.
+   When it cannot, resolve and fetch by hand as in `agents/compliance-agent.md`.
 4. Read the snapshot commit time and the on-`main` result from `pdf-info.json` (`snapshot_time`, `on_main`, `on_main_status`), or re-check them with `REPO=<org>/<repo>` and `SHA=<full SHA>`:
 
    ```sh

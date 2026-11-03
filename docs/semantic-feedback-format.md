@@ -15,7 +15,10 @@ The semantic feedback never changes a status, an `Evidence gaps` flag, `Manual r
 
 The file sits beside the structural report in the same team directory.
 It is optional: a report without it stays valid.
-It is written after the structural report, from the evidence that report already cites, and it never collects new evidence.
+It is written by the semantic agent, not the compliance agent, after the structural report is validated.
+The semantic agent starts from the report as a map, then verifies each claim its judgement depends on against the snapshot at the saved SHA or the saved live evidence.
+The report is never evidence for this file.
+It never collects a new evidence dump or re-fetches the snapshot.
 The release export ignores it by default; only `## Summary` goes into `feedback_release.csv`, and the full report directory is the channel that carries this file.
 A change to that export rule is a change to this document and to the extractor together.
 
@@ -96,8 +99,14 @@ A `partial` or `missing` segment does not make its whole dimension `not yet adeq
 
 ## Rules
 
-- Ground every claim in an artifact the structural report already cites.
-  Do not collect new evidence, re-fetch the snapshot, or call `gh` for this file.
+- Ground every claim in an artifact you verified at the saved SHA or a live URL.
+  The structural report is a map, not evidence.
+- Verify the claims your judgement depends on, not every claim in the report; do not re-audit the segments.
+- Prefer `work/<team_dir>/evidence.sqlite` and the saved dumps.
+  At most three live `gh` lookups for one file, and record each one.
+- A claim whose only source is the report is unverifiable and cannot carry a verdict.
+- Do not edit `agent-feedback.md`.
+  A claim that contradicts a status is a conflict, not an edit; the status wins until the operator regrades the report.
 - No status vocabulary: do not use `met`, `partial`, `missing`, or `unverified`.
 - No grade, score, rank, or cross-team comparison.
 - No `None`, no `TBD`, no placeholder bullet.
@@ -109,6 +118,22 @@ A `partial` or `missing` segment does not make its whole dimension `not yet adeq
 - Omit a dimension only when its evidence could not be read; keep at least three dimensions.
 - Stop when the file stops being grounded: a shorter, honest file beats a longer, speculative one.
 
+## Verification
+
+The semantic agent keeps `itpd-assignments-feedback/<assignment>/work/<team_dir>/semantic-claims.json` as its audit trail.
+Each load-bearing claim records `id`, `dimension`, `statement`, `locator`, `link`, `check`, `result`, and a short `quote`.
+
+`result` is one of:
+
+- `supported`: the locator was opened and shows what the claim says.
+- `contradicted`: the locator shows the opposite.
+  The claim goes into `conflicts` with the segment and the report's status, and never into the semantic file.
+- `unverifiable`: the claim could not be checked within the budget.
+  It may be a caveat, never the basis of a verdict.
+
+Only `supported` claims feed the prose and the `**Evidence:**` bullets.
+The ledger also records `report_sha256`, so a report change after the semantic pass marks the file stale and the operator reruns the semantic agent.
+
 ## Validation
 
 ```console
@@ -116,8 +141,9 @@ uv run python scripts/check_semantic_feedback.py A5 "itpd-assignments-feedback/A
 ```
 
 The checker enforces the metadata, the dimension order, the verdict and block schema, the evidence links, the snapshot SHA in blob links, and the forbidden vocabulary, and it runs `markdownlint-cli2`.
-It does not judge the prose.
+It does not judge the prose, and it does not read the claim ledger; the ledger is the semantic agent's audit trail.
 
 ## Example
 
-The A5 Team 5 file, `itpd-assignments-feedback/A5/feedback/Team 5 - TmpTeam_10941_assignsubmission_file/agent-semantic-feedback.md`, is the reference example: five dimensions, four `thin` and one `adequate`, each grounded in the structural report's evidence.
+The A5 Team 5 file, `itpd-assignments-feedback/A5/feedback/Team 5 - TmpTeam_10941_assignsubmission_file/agent-semantic-feedback.md`, is the reference example for voice and schema: five dimensions, four `thin` and one `adequate`.
+It predates the verification contract, so use it for depth and tone, not as a claim-ledger example.

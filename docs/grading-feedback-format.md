@@ -9,6 +9,7 @@ Each segment gets a status, and the instructor decides the grade.
 
 Semantic feedback is a separate optional companion file, `agent-semantic-feedback.md`, defined in `docs/semantic-feedback-format.md`.
 It sits beside the report, never inside it, and never changes a status, an `Evidence gaps` flag, or the overall assessment.
+The compliance agent writes this report; the semantic agent writes the companion and never edits this report.
 A report without that companion stays valid.
 
 Assignment-specific prompts remain responsible for:

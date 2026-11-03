@@ -555,7 +555,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    - the page count, for example from `pdfinfo`, and anything outside the six allowed items.
 
 3. The fetcher in step 2 resolves the snapshot per `docs/grader-policy.md` and refetches it into a freshly emptied `itpd-assignments-feedback/A2/work/<team_dir>/snapshot/`.
-   When it cannot, resolve and fetch by hand as in `agents/grader.md`.
+   When it cannot, resolve and fetch by hand as in `agents/compliance-agent.md`.
 4. Read the snapshot commit time and the on-`main` result from `pdf-info.json` (`snapshot_time`, `on_main`, `on_main_status`), or re-check them with `REPO=<org>/<repo>` and `SHA=<full SHA>`:
 
    ```sh

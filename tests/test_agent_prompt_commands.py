@@ -10,10 +10,15 @@ import pytest
 
 from tests.conftest import ROOT
 
-GRADER_PROMPT = ROOT / "agents" / "grader.md"
-WRAPPERS = (
-    ROOT / ".opencode" / "agents" / "grader.md",
-    ROOT / ".claude" / "agents" / "grader.md",
+COMPLIANCE_PROMPT = ROOT / "agents" / "compliance-agent.md"
+SEMANTIC_PROMPT = ROOT / "agents" / "semantic-agent.md"
+COMPLIANCE_WRAPPERS = (
+    ROOT / ".opencode" / "agents" / "compliance-agent.md",
+    ROOT / ".claude" / "agents" / "compliance-agent.md",
+)
+SEMANTIC_WRAPPERS = (
+    ROOT / ".opencode" / "agents" / "semantic-agent.md",
+    ROOT / ".claude" / "agents" / "semantic-agent.md",
 )
 TEAM_DIR = "Team 5 - TmpTeam_12345_assignsubmission_file (1)"
 ASSIGNMENT_DIR = "A3"
@@ -84,12 +89,12 @@ def _has_unquoted(command: str, needle: str) -> bool:
     return False
 
 
-def _team_path_violations(text: str) -> list[str]:
+def _team_path_violations(text: str, source: Path = COMPLIANCE_PROMPT) -> list[str]:
     violations: list[str] = []
     for line_number, line in _command_lines(text):
         if _has_unquoted(_expand(line), TEAM_DIR):
             violations.append(
-                f"{GRADER_PROMPT.relative_to(ROOT)}:{line_number}: {line.strip()}"
+                f"{source.relative_to(ROOT)}:{line_number}: {line.strip()}"
             )
     return violations
 
@@ -119,22 +124,29 @@ def test_command_parser_reads_console_and_bash_blocks() -> None:
     assert [line.strip() for _, line in _command_lines(text)] == ["echo one", "echo two"]
 
 
-def test_grader_prompt_states_the_no_cd_and_quoting_rule() -> None:
-    normalized = " ".join(GRADER_PROMPT.read_text(encoding="utf-8").split())
-    assert (
-        "A grader never changes directory and runs every command from the repository root"
-        in normalized
-    )
+def test_compliance_prompt_states_the_no_cd_and_quoting_rule() -> None:
+    normalized = " ".join(COMPLIANCE_PROMPT.read_text(encoding="utf-8").split())
+    assert "A compliance agent never changes directory and runs every command from the repository root" in normalized
+    assert "quotes every path that contains a team directory name" in normalized
+
+
+def test_semantic_prompt_states_the_no_cd_and_quoting_rule() -> None:
+    normalized = " ".join(SEMANTIC_PROMPT.read_text(encoding="utf-8").split())
+    assert "A semantic agent never changes directory and runs every command from the repository root" in normalized
     assert "quotes every path that contains a team directory name" in normalized
 
 
 def test_review_prompts_supply_the_exact_team_name_and_absolute_work_path() -> None:
-    normalized = " ".join(GRADER_PROMPT.read_text(encoding="utf-8").split())
-    assert "`{TEAM_WORK}` is the absolute path of the team work directory" in normalized
-    assert "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}" in normalized
-    assert "The fetcher takes the exact submission directory name" in normalized
+    compliance = " ".join(COMPLIANCE_PROMPT.read_text(encoding="utf-8").split())
+    assert "`{TEAM_WORK}` is the absolute path of the team work directory" in compliance
+    assert "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}" in compliance
+    assert "The fetcher takes the exact submission directory name" in compliance
 
-    for wrapper in WRAPPERS:
+    semantic = " ".join(SEMANTIC_PROMPT.read_text(encoding="utf-8").split())
+    assert "`{TEAM_WORK}` is the absolute path" in semantic
+    assert "itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}" in semantic
+
+    for wrapper in (*COMPLIANCE_WRAPPERS, *SEMANTIC_WRAPPERS):
         wrapper_text = " ".join(wrapper.read_text(encoding="utf-8").split())
         assert "{TEAM_WORK}" in wrapper_text
         assert "absolute" in wrapper_text
@@ -144,13 +156,14 @@ def test_review_prompts_supply_the_exact_team_name_and_absolute_work_path() -> N
     assert "{TEAM_WORK}" in agents
 
 
-def test_grader_prompt_quotes_every_path_with_the_team_directory() -> None:
-    text = GRADER_PROMPT.read_text(encoding="utf-8")
-    assert _team_path_violations(text) == []
+def test_agent_prompts_quote_every_path_with_the_team_directory() -> None:
+    for prompt in (COMPLIANCE_PROMPT, SEMANTIC_PROMPT):
+        text = prompt.read_text(encoding="utf-8")
+        assert _team_path_violations(text, prompt) == []
 
 
 def test_quoting_check_fails_on_an_intentionally_unquoted_example() -> None:
-    text = GRADER_PROMPT.read_text(encoding="utf-8")
+    text = COMPLIANCE_PROMPT.read_text(encoding="utf-8")
     quoted = (
         'uv run python scripts/fetch_team_snapshot.py {ASSIGNMENT_DIR} "{TEAM_DIR}"'
     )
@@ -212,7 +225,7 @@ def test_documented_commands_accept_a_team_directory_with_spaces_and_parentheses
     (work / "issues.json").write_text("[]\n", encoding="utf-8")
     (work / "payload.json").write_text("{}\n", encoding="utf-8")
 
-    text = GRADER_PROMPT.read_text(encoding="utf-8")
+    text = COMPLIANCE_PROMPT.read_text(encoding="utf-8")
     commands: list[str] = []
     for _, line in _command_lines(text):
         expanded = _expand(line, team_work=str(work))
@@ -262,14 +275,14 @@ def _normalized(path: Path) -> str:
 
 
 def test_prompt_names_the_four_modes_and_a_selection_table() -> None:
-    text = GRADER_PROMPT.read_text(encoding="utf-8")
+    text = COMPLIANCE_PROMPT.read_text(encoding="utf-8")
     assert "| Request | Mode |" in text
     for mode in ("`full review`", "`full regrade`", "`partial regrade`", "`segment inspect`"):
         assert mode in text
 
 
 def test_full_regrade_keeps_the_work_directory_and_audits_every_segment() -> None:
-    text = _normalized(GRADER_PROMPT)
+    text = _normalized(COMPLIANCE_PROMPT)
     assert "Never empty or delete the work directory" in text
     assert "A full regrade is a first-class mode" in text
     assert "State the saved claim" in text
@@ -279,33 +292,79 @@ def test_full_regrade_keeps_the_work_directory_and_audits_every_segment() -> Non
 
 
 def test_full_review_step_one_delete_does_not_apply_to_a_regrade() -> None:
-    text = _normalized(GRADER_PROMPT)
+    text = _normalized(COMPLIANCE_PROMPT)
     assert "In `full review` mode only, empty the team work directory" in text
     assert "In `full regrade` and `partial regrade` mode, skip this step" in text
 
 
 def test_prompt_reads_the_segment_count_from_assignment_config() -> None:
-    text = _normalized(GRADER_PROMPT)
+    text = _normalized(COMPLIANCE_PROMPT)
     assert "len(ASSIGNMENT_CONFIG[ASSIGNMENT_DIR][\"segment_defs\"])" in text
     assert "13 for A3" not in text
 
 
 def test_prompt_documents_the_regrade_diff_and_corrections() -> None:
-    text = _normalized(GRADER_PROMPT)
+    text = _normalized(COMPLIANCE_PROMPT)
     assert "changes: S<n> <old> -> <new> (<reason>)" in text
     assert "corrections: <saved claim> -> <what the evidence shows>" in text
     assert "no status changes" in text
 
 
 def test_prompt_names_the_one_writer_rule_and_the_active_gate() -> None:
-    text = _normalized(GRADER_PROMPT)
+    text = _normalized(COMPLIANCE_PROMPT)
     assert "One writer per team" in text
     assert 'check_batch_ready.py {ASSIGNMENT_DIR} --active "<team_dir>"' in text
 
 
 def test_prompt_documents_the_cutoff_view_and_the_collector_flag() -> None:
-    text = _normalized(GRADER_PROMPT)
+    text = _normalized(COMPLIANCE_PROMPT)
     assert "issue_state_at_cutoff" in text
     assert "issue_events" in text
     assert "--timelines" in text
     assert "has_timeline" in text
+
+
+def test_semantic_prompt_names_the_three_modes() -> None:
+    text = SEMANTIC_PROMPT.read_text(encoding="utf-8")
+    assert "| Request | Mode |" in text
+    for mode in ("`semantic review`", "`semantic regrade`", "`semantic inspect`"):
+        assert mode in text
+
+
+def test_semantic_prompt_requires_a_claim_ledger_and_verification() -> None:
+    text = _normalized(SEMANTIC_PROMPT)
+    assert "semantic-claims.json" in text
+    assert "`supported`" in text
+    assert "`contradicted`" in text
+    assert "`unverifiable`" in text
+    assert "The compliance report is a map, not evidence" in text
+    assert "evidence.sqlite" in text
+    assert "At most three live `gh` calls" in text
+
+
+def test_semantic_prompt_never_edits_the_report_and_escalates_conflicts() -> None:
+    text = _normalized(SEMANTIC_PROMPT)
+    assert "It never edits the structural report" in text
+    assert "record it in `conflicts` and keep the report untouched" in text
+    assert "sha256sum" in text
+
+
+def test_semantic_prompt_keeps_the_file_report_only_and_context_bounded() -> None:
+    text = _normalized(SEMANTIC_PROMPT)
+    assert "at most about ten artifact files or sections" in text
+    assert "never re-read them" in text
+    assert "a shorter honest file beats a longer speculative one" in text
+
+
+def test_semantic_wrappers_do_not_grant_edit() -> None:
+    for wrapper in SEMANTIC_WRAPPERS:
+        text = wrapper.read_text(encoding="utf-8")
+        assert "agents/semantic-agent.md" in text
+        assert "Edit" not in text.split("---", 2)[1]
+
+
+def test_compliance_prompt_hands_semantic_feedback_to_the_semantic_agent() -> None:
+    text = _normalized(COMPLIANCE_PROMPT)
+    assert "Do not write `agent-semantic-feedback.md` from this prompt" in text
+    assert "agents/semantic-agent.md" in text
+    assert "the semantic agent owns it" in text

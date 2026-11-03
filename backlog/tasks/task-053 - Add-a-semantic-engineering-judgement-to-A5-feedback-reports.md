@@ -4,13 +4,17 @@ title: Add a companion semantic feedback file for A5
 status: In Progress
 assignee: []
 created_date: '2026-11-03 08:45'
-updated_date: '2026-11-03 08:55'
+updated_date: '2026-11-03 10:48'
 labels: []
 dependencies: []
 references:
   - docs/grading-feedback-format.md
+  - docs/semantic-feedback-format.md
   - A5/grading_prompt.md
-  - agents/grader.md
+  - agents/compliance-agent.md
+  - agents/semantic-agent.md
+  - agents/README.md
+  - AGENTS.md
   - TODO.md
   - backlog/tasks/task-050 - Improve-grader-instructions-after-the-A4-regrade.md
 documentation:
@@ -24,19 +28,21 @@ ordinal: 53000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-The A5 structural reports answer what is missing and what is met, but not whether an artifact does its job. Add a companion `agent-semantic-feedback.md` beside each `agent-feedback.md`: five A5 dimensions (Setup, Tests, Plan, Customer loop, Publication), a three-level verdict (`adequate`, `thin`, `not yet adequate`), one evidence-linked prose assessment per dimension, and a `## Where to start` list. It is written from the structural report's existing evidence, never collects new evidence, and never changes a status, gap, assessment, or grade. A trial file for Team 5 is written and passes the checker; the remaining eight teams are written in a later session. The format, the A5 dimension definitions, the grader instruction, and the checker are in place. The release export stays `## Summary`-only; the semantic file is report-only and sits beside the full report.
+The A5 structural reports answer what is missing and what is met, but not whether an artifact does its job. Add a companion `agent-semantic-feedback.md` beside each `agent-feedback.md`: five A5 dimensions (Setup, Tests, Plan, Customer loop, Publication), a three-level verdict (`adequate`, `thin`, `not yet adequate`), one evidence-linked prose assessment per dimension, and a `## Where to start` list. A separate `agents/semantic-agent.md` writes it after the compliance report is final, verifies its own load-bearing claims against the snapshot at the saved SHA or the saved evidence, and never changes a status, gap, assessment, or grade. The compliance agent hands off a validated report and work directory and never writes the companion. A trial file for Team 5 is written and passes the checker; the remaining eight teams are written in a later session. The format, the A5 dimension definitions, both agent prompts, and the checker are in place. The release export stays `## Summary`-only; the semantic file is report-only and sits beside the full report.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 docs/semantic-feedback-format.md defines the companion file, its path beside agent-feedback.md, the metadata, the five A5 dimensions, the verdict scale, the required blocks, the evidence-link rule, the forbidden vocabulary, and the non-scoring rule; a team without the file stays valid.
-- [ ] #2 A5/grading_prompt.md defines the five A5 dimensions with their segment mapping, the adequacy question, the probes, the verdict signals, and the guardrails, including that a segment may be met while its dimension is thin.
-- [ ] #3 agents/grader.md and AGENTS.md say when to write the file, that it uses only the structural report's evidence, that it never changes a status, and how a full regrade treats it.
-- [ ] #4 scripts/check_semantic_feedback.py validates the schema against the format doc, compares the metadata with the sibling agent-feedback.md, checks the snapshot SHA in blob links, rejects the forbidden vocabulary, and runs markdownlint; tests cover a valid file and each rejection.
-- [ ] #5 The Team 5 trial file exists, passes the checker, markdownlint, and the privacy scan, and is the reference example.
-- [ ] #6 The remaining eight A5 teams each carry a semantic file written from their saved report and evidence in a later session.
-- [ ] #7 The release export stays `## Summary`-only and the semantic file is documented as report-only; no extractor change is made.
+- [x] #1 docs/semantic-feedback-format.md defines the companion file, its path beside agent-feedback.md, the metadata, the five A5 dimensions, the verdict scale, the required blocks, the evidence-link rule, the verification contract, the forbidden vocabulary, and the non-scoring rule; a team without the file stays valid.
+- [x] #2 A5/grading_prompt.md defines the five A5 dimensions with their segment mapping, the adequacy question, the probes, the verdict signals, and the guardrails, including that a segment may be met while its dimension is thin and that the semantic agent verifies its own claims.
+- [x] #3 agents/compliance-agent.md hands off the validated report and work directory; agents/semantic-agent.md and AGENTS.md say when to write the companion, that the report is a map rather than evidence, that the semantic agent verifies its load-bearing claims, that it never changes a status, and how a regrade treats it.
+- [x] #4 scripts/check_semantic_feedback.py validates the schema against the format doc, compares the metadata with the sibling agent-feedback.md, checks the snapshot SHA in blob links, rejects the forbidden vocabulary, and runs markdownlint; tests cover a valid file and each rejection.
+- [x] #5 The Team 5 trial file exists, passes the checker, markdownlint, and the privacy scan, and remains the voice and schema reference; it predates the claim ledger.
+- [ ] #6 The remaining eight A5 teams each carry a semantic file written by the semantic agent from their saved report and verified evidence in a later session.
+- [x] #7 The release export stays `## Summary`-only and the semantic file is documented as report-only; no extractor change is made.
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 
@@ -142,6 +148,22 @@ The full contract is in `docs/semantic-feedback-format.md`; the checker enforces
 - `scripts/scan_privacy.py ... --feedback` on every A5 semantic file
 - One report without the companion still passes `check_feedback_report.py`
 - `A5/extract_feedback.py` remains unchanged and still exports `## Summary` only
+
+## Architecture update (2026-11-03)
+
+The single grader prompt was split so compliance work and semantic judgement do not share one context window. This supersedes the earlier decision that the semantic file is written only from the report's evidence.
+
+- `agents/compliance-agent.md` (renamed from `agents/grader.md`) owns the statuses, evidence, report, payload, summary, inventory, and SQLite handoff. It no longer writes `agent-semantic-feedback.md`; it leaves the work directory intact for the semantic agent.
+
+- `agents/semantic-agent.md` owns the companion. It starts from the report as a map, verifies 2-4 load-bearing claims per dimension against the snapshot at the saved SHA or the saved evidence, records them in `work/<team_dir>/semantic-claims.json`, and writes only supported claims into the file. It never edits `agent-feedback.md` and never changes a status.
+
+- `agents/README.md` documents the two roles, the handoff, the launch order, and the one-writer rule.
+
+- Both harness wrappers are split: `.claude/agents/` and `.opencode/agents/` carry `compliance-agent.md` and `semantic-agent.md`.
+
+- `docs/semantic-feedback-format.md`, `docs/grading-feedback-format.md`, and the A5 prompt's `## Semantic feedback` section now state the verification contract and the conflict-escalation rule.
+
+- Phase 2 remains: a handoff generator, a claim-ledger validator, a semantic readiness gate, and per-role resume counters.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -188,6 +210,12 @@ The verdicts are independent of the report's 11 met / 3 partial: the report's st
 - Eight A5 teams.
 - One writer per team; do not touch `agent-feedback.md`.
 - A wrong status found during the pass is a regrade for that team, not an edit in this pass.
+
+## Role split (2026-11-03)
+
+Split the one-team review into `agents/compliance-agent.md` (renamed from `agents/grader.md`) and `agents/semantic-agent.md`, with wrappers and `agents/README.md`. The compliance prompt now ends at a validated report plus a handoff; the semantic prompt verifies its own claims, records them in `semantic-claims.json`, and escalates status conflicts instead of editing the report. The semantic contract in `docs/semantic-feedback-format.md`, `docs/grading-feedback-format.md`, and `A5/grading_prompt.md` was updated from 'use only the report's evidence' to 'the report is a map; verify the claims you rely on'.
+
+Validation: `uv run pytest` 441 passed; `markdownlint-cli2` with the pinned 0.23.2 reports 0 issues on the 16 changed Markdown files; `scripts/check_semantic_feedback.py A5` still passes on the Team 5 reference file. The claim-ledger validator, handoff generator, semantic readiness gate, and per-role resume counters are still Phase 2.
 <!-- SECTION:NOTES:END -->
 
 ## Definition of Done

@@ -986,7 +986,9 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 ## Semantic feedback
 
 `agent-semantic-feedback.md` is the optional companion file defined in `docs/semantic-feedback-format.md`.
-Write it after the structural report, from the evidence that report already contains, and only when the operator asks for it.
+The semantic agent writes it after the structural report is final, and only when the operator asks for it.
+The compliance agent does not write this file.
+The semantic agent starts from the report as a map, verifies each claim its verdict rests on against the snapshot at the saved SHA or the saved evidence, and never edits `agent-feedback.md`.
 It never changes a status, an `Evidence gaps` flag, `Manual review required`, the overall assessment, or the grade; a segment may be `met` while its dimension is `thin`.
 
 The five dimensions, in this order:
@@ -1041,11 +1043,15 @@ Read the tag and its target, the release body, the changelog, the plan's `Checke
 
 ### Guardrails
 
-- Ground every claim in the structural report's evidence; do not collect new evidence for this file.
+- Ground every claim in an artifact you verified at the saved SHA or a live URL; the structural report is a map, not evidence.
+- Verify the claims your judgement depends on, not every report claim, and do not re-audit the segments.
+- Prefer `evidence.sqlite` and the saved dumps; at most three live `gh` lookups for this file, and record each one.
+- Write `work/<team_dir>/semantic-claims.json` and mark each claim `supported`, `contradicted`, or `unverifiable`; only supported claims feed the semantic file.
 - Do not use status vocabulary (`met`, `partial`, `missing`, `unverified`), a grade, a score, a rank, or a cross-team comparison.
 - Do not repeat the `## Main issues to fix` list; say what the artifact can and cannot do yet, and what breaks first.
 - A `partial` or `missing` segment does not make its dimension `not yet adequate` by itself; judge the artifact, not the count.
-- If a judgement contradicts a status, the status wins and is fixed in a regrade; never soften the judgement to fit the status.
+- If a judgement contradicts a status, record the conflict in the ledger and return it; the status wins until the operator regrades the report.
+  Never edit the report to fit the judgement, and never soften the judgement to fit the status.
 - Omit a dimension whose segments are `unverified`; keep at least three.
 
 ## Assignment-specific procedure deltas
@@ -1073,7 +1079,7 @@ Read the tag and its target, the release body, the changelog, the plan's `Checke
    Treat the missing PDF as an S13 shortfall, and say in `**Evidence:**` that the wrapper was Markdown rather than a PDF.
    Fall back to reading the Markdown by hand and writing `pdf-info.json` only when the helper cannot parse it.
 3. The fetcher in step 2 resolves the snapshot per `docs/grader-policy.md` and refetches it into a freshly emptied `itpd-assignments-feedback/A5/work/<team_dir>/snapshot/`.
-   When it cannot, resolve and fetch by hand as in `agents/grader.md`.
+   When it cannot, resolve and fetch by hand as in `agents/compliance-agent.md`.
    A permalink that points at `reports/week-04/README.md` is a wrong-week permalink: the fetcher prints a `warn:` line, records `permalink_week_mismatch`, skips the commit check and the snapshot fetch, and exits 1 with a rerun command.
    Do not grade the wrong-week target; the wrong week is the S13 shortfall, and the operator supplies the right permalink with `uv run python scripts/fetch_team_snapshot.py A5 "<team_dir>" --permalink <url>`, recorded as `permalink_source=operator`, so the snapshot fetched from that permalink governs every file check.
 4. Read the snapshot commit time and the on-`main` result from `pdf-info.json` (`snapshot_time`, `on_main`, `on_main_status`), or re-check them with `REPO=<org>/<repo>` and `SHA=<full SHA>`:

@@ -18,7 +18,7 @@ STALE_SELECTIONS = (
 DOCUMENTED_SOURCES = (
     *sorted((ROOT / "scripts").glob("*.py")),
     *sorted((ROOT / "tools" / "grader_tools").glob("*.py")),
-    ROOT / "agents" / "grader.md",
+    ROOT / "agents" / "compliance-agent.md",
     PROMPT,
 )
 
@@ -54,6 +54,6 @@ def test_s6_says_which_project_route_answered() -> None:
 
 
 def test_agents_prompt_keeps_the_current_project_fields_connection() -> None:
-    text = (ROOT / "agents" / "grader.md").read_text(encoding="utf-8")
+    text = (ROOT / "agents" / "compliance-agent.md").read_text(encoding="utf-8")
     assert ".data.organization.projectV2.items.nodes[]" in text
     assert ".fieldValues.nodes // []" in text

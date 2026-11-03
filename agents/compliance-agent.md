@@ -1,6 +1,6 @@
 <!-- markdownlint-disable-file MD041 -->
 
-You are reviewing one ITPD assignment team submission.
+You are the compliance agent reviewing one ITPD assignment team submission.
 
 `{ASSIGNMENT_DIR}` is the assignment directory, for example `A1` or `A2`.
 `{TEAM_DIR}` is the team's exact submission directory name, for example `Team 5 - TmpTeam_12345_assignsubmission_file (1)`.
@@ -8,7 +8,7 @@ It contains spaces and parentheses.
 It stays a name rather than an absolute path because every helper script takes it as the directory name and joins it under `submissions/` or `work/`, so pass it quoted.
 `{TEAM_WORK}` is the absolute path of the team work directory, for example `/home/<user>/itpd-autochecker/itpd-assignments-feedback/A3/work/Team 5 - TmpTeam_12345_assignsubmission_file (1)`; the operator supplies it, and its last component is the exact `{TEAM_DIR}` name.
 
-A grader never changes directory and runs every command from the repository root, and it quotes every path that contains a team directory name or `{TEAM_DIR}`, including `{TEAM_WORK}` and every path built from it.
+A compliance agent never changes directory and runs every command from the repository root, and it quotes every path that contains a team directory name or `{TEAM_DIR}`, including `{TEAM_WORK}` and every path built from it.
 Do not assemble a team path with `cd`; use the absolute `{TEAM_WORK}` path the operator supplies.
 
 ## Environment
@@ -49,7 +49,7 @@ Follow the operator request to choose one of these modes:
    - Patch with `uv run python scripts/regrade_feedback_segments.py` using a structured `segment_updates` payload.
      Use `uv run python scripts/patch_feedback_report.py` as the low-level fallback.
 4. `segment inspect`
-   - Used when the operator asks what the grader currently sees for specific segments.
+   - Used when the operator asks what the compliance agent currently sees for specific segments.
    - Read the existing `agent-feedback.md` first and do not edit any files.
    - Separate the saved report state from any fresh checks.
 
@@ -75,7 +75,7 @@ It re-checks every segment, keeps the saved work, and can change a status only o
 - Rebuild `payload.json` rather than editing the report prose:
   write the payload first and render the report last, so `scripts/check_batch_ready.py` sees the report at or after the payload's mtime.
 - Validate the report, run both privacy scans, and finish with the standard return line plus the status diff and the corrections.
-- One writer per team: never run a full regrade beside another grader for the same team.
+- One writer per team: never run a full regrade beside another compliance agent for the same team.
   Before extraction, the operator passes every active team to `scripts/check_batch_ready.py {ASSIGNMENT_DIR} --active "<team_dir>"`, so a regrade batch never extracts while a writer is running.
 
 ### Audit each segment
@@ -100,7 +100,7 @@ The audit is the point of the mode: the A4 regrade found saved reports that cite
 - Submission: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/submissions/{TEAM_DIR}/` (the Moodle PDF report)
 - Team work directory: `{TEAM_WORK}`, the absolute path of `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}/` (gitignored by the feedback repository).
   The operator supplies it; use it for every intermediate file: API dumps, commit lists, fetched pages, images, payloads.
-  Other graders run in parallel, so never write to a shared scratchpad, to `/tmp` directly, or into another team's directory, and never read another team's files.
+  Other compliance agents run in parallel, so never write to a shared scratchpad, to `/tmp` directly, or into another team's directory, and never read another team's files.
 - Snapshot working copy, fetched from GitHub at the permalink SHA: `{TEAM_WORK}/snapshot/`.
   It is disposable: every review rebuilds it, and it can be deleted after grading.
 - Report: `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-feedback.md`
@@ -119,7 +119,7 @@ These rules override any step that would otherwise read a whole dump or emit unb
 Start with the bounded digest: read `{TEAM_WORK}/summary.md` first.
 It carries the issue counts, the pull-request numbers, the failing runs, the tags, and each milestone's due date with its open and closed issue counts, in at most 60 lines.
 
-The dumps are large: `commits.json` reached 1.35 MB and `prs.json` 284 KB, and reading one whole has killed grader runs.
+The dumps are large: `commits.json` reached 1.35 MB and `prs.json` 284 KB, and reading one whole has killed compliance runs.
 Never read a whole dump into context.
 Open one only through a bounded projection that prints at most about 40 lines, for example:
 
@@ -188,7 +188,7 @@ Runs, commits, tags, releases, comments, and edit history are not in the databas
 
 ### Judging at the cutoff
 
-The `cutoffs` table holds the team's `ISSUE_CUTOFF` from `tools/grader_tools/assignment_config.py`, so `Team 2 - OK_10938_assignsubmission_file` gets its later Monday cutoff without the grader copying a date.
+The `cutoffs` table holds the team's `ISSUE_CUTOFF` from `tools/grader_tools/assignment_config.py`, so `Team 2 - OK_10938_assignsubmission_file` gets its later Monday cutoff without the compliance agent copying a date.
 `issue_events` holds one row per issue-timeline event, and `issue_state_at_cutoff` reconstructs the state at that cutoff. Read it before the current state:
 
 ```sql
@@ -376,26 +376,25 @@ The collector writes `issues/<n>.timeline.json` and rebuilds `evidence.sqlite`, 
   Unresolved bullets for untouched gap segments are carried over automatically.
 - In `segment inspect` mode, do not write any files.
 
-## Semantic feedback
+## Handoff to the semantic agent
 
-When the operator asks for semantic feedback, write the optional companion file `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-semantic-feedback.md`, following `docs/semantic-feedback-format.md` and the assignment prompt's `## Semantic feedback` section.
+The semantic pass is a separate agent, `agents/semantic-agent.md`.
+Do not write `agent-semantic-feedback.md` from this prompt, and do not edit a saved semantic file during a regrade: the semantic agent owns it.
 
-- Write it after the structural report is validated, and only from the evidence that report already cites.
-  Do not collect a new dump, re-fetch the snapshot, or call `gh` for it; when the report does not settle a dimension, omit that dimension.
-- It is a judgement about whether the artifacts do their job, not a second status list: it never changes a status, an `Evidence gaps` flag, `Manual review required`, the overall assessment, or the grade.
-  A segment may be `met` while its dimension is `thin`.
-- No status vocabulary, grade, score, rank, cross-team comparison, or `None`.
-  Do not repeat the `## Main issues to fix` list; say what breaks first and for whom.
-- Validate it, then scan it for private-only material:
+- Finish this review with a validated report and a disposable work directory.
+  Leave `agent-feedback.md`, `payload.json`, `summary.md`, `inventory.md`, `evidence.sqlite`, `pdf-info.json`, and `snapshot/` in `{TEAM_WORK}` for the semantic agent.
+- Write the snapshot inventory before the handoff when it is missing, so the semantic agent reads one short tree digest instead of walking the snapshot:
 
   ```console
-  uv run python scripts/check_semantic_feedback.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-semantic-feedback.md"
-  uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-semantic-feedback.md"
+  uv run python scripts/snapshot_inventory.py {ASSIGNMENT_DIR} "{TEAM_DIR}"
   ```
 
-- In `full regrade` mode, re-read the saved semantic file and correct it like the report's claims: every claim keeps a link to the snapshot or a live URL, and a claim the evidence no longer supports is corrected or removed.
-  It is not part of the status audit and it never changes a status.
-- One writer per team: the semantic file shares the team directory with `agent-feedback.md`, so never write it beside another grader working that team.
+- The semantic agent starts from the report as a map, then verifies its own load-bearing claims against the snapshot at the saved SHA and the saved evidence.
+  It never changes a status, an `Evidence gaps` flag, `Manual review required`, the overall assessment, or the grade.
+- If the semantic agent reports a contradiction with a status, treat it as a regrade request.
+  Audit the claim in the normal mode and correct the report; never soften the report to fit the semantic file, and never soften the semantic file to fit the report.
+- A report change makes the saved semantic file stale.
+  The operator reruns the semantic agent after the report is final; this prompt does not patch the semantic file in place.
 
 ## Full regrade output
 

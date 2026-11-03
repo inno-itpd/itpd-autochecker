@@ -11,9 +11,12 @@
 ├── opencode.json              # opencode config (loads AGENTS.md)
 ├── .dsh/cordis.patch.yml      # dsh MCP overlay (Backlog + codebase-memory), passed with --patch
 ├── grading.json               # {"team_batch_size": N, "max_agent_resumes": M} for parallel reviews
-├── agents/grader.md           # Canonical one-team grader prompt
-├── .opencode/agents/grader.md # opencode wrapper → agents/grader.md
-├── .claude/agents/grader.md   # Claude Code wrapper → agents/grader.md
+├── agents/                    # Role prompts and the handoff contract
+│   ├── README.md              # Roles, handoff, launch order
+│   ├── compliance-agent.md    # Canonical one-team compliance prompt
+│   └── semantic-agent.md      # Canonical semantic feedback prompt
+├── .opencode/agents/          # opencode wrappers → agents/*.md
+├── .claude/agents/            # Claude Code wrappers → agents/*.md
 ├── .agents/skills/commit-itpd/ # commit skill for this repo's Git conventions
 ├── .opencode/command/commit.md # /commit command → commit-itpd skill
 ├── docs/
@@ -31,10 +34,11 @@
 └── itpd-assignments-feedback/ # Submodule: assignment data and feedback
     └── A<N>/
         ├── submissions/       # Moodle export, committed: <team_dir>/*.pdf
-        ├── work/<team_dir>/   # (gitignored, disposable) per-team grader work, so parallel workers never collide
+        ├── work/<team_dir>/   # (gitignored, disposable) per-team agent work, so parallel workers never collide
         │   ├── pdf-info.json  # PDF metadata, permalink, member tokens (mode 0600)
         │   ├── *.json         # GitHub evidence dumps: labels, issues, prs, runs, commits
         │   ├── evidence.sqlite # SQLite projection of the dumps, rebuilt by --summary
+        │   ├── semantic-claims.json # semantic agent's verified-claim ledger
         │   ├── resume-count.json # resume attempts spent per team, so a restart keeps the budget
         │   └── snapshot/      # repository fetched from GitHub at the permalink SHA
         ├── feedback/<team_dir>/agent-feedback.md
@@ -61,8 +65,8 @@
 - ITPD assignments are not scored with points.
   Each segment gets a status: `met`, `partial`, `missing`, or `unverified`.
   The instructor decides the grade.
-- The grader gets only the Moodle PDF; there is no ZIP.
-  The PDF carries a permalink to `reports/week-NN/README.md` at the full SHA, and the grader fetches the snapshot from GitHub at that SHA.
+- The compliance agent gets only the Moodle PDF; there is no ZIP.
+  The PDF carries a permalink to `reports/week-NN/README.md` at the full SHA, and the compliance agent fetches the snapshot from GitHub at that SHA.
 - `A<N>/itpd` pins the course repository (`inno-itpd/itpd`) at the commit the assignment is reviewed against.
   A1 is pinned to `fe58ba7`, the version published at the Week 1 deadline; A2 to `a949e8d`, A3 to `23b22a6`, the merge of `week-3` on 2026-10-14, A4 to `35c9294`, the merge of `week-4` on 2026-10-21, and A5 to `0173b82`, the merge of `week-5` on 2026-10-28.
   A4's Week 4 deadline was extended after the pin: Sunday 25 October 2026 for every team except `Team 2 - OK_10938_assignsubmission_file`, which has Monday 26 October 2026.
@@ -78,49 +82,55 @@ Outside the repository uv does not discover `uv.toml` and fails with `Could not 
 If a command must run from elsewhere, pass `--config-file <repo>/uv.toml` or set `UV_CACHE_DIR` to a writable directory.
 
 1. Unpack the Moodle export into `itpd-assignments-feedback/A<N>/submissions/`, one directory per team.
-2. Run `uv run python scripts/preflight.py` before a grader batch; it prints the `grading.json` batch size and resume cap, then checks `gh` auth, `pdftotext`, and `markdownlint-cli2`.
-3. Review teams with the grader agent (see below).
-   **Keep every team's `work/<team_dir>/` until the batch has been extracted in step 6**, because the final `scripts/scan_privacy.py` run reads `pdf-info.json` and the fetched snapshot from it.
+2. Run `uv run python scripts/preflight.py` before a review batch; it prints the `grading.json` batch size and resume cap, then checks `gh` auth, `pdftotext`, and `markdownlint-cli2`.
+3. Review teams with the compliance agent (see below).
+   **Keep every team's `work/<team_dir>/` until the batch has been extracted in step 7**, because the semantic pass and the final `scripts/scan_privacy.py` run both read `pdf-info.json` and the fetched snapshot from it.
 4. Validate changed reports with `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>`, then run `markdownlint-cli2 --fix "itpd-assignments-feedback/A<N>/feedback/**/*.md"`.
-5. Check batch readiness before extraction: run `list_agents` and stop while any grader for the batch is still running, then run `uv run python scripts/check_batch_ready.py A<N> [--active "<team_dir>" ...]`, passing every team `list_agents` still reports as running or registered.
+5. For an assignment that defines `semantic_dimensions`, run one semantic agent per team after its report is final (see below).
+   Validate each companion with `uv run python scripts/check_semantic_feedback.py A<N> <agent-semantic-feedback.md>` and scan it for private-only material.
+   The semantic file is report-only: the extractor ignores it.
+6. Check batch readiness before extraction: run `list_agents` and stop while any compliance or semantic agent for the batch is still running, then run `uv run python scripts/check_batch_ready.py A<N> [--active "<team_dir>" ...]`, passing every team `list_agents` still reports as running or registered.
    Refuse extraction while the gate exits non-zero.
-6. Run `uv run python A<N>/extract_feedback.py` to regenerate `dev.md` and `feedback_release.csv`.
+7. Run `uv run python A<N>/extract_feedback.py` to regenerate `dev.md` and `feedback_release.csv`.
    A team whose resume budget was spent and never finished is left out of both exports and named in the extractor warnings.
-7. Review the extractor warnings and fix malformed reports.
+8. Review the extractor warnings and fix malformed reports.
 
 ## Re-grading a batch
 
-A regrade is a first-class grader mode, not a re-render of the saved report.
-`agents/grader.md` defines four modes: `full review` (a first review), `full regrade` (re-audit every segment of a saved report), `partial regrade` (named segments), and `segment inspect` (read-only).
+A regrade is a first-class compliance mode, not a re-render of the saved report.
+`agents/compliance-agent.md` defines four modes: `full review` (a first review), `full regrade` (re-audit every segment of a saved report), `partial regrade` (named segments), and `segment inspect` (read-only).
 
-1. Launch one grader per team in `full regrade` mode, passing the assignment directory, the exact team directory name, and the absolute `{TEAM_WORK}` path.
+1. Launch one compliance agent per team in `full regrade` mode, passing the assignment directory, the exact team directory name, and the absolute `{TEAM_WORK}` path.
    A full regrade must preserve `work/<team_dir>/`: it reuses `pdf-info.json`, re-fetches only `snapshot/` at the saved SHA, and rebuilds `summary.md` and `evidence.sqlite` from the saved dumps.
-2. The grader audits every segment, rebuilds `itpd-assignments-feedback/A<N>/work/<team_dir>/payload.json`, renders the report last, validates it, and runs both privacy scans.
+2. The compliance agent audits every segment, rebuilds `itpd-assignments-feedback/A<N>/work/<team_dir>/payload.json`, renders the report last, validates it, and runs both privacy scans.
    It returns the standard report line plus `changes: S<n> <old> -> <new> (<reason>)` and `corrections: <saved claim> -> <what the evidence shows>`.
-3. Keep one writer per team: interrupt a duplicate before resuming a session, and never run a second regrade beside one that is still running.
-4. Check batch readiness as in the workflow above, passing every team `list_agents` still reports as running or registered with `--active`.
-5. Validate the changed reports, run `markdownlint-cli2 --fix`, and re-run `A<N>/extract_feedback.py`.
+3. After the report is final, rerun the semantic agent in `semantic regrade` mode when the team has a companion file.
+   The report hash changed, so the saved semantic file is stale; the compliance agent never edits it.
+4. Keep one writer per team: interrupt a duplicate before resuming a session, and never run a second regrade beside one that is still running.
+5. Check batch readiness as in the workflow above, passing every team `list_agents` still reports as running or registered with `--active`.
+6. Validate the changed reports, run `markdownlint-cli2 --fix`, and re-run `A<N>/extract_feedback.py`.
    The optional `## Suggested next steps` section is report-only: `dev.md` and `feedback_release.csv` keep exporting `## Summary` alone.
+   The semantic companion is report-only too.
 
-## Reviewing teams with the grader agent
+## Reviewing teams with the compliance agent
 
-`agents/grader.md` is the executable prompt for one team.
+`agents/compliance-agent.md` is the executable prompt for one team.
 It uses `{ASSIGNMENT_DIR}` (for example `A1`), `{TEAM_DIR}` (the exact submission directory name, including spaces and parentheses), and `{TEAM_WORK}` (the absolute path of `itpd-assignments-feedback/{ASSIGNMENT_DIR}/work/{TEAM_DIR}`) as placeholders.
 
 When the user asks to review or re-review teams:
 
-1. Read `agents/grader.md`.
+1. Read `agents/compliance-agent.md`.
 2. Read `grading.json` and use `team_batch_size` as the batch size and `max_agent_resumes` as the per-team resume cap.
    Default to `8` and `4` if the file or a value is missing or invalid.
 3. Pick the teams: the ones the user names, or every directory in `itpd-assignments-feedback/A<N>/submissions/` that has no `feedback/<team_dir>/agent-feedback.md` yet.
    A segment count always comes from `ASSIGNMENT_CONFIG[A<N>]["segment_defs"]` in `tools/grader_tools/assignment_config.py`, never from another assignment's number.
 4. For each batch, launch one subagent per team in parallel:
-   - Claude Code: the `grader` agent (`.claude/agents/grader.md`).
-   - opencode: the `grader` subagent (`.opencode/agents/grader.md`) via the `task` tool.
+   - Claude Code: the `compliance-agent` agent (`.claude/agents/compliance-agent.md`).
+   - opencode: the `compliance-agent` subagent (`.opencode/agents/compliance-agent.md`) via the `task` tool.
    - Pass the assignment directory, the exact team directory name, the absolute path of the team work directory (`itpd-assignments-feedback/A<N>/work/<team_dir>`), and the mode in the prompt.
-   - Tell the grader to quote the team directory name and every path built from it: team names contain spaces and parentheses.
+   - Tell the compliance agent to quote the team directory name and every path built from it: team names contain spaces and parentheses.
    - Workers write disjoint paths (feedback and `work/` per team), so they need no coordination.
-5. When a grader run fails, do not launch a fresh subagent first.
+5. When a compliance run fails, do not launch a fresh subagent first.
    Check `list_agents`: if the team's session still exists and is resumable, continue it with `send_message`, telling it to read the saved report and payload and continue rather than start over.
    Resume at most `max_agent_resumes` times per team, counting only the `send_message` resumes you send; each resume must leave progress on disk (payload rewritten, report re-rendered) before the next one.
    Record every resume first with `uv run python scripts/record_resume.py A<N> "<team_dir>"`; it persists the count in `work/<team_dir>/resume-count.json` and exits 1 once the budget is spent.
@@ -129,15 +139,33 @@ When the user asks to review or re-review teams:
    Launch a replacement subagent only when that session cannot be resumed and no writer for the team is active, or when the resume cap is spent and the operator asks for a replacement.
    Never run two writers for one team: interrupt the duplicate before resuming, because two writers on one report and payload leave a half-rendered report that `scripts/check_batch_ready.py` refuses.
 6. If subagents are unavailable, review sequentially without asking.
-7. After all batches, run the pre-extraction gate, the lint, and the extraction steps from the workflow above.
+7. After all compliance batches, run the semantic pass for assignments with `semantic_dimensions`, then the pre-extraction gate, the lint, and the extraction steps from the workflow above.
 
-## Grader helper scripts
+## Reviewing semantic feedback
+
+`agents/semantic-agent.md` is the executable prompt for one semantic pass.
+It uses the same `{ASSIGNMENT_DIR}`, `{TEAM_DIR}`, and `{TEAM_WORK}` placeholders.
+
+1. Run it only for an assignment that defines `semantic_dimensions` in `tools/grader_tools/assignment_config.py`, currently A5.
+   The team's `agent-feedback.md` must be final and must pass `scripts/check_feedback_report.py`.
+2. Read `agents/semantic-agent.md`.
+3. Launch one semantic agent per team in `semantic review` mode, passing the assignment directory, the exact team directory name, and the absolute work-directory path.
+   Reuse the same `team_batch_size`; a semantic agent is lighter than a compliance agent, but the provider concurrency limit is unchanged.
+4. Keep one writer per team: the semantic agent writes only `agent-semantic-feedback.md` and `work/<team_dir>/semantic-claims.json`, and never edits the report.
+5. When the semantic agent reports a conflict with a status, schedule a compliance regrade.
+   Rerun the semantic agent after the report is final; never edit either file to remove the conflict.
+6. Resume a failed semantic session separately with `send_message`.
+   A semantic failure does not invalidate the report; do not rerun the compliance agent for it, and never launch a fresh semantic agent while one is running.
+7. Validate the companion with `scripts/check_semantic_feedback.py` and scan it for private-only material.
+   Extraction ignores it: the semantic file is report-only.
+
+## Agent helper scripts
 
 All run from the repository root and print counts and paths only.
-`agents/grader.md` uses them in its Steps section and keeps the raw `gh` and `jq` commands as fallback.
+The compliance and semantic prompts use them and keep the raw `gh` and `jq` commands as fallback.
 
 - `uv run python scripts/preflight.py` — prints the `grading.json` batch size and resume cap, then checks `gh` auth, `pdftotext`, and `markdownlint-cli2` before a batch.
-- `uv run python scripts/check_batch_ready.py A<N> [--active "<team_dir>" ...]` — pre-extraction gate: refuses a team whose grader `list_agents` still reports as running or registered (pass each team on `--active`, because a script cannot call `list_agents`), a non-empty work directory with no report, and a report older than `work/<team_dir>/payload.json`; exit codes 0 ready, 1 not ready, 2 usage error.
+- `uv run python scripts/check_batch_ready.py A<N> [--active "<team_dir>" ...]` — pre-extraction gate: refuses a team whose compliance or semantic agent `list_agents` still reports as running or registered (pass each team on `--active`, because a script cannot call `list_agents`), a non-empty work directory with no report, and a report older than `work/<team_dir>/payload.json`; exit codes 0 ready, 1 not ready, 2 usage error.
 - `uv run python scripts/record_resume.py A<N> "<team_dir>" [--show | --done] [--work-root <dir>]` — records one `send_message` resume in `work/<team_dir>/resume-count.json`, prints `resumes n/m - resumable|blocked|finished`, and exits 0 while resumable or finished, 1 once the budget is spent, 2 on a bad assignment; `--show` reads without writing and `--done` clears the block after the final report.
 - `uv run python scripts/fetch_team_snapshot.py A<N> "<team_dir>" [--repo org/repo] [--permalink <url>]` — PDF permalink (a bare SHA is resolved with `gh search commits`, or paired with `--repo` and recorded as `permalink_source=operator`), recording, page-count, and member-token extraction; commit and `main` check; snapshot refetch; writes `itpd-assignments-feedback/A<N>/work/<team_dir>/pdf-info.json`.
   It derives `permalink_week` from the permalink path, compares it with the assignment's `week` as `expected_week`, and records both plus `permalink_week_mismatch`.
@@ -149,13 +177,14 @@ All run from the repository root and print counts and paths only.
   Every write mode also rebuilds the `evidence.sqlite` projection, and `--summary` rebuilds it and the digest from the saved dumps, `issue-fields.json`, and the saved timelines without calling `gh`.
 - `uv run python scripts/check_snapshot_links.py <snapshot_dir> [--issue-bodies <issues.json>]` — broken relative links, missing anchors, and pre-cut research anchors.
 - `uv run python scripts/scan_privacy.py A<N> "<team_dir>" [--feedback <agent-feedback.md>] [--no-snapshot]` — privacy findings grouped per file with a hit count plus per-rule hit and file totals, by path and kind only; `--no-snapshot` with `--feedback` derives the tokens from the submission PDF after `work/<team_dir>/` is cleaned.
-- `uv run python scripts/snapshot_inventory.py A<N> "<team_dir>" [--snapshot <dir>] [--output <path>]` — writes `work/<team_dir>/inventory.md`, a bounded digest of the fetched snapshot: the root files, the `QR-nn`, `FR-nnn`, and `ADR-nnn` counts, the `docs/` and `reports/` trees, the workflow names, and the site-config candidates; it prints the path and the counts only, so a grader reads one short file instead of walking the tree.
+- `uv run python scripts/snapshot_inventory.py A<N> "<team_dir>" [--snapshot <dir>] [--output <path>]` — writes `work/<team_dir>/inventory.md`, a bounded digest of the fetched snapshot: the root files, the `QR-nn`, `FR-nnn`, and `ADR-nnn` counts, the `docs/` and `reports/` trees, the workflow names, and the site-config candidates; it prints the path and the counts only, so an agent reads one short file instead of walking the tree.
 - `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>` — report validation plus `markdownlint-cli2` in one command.
 - `uv run python scripts/check_semantic_feedback.py A<N> <agent-semantic-feedback.md>` — companion-file validation plus `markdownlint-cli2`; it also compares the team, repository, and snapshot with the sibling `agent-feedback.md`.
+  It does not read the claim ledger yet; `work/<team_dir>/semantic-claims.json` is the semantic agent's audit trail.
 - `uv run python scripts/render_feedback_report.py A<N> <payload.json>` — renders a complete report from one structured payload.
 - `uv run python scripts/image_info.py <files>` — PNG and JPEG dimensions, byte size, and PNG transparency.
 
-The `pdf-info.json` keys and the dump file names are documented under Paths in `agents/grader.md`.
+The `pdf-info.json` keys and the dump file names are documented under Paths in `agents/compliance-agent.md`.
 
 ## Evidence database
 
@@ -256,8 +285,10 @@ Decision rules:
 
 1. `git submodule add https://github.com/inno-itpd/itpd A<N>/itpd`, then check out the commit the assignment is reviewed against.
 2. Write `A<N>/grading_prompt.md` with `## Authoritative sources`, `## Assignment parameters` (with the `- S<n>: <name>` lines), and `## Status guide`.
+   Add a `## Semantic feedback` section only when the assignment has semantic dimensions; the semantic agent reads only that section of the prompt.
 3. Add `A<N>` to `tools/grader_tools/assignment_config.py`: segment names identical to the prompt, plus `primary_index`, `week_window_start`, and `issue_cutoff` as ISO 8601 Innopolis (UTC+3) strings.
    Add `team_issue_cutoffs`, keyed by the exact `submissions/` directory name, when one team's deadline differs from the assignment's; `issue_cutoff_for` returns the team's value.
+   Add `semantic_dimensions` only when the prompt defines the `## Semantic feedback` section; the semantic pass is launched only for those assignments.
    The grading prompt states the same per-team rule, so keep the two in step.
    `scripts/fetch_team_snapshot.py`, `collect_github_evidence.py`, `scan_privacy.py`, `check_feedback_report.py`, and `render_feedback_report.py` all read this config.
 4. Copy `A1/extract_feedback.py` to `A<N>/` and change `ASSIGNMENT`.
@@ -296,26 +327,29 @@ Pass the overlay explicitly when launching `dsh` from the checkout root, for exa
 
 These are the failure modes the A3 and A4 batches produced, with the remedy for each.
 
-- **Context blowup:** the A3 batch lost 14 grader runs to oversized input; `commits.json` reached 1.35 MB and `prs.json` 284 KB.
+- **Context blowup:** the A3 batch lost 14 compliance agent runs to oversized input; `commits.json` reached 1.35 MB and `prs.json` 284 KB.
   Read `summary.md` first, open a dump only through a projection capped at about 40 lines, and prefer four small projections over one large read.
   If a command's output is unexpectedly large, stop, narrow it, and continue, and never re-read a file you already summarized.
-  The same rules are in the `## Context budget` section of `agents/grader.md`.
-- **Provider 403:** four of seven A3 grader runs died within seconds with `403 "Access denied by security policy."` (`code: AUTH`) after running 5 to 10 minutes.
+  The same rules are in the `## Context budget` sections of `agents/compliance-agent.md` and `agents/semantic-agent.md`.
+- **Provider 403:** four of seven A3 compliance agent runs died within seconds with `403 "Access denied by security policy."` (`code: AUTH`) after running 5 to 10 minutes.
   In the A3 batch the harness auto-resumed them; in the A4 Teams 2 and 9 batch it did not, so the operator resumes them by hand as the next bullet describes.
   Because a fresh retry had already started for two of the A3 teams, Teams 1 and 4 briefly had two writers on the same report and payload; interrupt the duplicate before resuming.
   Every retry at four-way concurrency succeeded, so the limit was the provider, not the batch size: the batch size was not lowered, and the documented batch size stayed at 8.
-  Treat a 403 as a resumable session and follow the resume rules in `## Reviewing teams with the grader agent`; never start a new writer for a team that still has one.
-- **Silent turn death, not context overflow:** in the A4 Teams 2 and 9 batch, nine grader turns ended with no closing message: four with the same `403 "Access denied by security policy."` (`AUTH`), plus `Request timed out.` (`TIMEOUT`), `error code: 520` (`SERVER`), and `Connection error.` (`TRANSPORT`).
+  Treat a 403 as a resumable session and follow the resume rules in `## Reviewing teams with the compliance agent`; never start a new writer for a team that still has one.
+- **Silent turn death, not context overflow:** in the A4 Teams 2 and 9 batch, nine compliance agent turns ended with no closing message: four with the same `403 "Access denied by security policy."` (`AUTH`), plus `Request timed out.` (`TIMEOUT`), `error code: 520` (`SERVER`), and `Connection error.` (`TRANSPORT`).
   Input length is not the explanation, so do not shrink the batch or the prompt on that theory: `request/context` in the transcript gives a 1,048,576-token window, the conversation peaked near 1.6M characters, and the largest-context turns finished while Team 9 died at under half that size.
   The `policyKey` on the `llm/retry` records retries `EMPTY_RESPONSE`, `RATE_LIMIT`, `SERVER`, `TIMEOUT`, and `TRANSPORT` up to five times but never `AUTH`, so a policy 403 ends the turn at once and the subagent is reported as failed rather than auto-resumed.
   Read `~/.dsh/sessions/<workspace>/<agent-id>/session.v4.jsonl.zstd` with `zstdcat` and check the `turn/end` reasons and the `assistant/attempt` failures before blaming the prompt.
-  The remedy recovered both teams without a replacement grader: resume the same session with `send_message`, and make each resume cheap:
+  The remedy recovered both teams without a replacement compliance agent: resume the same session with `send_message`, and make each resume cheap:
 
-  1. Have the grader write `work/<team_dir>/payload.json` and render once before deep analysis, so even an empty payload leaves a valid all-placeholder report on disk.
+  1. Have the compliance agent write `work/<team_dir>/payload.json` and render once before deep analysis, so even an empty payload leaves a valid all-placeholder report on disk.
   2. Then judge 2 to 4 segments per batch, rewriting the payload and re-rendering after each one.
   3. Shrink to one or two segments per turn when turns keep dying, and check the judged segment count in the payload before re-sending a batch, because a message that arrives as a turn ends is never executed.
   4. Skip the collector rerun and the snapshot refetch on resume: they add context without adding evidence.
-  5. Write `work/<team_dir>/inventory.md` with `scripts/snapshot_inventory.py` and tell the grader to read it instead of exploring the tree.
+  5. Write `work/<team_dir>/inventory.md` with `scripts/snapshot_inventory.py` and tell the compliance agent to read it instead of exploring the tree.
+- **Semantic pass without a clean handoff:** the semantic agent stops when `agent-feedback.md` is missing or invalid, when the snapshot is gone, or when the report's snapshot SHA does not match `pdf-info.json`.
+  That is a handoff failure, not a semantic finding: finish or repair the compliance run first, and do not let the semantic agent re-fetch the snapshot or edit the report.
+  A semantic conflict with a status is a regrade request; the operator schedules the compliance regrade and then reruns the semantic agent.
 - **Bare-SHA PDF:** a submission PDF may carry only `Submission commit: <sha40>` and no GitHub URL.
   `scripts/fetch_team_snapshot.py` resolves it with `gh search commits <sha> --json repository --jq 'map(.repository.fullName) | unique'` and adopts the repository only when exactly one matches; zero or several matches keep the stop path and name the candidates and the command tried.
   The operator override is `scripts/fetch_team_snapshot.py A<N> "<team_dir>" --repo org/repo`, recorded as `permalink_source=operator`.
@@ -325,7 +359,7 @@ These are the failure modes the A3 and A4 batches produced, with the remedy for 
   Do not grade the wrong-week target: the mismatch is a submission shortfall in the week-report-and-submission segment (S13 in A5, S15 in A4, S12 in A3), and the operator supplies the right permalink with `scripts/fetch_team_snapshot.py A<N> "<team_dir>" --permalink <url>`, recorded as `permalink_source=operator`; the fetched snapshot then still governs every file check.
   `scripts/collect_github_evidence.py --summary` repeats the warning from `pdf-info.json`, so a later digest does not drop it.
 - **Cleaned work directory:** `scripts/scan_privacy.py` needs `pdf-info.json` and the fetched snapshot by default, so deleting `work/<team_dir>/` early breaks the final privacy gate.
-  Keep `work/<team_dir>/` until the batch is extracted; when it was already cleaned, scan the report with tokens derived from the submission PDF: `scripts/scan_privacy.py A<N> "<team_dir>" --feedback <report> --no-snapshot`.
+  Keep `work/<team_dir>/` until the batch is extracted and the semantic pass is done; when it was already cleaned, scan the report with tokens derived from the submission PDF: `scripts/scan_privacy.py A<N> "<team_dir>" --feedback <report> --no-snapshot`.
   `--no-snapshot` without `--feedback` is an error, because the report scan still needs the PDF for its tokens.
 - **`uv` Cause 1 — read-only cache:** `uv run` fails with `Could not acquire lock` / `Read-only file system (os error 30)` at `~/.cache/uv`, and uv never reached the interpreter.
   Run uv from inside the checkout, where `uv.toml` puts the cache in `.local/uv-cache`; outside it, pass `--config-file <repo>/uv.toml`, or set `UV_CACHE_DIR` to a writable directory.
