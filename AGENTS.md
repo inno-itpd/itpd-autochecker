@@ -18,7 +18,8 @@
 ├── .opencode/command/commit.md # /commit command → commit-itpd skill
 ├── docs/
 │   ├── grader-policy.md            # General grading policy
-│   └── grading-feedback-format.md  # Canonical feedback report format
+│   ├── grading-feedback-format.md  # Canonical feedback report format
+│   └── semantic-feedback-format.md # Companion semantic feedback file
 ├── A<N>/
 │   ├── grading_prompt.md      # Segments and status guide for the assignment
 │   ├── extract_feedback.py    # Feedback → dev.md + feedback_release.csv
@@ -37,6 +38,7 @@
         │   ├── resume-count.json # resume attempts spent per team, so a restart keeps the budget
         │   └── snapshot/      # repository fetched from GitHub at the permalink SHA
         ├── feedback/<team_dir>/agent-feedback.md
+        ├── feedback/<team_dir>/agent-semantic-feedback.md  # optional judgement companion
         ├── dev.md             # Instructor triage table
         └── feedback_release.csv
 ```
@@ -149,6 +151,7 @@ All run from the repository root and print counts and paths only.
 - `uv run python scripts/scan_privacy.py A<N> "<team_dir>" [--feedback <agent-feedback.md>] [--no-snapshot]` — privacy findings grouped per file with a hit count plus per-rule hit and file totals, by path and kind only; `--no-snapshot` with `--feedback` derives the tokens from the submission PDF after `work/<team_dir>/` is cleaned.
 - `uv run python scripts/snapshot_inventory.py A<N> "<team_dir>" [--snapshot <dir>] [--output <path>]` — writes `work/<team_dir>/inventory.md`, a bounded digest of the fetched snapshot: the root files, the `QR-nn`, `FR-nnn`, and `ADR-nnn` counts, the `docs/` and `reports/` trees, the workflow names, and the site-config candidates; it prints the path and the counts only, so a grader reads one short file instead of walking the tree.
 - `uv run python scripts/check_feedback_report.py A<N> <agent-feedback.md>` — report validation plus `markdownlint-cli2` in one command.
+- `uv run python scripts/check_semantic_feedback.py A<N> <agent-semantic-feedback.md>` — companion-file validation plus `markdownlint-cli2`; it also compares the team, repository, and snapshot with the sibling `agent-feedback.md`.
 - `uv run python scripts/render_feedback_report.py A<N> <payload.json>` — renders a complete report from one structured payload.
 - `uv run python scripts/image_info.py <files>` — PNG and JPEG dimensions, byte size, and PNG transparency.
 
@@ -247,6 +250,7 @@ Decision rules:
 - `feedback_release.csv` uses `|` as the delimiter: `group|s1..sN|manual_review|feedback`.
 - Only the `## Summary` section goes into the release feedback column.
   The optional `## Suggested next steps` section is report-only, so the extractor ignores it and no export changes.
+  The optional `agent-semantic-feedback.md` companion is report-only too: the extractor ignores it, and the full report directory carries it.
 
 ## Adding a new assignment
 

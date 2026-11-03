@@ -983,6 +983,71 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - The AI usage report's file is the disclosure; a one-line "no AI" answer is valid when the traces agree.
 - The report's honesty about a fallback, such as a VM that was not available, is judged in S4 and S13; this segment judges only that the Week 5 prose does not claim what the artifacts contradict.
 
+## Semantic feedback
+
+`agent-semantic-feedback.md` is the optional companion file defined in `docs/semantic-feedback-format.md`.
+Write it after the structural report, from the evidence that report already contains, and only when the operator asks for it.
+It never changes a status, an `Evidence gaps` flag, `Manual review required`, the overall assessment, or the grade; a segment may be `met` while its dimension is `thin`.
+
+The five dimensions, in this order:
+
+| Dimension | Segments | The question |
+|-----------|----------|--------------|
+| Setup | S3, S4 | Could a teammate who was not in the room redeploy, verify, and roll back on Monday, and would CI stop a broken critical module? |
+| Tests | S5, S6 | Does each QRT measure the requirement, and would the suite fail if the requirement's failure mode happened? |
+| Plan | S1, S2, S12 | Is the plan a forecast the team could steer by, written before the work? |
+| Customer loop | S8, S9, S10 | Did the review change what the team will build, and did the change reach production? |
+| Publication | S7, S11, S13, S14 | Can a reader who trusts the public record reproduce what production runs? |
+
+### Setup
+
+Ask whether a teammate who was not in the room could redeploy, verify, and roll back, and whether CI would fail on a broken critical module.
+Read the four environments, the staging and production separation by construction, the deploy and rollback commands, the verification record, the critical modules the testability requirement names, and the workflows' triggers, pins, named steps, clean checkout, and absence of a deploy.
+
+`thin` when the runbook defers the two steps a teammate cannot improvise, when staging and production share configuration or data, when the verification stops at a health endpoint, or when a critical module is compiled but never exercised.
+`not yet adequate` when the deploy cannot be followed from the runbook, or the released commit and the deployed commit disagree.
+
+### Tests
+
+Ask whether each test measures the requirement and whether the suite would fail when the requirement's failure mode happens.
+Read the `**Pass when:**` line against the response measure, the procedure, the level and `**Runs at:**`, the critical modules, the manual exception, and the testing plan's statuses and evidence.
+
+`thin` when a test exists but exercises the easy path, when the pass criterion drops the threshold, when the critical modules are compiled rather than tested, or when the plan marks a row `Passes` without level-appropriate evidence.
+`not yet adequate` when the tests do not measure the requirement at all, or the plan's result and the test's definition disagree.
+
+### Plan
+
+Ask whether the plan is a forecast the team could steer by, written before the work.
+Read the sprint goal, the plan and sprint milestones, the planning-time and closed-story velocity, the refinement state, the retrospective's causes, and the path history of `docs/project-plan.md`.
+
+`thin` when the plan was written after the sprint started, when the planned and actual figures are the same while the stories are still open, when the milestones are task bundles, or when the retrospective records no cause and carries nothing.
+`not yet adequate` when the plan carries no goal or no computed figure, or the sprint close contradicts the plan's own numbers.
+
+### Customer loop
+
+Ask whether the review changed what the team will build, and whether the change reached production.
+Read the script, the report, the transcript, the per-story verdicts, the decisions and the artifacts they changed, the action points and their due dates, the rework, and the released commit.
+
+`thin` when the decisions are shared rather than per-story, when no decision changes an acceptance criterion or the next sprint's scope, when the script was written after the meeting, or when the rework is recorded but not redeployed.
+`not yet adequate` when the meeting did not show the deployed product or its implemented tests, or the recorded decisions cannot be traced to any change.
+
+### Publication
+
+Ask whether a reader who trusts the public record can reproduce what production runs.
+Read the tag and its target, the release body, the changelog, the plan's `Checked QRs`, the week report's claims against the issues, pull requests, and runs, the features page, and the AI usage report.
+
+`thin` when the release record is complete but the evidence links stop at index pages, when the report's claims run ahead of the artifacts, or when the features page lists artifacts rather than capabilities.
+`not yet adequate` when the release does not name the production commit, or the public record contradicts the repository.
+
+### Guardrails
+
+- Ground every claim in the structural report's evidence; do not collect new evidence for this file.
+- Do not use status vocabulary (`met`, `partial`, `missing`, `unverified`), a grade, a score, a rank, or a cross-team comparison.
+- Do not repeat the `## Main issues to fix` list; say what the artifact can and cannot do yet, and what breaks first.
+- A `partial` or `missing` segment does not make its dimension `not yet adequate` by itself; judge the artifact, not the count.
+- If a judgement contradicts a status, the status wins and is fixed in a regrade; never soften the judgement to fit the status.
+- Omit a dimension whose segments are `unverified`; keep at least three.
+
 ## Assignment-specific procedure deltas
 
 1. Take the team set from the directory names under `itpd-assignments-feedback/A5/submissions/`.

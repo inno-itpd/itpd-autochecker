@@ -117,6 +117,7 @@ ASSIGNMENT_CONFIG: dict[str, dict] = {
             13: {"name": "Week report and submission"},
             14: {"name": "AI usage and honesty"},
         },
+        "semantic_dimensions": ["Setup", "Tests", "Plan", "Customer loop", "Publication"],
     },
 }
 

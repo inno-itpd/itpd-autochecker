@@ -376,6 +376,27 @@ The collector writes `issues/<n>.timeline.json` and rebuilds `evidence.sqlite`, 
   Unresolved bullets for untouched gap segments are carried over automatically.
 - In `segment inspect` mode, do not write any files.
 
+## Semantic feedback
+
+When the operator asks for semantic feedback, write the optional companion file `itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-semantic-feedback.md`, following `docs/semantic-feedback-format.md` and the assignment prompt's `## Semantic feedback` section.
+
+- Write it after the structural report is validated, and only from the evidence that report already cites.
+  Do not collect a new dump, re-fetch the snapshot, or call `gh` for it; when the report does not settle a dimension, omit that dimension.
+- It is a judgement about whether the artifacts do their job, not a second status list: it never changes a status, an `Evidence gaps` flag, `Manual review required`, the overall assessment, or the grade.
+  A segment may be `met` while its dimension is `thin`.
+- No status vocabulary, grade, score, rank, cross-team comparison, or `None`.
+  Do not repeat the `## Main issues to fix` list; say what breaks first and for whom.
+- Validate it, then scan it for private-only material:
+
+  ```console
+  uv run python scripts/check_semantic_feedback.py {ASSIGNMENT_DIR} "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-semantic-feedback.md"
+  uv run python scripts/scan_privacy.py {ASSIGNMENT_DIR} "{TEAM_DIR}" --feedback "itpd-assignments-feedback/{ASSIGNMENT_DIR}/feedback/{TEAM_DIR}/agent-semantic-feedback.md"
+  ```
+
+- In `full regrade` mode, re-read the saved semantic file and correct it like the report's claims: every claim keeps a link to the snapshot or a live URL, and a claim the evidence no longer supports is corrected or removed.
+  It is not part of the status audit and it never changes a status.
+- One writer per team: the semantic file shares the team directory with `agent-feedback.md`, so never write it beside another grader working that team.
+
 ## Full regrade output
 
 A full regrade changes only what the audit supports.
