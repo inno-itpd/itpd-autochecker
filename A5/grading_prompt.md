@@ -1064,7 +1064,7 @@ Read the tag and its target, the release body, the changelog, the plan's `Checke
    uv run python scripts/fetch_team_snapshot.py A5 "<team_dir>"
    ```
 
-   It records the extracted metadata in `itpd-assignments-feedback/A5/work/<team_dir>/pdf-info.json`: the team number, repository, permalink, full SHA, recording link, page count, GitHub usernames, the member name/email tokens for the step 16 privacy scan, and the permalink week it derives from the path.
+   It records the extracted metadata in `itpd-assignments-feedback/A5/work/<team_dir>/pdf-info.json`: the repository, permalink, full SHA, recording link, page count, GitHub usernames, the member name/email tokens for the step 16 privacy scan, and the permalink week it derives from the path.
    The fallback is to read the PDF directly and extract:
 
    - the project name and the team number;

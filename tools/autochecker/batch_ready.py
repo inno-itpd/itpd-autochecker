@@ -191,6 +191,11 @@ def check_batch_ready(
         statuses.append(TeamStatus(team, report_mtime_ns, payload_mtime_ns, reason))
     refused = sum(1 for status in statuses if not status.ok)
     lines = [status.line for status in statuses]
+    if not statuses:
+        lines.append(
+            "note: no team has a report or a non-empty work directory; this gate checks writer "
+            "completion only, not whether a submission exists"
+        )
     if refused:
         lines.append(f"result: not ready - {refused} of {len(statuses)} team(s) refused")
     else:

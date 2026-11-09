@@ -915,7 +915,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    uv run python scripts/fetch_team_snapshot.py A4 "<team_dir>"
    ```
 
-   It records the extracted metadata in `itpd-assignments-feedback/A4/work/<team_dir>/pdf-info.json`: the team number, repository, permalink, full SHA, recording link, page count, GitHub usernames, and the member name/email tokens for the step 15 privacy scan.
+   It records the extracted metadata in `itpd-assignments-feedback/A4/work/<team_dir>/pdf-info.json`: the repository, permalink, full SHA, recording link, page count, GitHub usernames, and the member name/email tokens for the step 15 privacy scan.
    The fallback is to read the PDF directly and extract:
 
    - the project name and the team number;

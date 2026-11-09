@@ -59,12 +59,12 @@ No rule in the pinned materials carries a `**Since: W7**` or later marker, so no
 - Week window: from Friday 30 October 2026, 00:00 Innopolis time, `2026-10-30T00:00:00+03:00`.
   The syllabus gives the Week 6 class week as 30 October to 5 November 2026; the submission is due on the following Sunday, and the window runs from that Friday to `ISSUE_CUTOFF`.
 - Soft deadline: none; `course/rules.md` gives every group submission from Week 4 to Week 9 a single hard deadline, and `course/syllabus.md` and `assignments/assignment-6.md` state the same date.
-- Hard deadline: Sunday 8 November 2026, 23:59, as the pinned `course/syllabus.md`, `course/rules.md`, and `assignments/assignment-6.md` state it; Week 6 is the one Sunday in the Week 4 to Week 9 series, and it was extended from Saturday 7 November.
+- Hard deadline: Sunday 8 November 2026, 23:59, as the pinned `course/syllabus.md`, `course/rules.md`, and `assignments/assignment-6.md` state it. Week 6 is the one exception to the Week 4 to Week 9 Saturday rule: the syllabus deadline is Sunday 8 November 2026.
 - No per-team deadline override exists for Week 6: every team's deadline is Sunday 8 November 2026, 23:59.
 - `ISSUE_CUTOFF`: `2026-11-08T23:59:59+03:00` for every team.
   Every later reference to `ISSUE_CUTOFF` means that cutoff, and `**Evidence:**` states the cutoff used.
 - Hard deadline of the following week: Saturday 14 November 2026, 23:59, the deadline the Week 7 syllabus block gives and the due date `SPRINT-07`'s GitHub milestone carries.
-  A Week 5 action point due in Week 6 carries a due date inside the Week 6 class week, 30 October to 5 November 2026, as `course/syllabus.md` gives Week 6; 8 November is the Week 6 submission deadline, and a due date from 6 November on falls in Week 7 and is outside the meeting's Week 6 window.
+  A Week 5 action point due in Week 6 carries a due date from 30 October through 8 November 2026, the Week 6 class week plus the submission deadline; a due date from 9 November on belongs to Week 7 and is outside the meeting's Week 6 window.
 - The time zone is not stated in the materials; read every deadline as Innopolis time (UTC+3).
 - Submission inputs: the Moodle PDF under `itpd-assignments-feedback/A6/submissions/<team_dir>/`; there is no ZIP, so the snapshot upload to Moodle is not judged.
   The snapshot is fetched from GitHub at the permalink SHA into `itpd-assignments-feedback/A6/work/<team_dir>/snapshot/`.
@@ -337,7 +337,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - The table covers the core task end to end, so a reader can see the steps from the product's start to its outcome.
 - The product's code sends each event from the container and environment its `Collected at` names, and the `source` value it sends is the one the table records.
 - A staging test event tagged `source=smoke` exists as evidence, and the staging dashboard's event list or raw-events panel shows it while the staging metric chart excludes it; the production scope carries no smoke event.
-- The analytics functional requirement exists as the first of the week's two new `FR-nnn` numbers, a file under `docs/functional-requirements/fr/`; its behavior is that the product records an event for each step of the core task with the fields in `docs/analytics.md`, it carries its acceptance criteria, and its row in `docs/functional-requirements/README.md` is present.
+- The analytics functional requirement exists as a new `FR-nnn` written this week, a file under `docs/functional-requirements/fr/`; its behavior is that the product records an event for each step of the core task with the fields in `docs/analytics.md`, it carries its acceptance criteria, and its row in `docs/functional-requirements/README.md` is present.
 - The metric sections whose events were renamed or added are updated in the same pull request as the change.
 
 **What does not count:**
@@ -368,6 +368,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - The instrumentation's library, transport, and configuration are the team's choice; the criteria are the event, its fields, its `source`, and its emitting container and environment.
 - The staging smoke event's dashboard evidence is shared with S5: S4 owns that the event exists and is tagged, S5 owns that the staging dashboard shows it and the chart excludes it.
 - The analytics `FR-nnn` is one file with its behavior, criteria, and index row; whether the index lists every requirement once is S10's for the new quality requirements and Week 4's for the older requirements.
+- The two new `FR-nnn` files are identified by behavior, not by ordinal: the assignment asks each for the next free identifier, so either one may carry the lower number.
 - A `source` value of `usability-test` is not excluded from a metric unless the page says why, and its presence is not a shortfall.
 - An event that carries an opaque identifier the team also stores in a user table is not personal data when the identifier is random and not derived from personal data; the test is reversibility, not linkage.
 - The page's `## Collected Data` section is judged with the event rules here: what the page says the events collect, what it says is never collected, and how collection is disabled.
@@ -450,18 +451,18 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - `## The SLIs` groups the indicators: each is a `### SLI-nn` section headed with the bare identifier, with its name on the first line, and the family takes two digits and is repository-wide.
 - Each `SLI` carries `**Status:**`, `**Definition:**`, `**Unit:**`, `**Window:**`, `**Source:**`, and `**Query:**`, in that order, with `**Status:**` one of `Active`, `Planned`, or `Dropped`, and a dropped `SLI` carries `**Dropped:**` with its date and reason.
 - The team lists the `SLI`s its runtime quality requirements need, and at least one of them is `Active` and demonstrated.
-- The demonstrated `SLI`'s `**Definition:**` names the labels that identify the request, the route, and the failure, and its per-request point is a structured log line or a trace span carrying `request_id`, `route`, `outcome`, and `duration_ms`, not a metric label.
+- The demonstrated `SLI`'s `**Definition:**` names the labels that identify the request, the route, and the failure, and its per-request point is a structured log line carrying `request_id`, `route`, `outcome`, and `duration_ms`, not a metric label.
 - The `**Query:**` is recorded in the backend's query language with the labels and the window it selects, and its window matches the `**Window:**` field.
 - The page states the instrumentation: which container emits each signal, how it exports it, and the export interval that meets the `SLI`'s window.
 - The page states the retention that covers its longest `SLI` window, how collection is enabled and disabled, and that the backend, its dashboards, and their credentials are reachable from the university network and are private-only.
-- The observability functional requirement exists as the `FR-nnn` after the analytics requirement's number, the second of the week's two new ones, a file under `docs/functional-requirements/fr/`; its behavior is that the product exposes the quality signal for each runtime requirement to the observability backend, including the per-request log line the diagnosability test reads, it carries its acceptance criteria, and its row in `docs/functional-requirements/README.md` is present.
+- The observability functional requirement exists as a new `FR-nnn` written this week, a file under `docs/functional-requirements/fr/`; its behavior is that the product exposes the quality signal for each runtime requirement to the observability backend, including the per-request log line the diagnosability test reads, it carries its acceptance criteria, and its row in `docs/functional-requirements/README.md` is present.
 - The week's glossary terms are added to `docs/glossary.md`: `signal`, `SLI`, `service level indicator`, `observability`, and `telemetry`.
 
 **What does not count:**
 
 - An `SLI` written as a quality requirement or a target; the target stays the requirement's `Response Measure`.
 - An `SLO-nn` or a `MET-nn`.
-- A per-request point recorded only as a metric label rather than as a structured log line or a trace span.
+- A per-request point recorded only as a metric label rather than as a structured log line.
 - A definition without the labels that identify the request, the route, and the failure.
 - A unit such as "number" with no scale, or a window that the source's export interval cannot meet.
 - A query with no window, or one whose window contradicts the `**Window:**` field.
@@ -483,6 +484,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - The `SLI` is the measured signal and the requirement's `Response Measure` is the target; a page that defines both or conflates them is the shortfall the rule names, and the target is judged in S10.
 - The backend's query language is the team's; the criteria are that the query selects the labels and the window the `SLI` defines and that a chart can run it.
 - The demonstrated `SLI` is the one the Week 6 observability requirement's test reads; when the page and the test disagree, the test's citation is S10's shortfall and the page's own definition is judged here.
+- The analytics and observability functional requirements are identified by behavior, not by their numbers: the assignment asks each for the next free identifier, so a team that wrote the observability requirement first is not penalized.
 - A log line's exact field names beyond the four the course requires are the team's choice; the four labels are the minimum the diagnosability test reads.
 - The observability page is created this week and is not re-graded as a later week's maintained page; a later edit after `ISSUE_CUTOFF` is drift and never repairs the state at the cutoff.
 - The glossary's older terms and anchors were Week 4's and are not re-graded; this segment judges the five observability terms the week adds.
@@ -501,7 +503,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 **met:**
 
-- The observability backend is OpenObserve, or another self-hosted backend that `docs/observability.md` documents, and it runs on the university VM or, when the VM could not host it, on a second machine on the university network that the report declares.
+- The observability backend is OpenObserve, or another backend that `docs/observability.md` documents, and it runs on the university VM or, when the VM could not host it, on a second machine on the university network that the report declares.
 - One backend instance carries one environment scope per environment, `staging` and `production`; for OpenObserve each scope is an organization, and a documented alternative uses its equivalent.
 - Each scope has its own dashboard, and each environment's build is configured with its own scope.
 - Each environment's dashboard carries at least one chart for an `Active` `SLI`, and the chart names the `SLI` and runs the `**Query:**` recorded in that `SLI`'s section.
@@ -764,81 +766,122 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 - `reports/week-05/meeting-report.md` at the Assignment 5 snapshot or, when it is not in the Week 6 snapshot, the A5 submission's report, for `## Action points` and `## Open questions`.
 - `reports/week-06/meeting-report.md`'s `## Previous action points` and `## Previous open questions`.
-- The artifacts the action points changed, in the Week 6 snapshot.
+- The artifacts and task issues an `Outcome` or `Answer` cell links, in the Week 6 snapshot.
+- `docs/decisions.md`, for the entries a `Decision` cell links and their `**Source:**`.
 - The Week 5 report's action points' due weeks and owners.
 
 **met:**
 
-- Each Week 5 action point that is due in Week 6 is carried out or has its outcome recorded, and the outcome is in the Week 6 meeting report's `## Previous action points`.
-- Each outcome is carried into the artifact it affects: a plan field, a requirement, a record, a dashboard, a test, or the report it names.
-- Each Week 5 open question is put to the customer in the Week 6 meeting, or is answered by the work since, and the outcome is in `## Previous open questions`.
+- The Week 5 meeting report's `## Action points` and `## Open questions` can be read, or the Week 6 report says there were none.
+- `## Previous action points` has the columns `Action`, `Outcome`, and `Decision`, with one row per Week 5 action point due in Week 6 or carried out early.
+  Week 6 runs from Friday 30 October 2026 through the 8 November 2026 submission deadline, so a due date from 30 October to 8 November is a Week 6 due date.
+- Every `Action` cell cites `reports/week-05/meeting-report.md#action-points` with the action quoted.
+- Every `Outcome` says whether the action point was carried out and what was found, or why it was not, and links each artifact and task issue it changed.
+- Every artifact an `Outcome` says changed holds that change, and the change is dated no later than `ISSUE_CUTOFF`.
+- An action point not carried out reappears in the Week 6 `## Action points` with a new due week, unless its `Outcome` says the team or the customer dropped it.
+  The due week's window is S13's, so a reappearance outside Week 7 is not a second shortfall here.
+- Every `Decision` cell links the `DEC-nnn` the outcome produced, or says `None`, and every linked entry exists with a `**Source:**` that points at where the decision was made.
+- `## Previous open questions` has the columns `Question`, `Answer`, and `Decision`, with one row per Week 5 open question not yet closed, and every Week 5 open question is either answered there or carried into the Week 6 `## Open questions`.
+- Every `Question` cell cites `reports/week-05/meeting-report.md#open-questions` with the question quoted.
+- Every `Answer` says what the work or the meeting found and links each artifact the answer changed.
+- No Week 5 action point or open question is silently dropped: one that the team no longer intends to do is `Dropped` in its `Outcome` or carried forward, and one the meeting answered is answered with its `DEC-nnn`.
 - The Week 5 meeting report is not edited; the Week 6 report is where the outcomes are recorded.
-- When the Week 5 report has no action point due in Week 6 or no open question, `None` in the matching section is correct.
 
 **What does not count:**
 
-- A `## Previous action points` entry that restates the action with no outcome.
-- An outcome recorded only in the Week 5 report.
+- An `Outcome` that says "done" with no artifact and no task issue linked, while the artifact it should have changed is unchanged.
+- A citation by number alone, such as "action 2", without the report's path, the `#action-points` anchor, and the quoted action.
+- A Week 5 open question that is neither answered in `## Previous open questions` nor carried into `## Open questions`.
+- A `Decision` cell naming a `DEC-nnn` that does not exist, or one whose `**Source:**` points at another meeting.
+- A Week 6 report that edits the Week 5 report to close its rows there.
 - An action point whose due week is Week 7, cited as due this week.
-- A `## Previous open questions` entry that neither answers the question nor says it is carried forward.
-- An outcome that names no artifact it changed.
 
 **partial:**
 
-- The two `## Previous` sections exist with at least one outcome, and at least one other `met` criterion fails.
-- Typical shortfalls: a missing action point or open question; an outcome with no artifact; an edited Week 5 report; a due Week 7 action cited as due; an open question neither answered nor carried.
+- The Week 6 meeting report has both `## Previous` sections, and at least one other `met` criterion fails.
+- Typical shortfalls: an action point due in Week 6 with no row; an outcome that exists only in the table, with the artifact unchanged; an action point not carried out that does not reappear; a Week 5 open question with no row and no carry-forward; a citation without the quoted action; an `Outcome` naming a task issue that does not exist; a `Decision` cell that links nothing and does not say `None`.
 
 **missing:**
 
-- The Week 6 meeting report has neither `## Previous action points` nor `## Previous open questions`, or the Week 5 report they read is absent and no A5 snapshot can supply it.
+- The Week 5 meeting report is absent from the A5 snapshot and the A5 submission, or neither `## Previous action points` nor `## Previous open questions` is present when the Week 5 report has rows for it.
 
 **Guardrails:**
 
-- The Week 5 report's action points and open questions are read from the Assignment 5 submission at its snapshot, not from the current `main` alone; when the Week 5 report is in the Week 6 snapshot, read it there.
-- An action point due in Week 6 is the one the Week 5 report marks for Week 6; an action due later belongs to the sprint that owns it and is not a Week 6 shortfall.
-- "Carried out" includes a recorded decision not to do it, with the reason; the artifact is wherever the outcome would land.
-- A Week 5 report with no action point due in Week 6 makes `None` correct, and it is never a shortfall.
-- The Week 5 report's own shape and its action points' wording are not re-graded; this segment judges the Week 6 outcomes and their artifacts.
-- A team that did not submit Assignment 5 has no Week 5 report to read: judge the `## Previous` sections against the A5 submission when one exists, and record `None` as correct only when the Week 5 report genuinely had nothing.
+- When the Week 5 report has no action point due in Week 6 or no open question, `None` in the matching section is correct.
+- Do not re-grade the Week 5 report; judge only what Week 6 did with its rows.
+- An outcome carried into an artifact is judged by whether the artifact changed, not by whether the change is large.
+- An action point the customer dropped stays closed, and the customer's decision is cited.
+- A Week 5 report edited in Week 6 is a quality note unless its content was rewritten; a formatting-only change is allowed.
+- A Week 5 open question the work has not answered belongs in the Week 6 meeting's questions; when the report carries it forward without an answer and the script does not ask it, report it here as a shortfall.
+- The Week 6 `## Action points` table's shape and due dates belong to S13; this segment judges the reappearance of an open action point, not the table.
+- An action point due in Week 7 but carried out this week may close here, and the row is correct.
 
 ### S13 — Customer validation of the telemetry
 
 **Check:**
 
-- `reports/week-06/meeting-script.md`, `meeting-report.md`, and `meeting-transcript.md` in the snapshot.
+- `reports/week-06/meeting-script.md`, `meeting-report.md`, and `meeting-transcript.md` when it exists, in the snapshot.
+- The path history of the script, for whether it was committed before the meeting.
+- Every `DEC-nnn` in `## Decisions`, in `docs/decisions.md`, and every story issue the meeting showed or changed, with its comments, timeline, and edit history.
 - The analytics and observability pages and the four dashboards' screenshots, for what the meeting showed.
 - The observability `QRT`'s result and each runtime `QRT`'s result, for what the review reported.
 - The threshold review and each `DEC-nnn` it cites.
 - The Week 6 meeting report's `## Decisions`, `## Previous action points`, and `## Previous open questions`.
-- The Moodle PDF's recording link and transcript appendix.
+- The Moodle PDF's recording link and transcript appendix, read once, never copied.
 - `reports/week-06/images/` for the screenshots the report links.
 
 **met:**
 
-- The Week 6 meeting is the sprint's Sprint Review, and `reports/week-06/meeting-script.md` exists with its target, agenda, areas, roles, and permission questions, written before the meeting.
-- The script and the report show the deployed product with the analytics staging and production dashboards, the observability staging and production dashboards, the observability `QRT`'s result, and each runtime `QRT`'s result at its level.
-- The script or the report names the `SLI-nn` each runtime test read, and the review presents the threshold proposal.
-- The meeting report carries `## Decisions`, and any threshold change is a `DEC-nnn` the customer agreed.
-- The meeting report carries `## Previous action points` and `## Previous open questions`, and 2 or more action points due in Week 7 with their owners.
-- The report or the transcript records each dashboard's verdict and each test's result, and the report's links to the four screenshots resolve and show the metric or `SLI` each chart shows.
-- When the meeting was recorded or held in writing, `reports/week-06/meeting-transcript.md` exists; when it was not, the report says why in one line.
-- The meeting artifacts name the customer as `Customer`, carry no personal name, email address, or real address, and the recording link is in the Moodle PDF rather than in the repository.
+- The Week 6 meeting is the sprint's Sprint Review, and `reports/week-06/meeting-script.md` exists with exactly the sections `## Context`, `## Agenda`, `## Questions`, `## Roles`, and `## Key improvements`, in that order, with `## Roles` left out only for a meeting held in writing, and every empty section says `None`.
+- `## Context` gives the problem-space sentence, what the team believes, and a one-sentence target that covers whether the telemetry answers the questions the customer recognises, whether the diagnosability requirement holds in staging, and what the threshold should measure next.
+- `## Agenda` is a numbered list whose first part asks the three permission questions, whose last part reads back the decisions and action points, and whose parts each have a timebox that adds up to the planned length, or, for a meeting held in writing, the order of the exchange and what is sent with each part instead of timeboxes.
+- The agenda shows the deployed product with the analytics staging and production dashboards, the observability staging and production dashboards, the observability `QRT`'s result, and each runtime `QRT`'s result at its level, ends with the threshold proposal, and asks for the customer's verdict on each story it shows.
+- Every agenda part names what is shown, with a link or a statement that nothing is shown, and every question appears in exactly one part.
+- `## Questions` is numbered, every question is tagged open or closed, and every question serves the target.
+- `## Roles` names a moderator, a note taker, and an observer by GitHub username, and a written meeting omits the section.
+- `## Key improvements` records at least one rewritten question with the before, the after, and the principle.
+- The script was written before the meeting it prepares: its first commit is on or before the meeting date in `## Metadata`, and a same-day commit is accepted when the history shows it came before the meeting; its later commits are formatting-only changes.
+- The report has exactly the sections `## Metadata`, `## Previous action points`, `## Previous open questions`, `## Summary`, `## Decisions`, `## Action points`, `## Open questions`, and `## Disagreements`, in that order, and every empty section says `None`.
+- `## Metadata` is a bulleted list of `- **Label:** value` bullets giving the date, the duration, the attendees by GitHub username with the customer as `Customer`, what was presented, the answer to each of the three permission questions, the transcript link or `None` with the reason, and the script link.
+- The report's `## Metadata` or `## Summary` says the meeting showed the deployed product with the four dashboards, the observability `QRT`'s result, and each runtime `QRT`'s result at its level, reached from the university network, and names what was shown.
+  When the VM was unavailable, it says the team showed the local product and the deployment plan and declares the deviation.
+- `## Summary` has 3 to 5 bullets on what the meeting settled or changed.
+- `## Decisions` lists at least one `DEC-nnn` entry of the form `[DEC-nnn: <the entry's first line>](../../docs/decisions.md#dec-nnn)`, and every change the customer made has a `DEC-nnn` entry in `docs/decisions.md` naming what it changed, made by `Customer` or `Team, not contested`, with a `**Source:**` linking this report.
+- The customer's decision on the threshold proposal is recorded as a `DEC-nnn`, and a proposal the customer rejected is recorded as no change.
+- Every story the meeting showed has a verdict recorded as a decision naming its `US-nn`, and an accepted story has closed with a comment that cites its verdict's `DEC-nnn` and names the `AC-nn` it was accepted against.
+- A rejected story's verdict names each `AC-nn` it failed, the story stays open, and its rework task names the story and the failed `AC-nn`.
+- Every story issue the meeting showed, accepted, rejected, or changed has a comment dated on or after the meeting that names the verdict or the change, names each `AC-nn` affected, and links the `DEC-nnn` on `main`.
+- `## Action points` has the columns `Action`, `Owner`, and `Due`, at least two rows, an owner given by GitHub username, and every due date inside Week 7, such as `End of Week 7` or a date from 9 November to 14 November 2026; a due date on or before the 8 November 2026 deadline is Week 6 and is not that window.
+- `## Open questions` has the columns `Question`, `What it would change`, and `Follow-up`; `## Disagreements` has the columns `Your position`, `Customer's position`, and `What you changed`, and every row that changed nothing says why the team kept its position.
+- The meeting was held in the Week 6 window, between Friday 30 October 2026 and `ISSUE_CUTOFF`, and a meeting held in writing says so and carries no `## Roles` section.
+- Every meeting artifact names the customer `Customer` and identifies people only by GitHub username.
+- When the meeting was recorded or held in writing, and publication was permitted, `reports/week-06/meeting-transcript.md` exists, opens with the date and the participants as `- **Label:** value` bullets above the first timestamped line, with a `#` title allowed above them, and then has one sentence per line in the form `[hh:mm:ss] <label>: <sentence>`, labels speakers by GitHub username and `Customer`, marks gaps with `[inaudible]` or `[redacted]`, and carries no personal data.
+- When publication was refused, no transcript is committed, and the report's `## Metadata` says the transcript is Moodle-only; the PDF's appendix is S17's item.
+- No meeting artifact carries a recording link or a recording timecode: the recording link and the timecodes are Moodle-only, per the visibility rule.
 
 **What does not count:**
 
-- A meeting report with no script.
-- A review that shows the product but not the four dashboards or the tests' results.
+- An agenda that shows only the local product without the deployment, when the VM was available, and without a declared deviation.
+- A review that shows the product but not the four dashboards, the observability `QRT`'s result, or a runtime `QRT`'s result.
 - A dashboard shown only from a local or a development instance.
-- A threshold proposal presented without the customer's decision, or a decision recorded without citing the change it made.
+- A test's result reported as "the tests pass", with no level, no commit, and no measured value.
+- A verdict recorded only in the report's table, with no `DEC-nnn` entry and no story comment.
 - Shared decisions with no per-item verdict, or a single "the customer approved everything" sentence.
-- A script written after the meeting, or one with no roles or permission questions.
-- A transcript that carries a real name or email address.
-- Action points due in Week 6, or no owner on an action point.
+- A script with a missing or extra section, no permission part in the agenda, or no roles in a live meeting.
+- A script written after the meeting, or a same-day commit the history cannot place before the meeting.
+- A script or transcript rewritten after the meeting, or edited after `ISSUE_CUTOFF`, as the pre-meeting form.
+- A `## Summary` that restates the transcript line by line.
+- An action point due outside Week 7, or no owner on an action point.
+- A transcript written one speaker turn per line when a turn carries several sentences: that is not the one sentence per line the rule requires.
+- A transcript that says the customer refused publication but sits in the repository.
+- A test result shown against production as a `deployed` test's run.
+- A recording link or timecode inside a meeting artifact.
+- A personal name, email, or real address in the meeting artifacts.
 
 **partial:**
 
-- The script and the report exist with at least one dashboard or test shown, and at least one other `met` criterion fails.
-- Typical shortfalls: a missing script; a missing dashboard, the observability `QRT`'s result, or a runtime test's result; the `SLI` each runtime test read unnamed; a missing threshold proposal or `DEC-nnn`; a missing `## Decisions`, `## Previous action points`, or `## Previous open questions`; fewer than two action points due in Week 7 or an action point with no owner; a missing transcript where the meeting was recorded; a personal name, email, or address in the artifacts; a recording link inside the repository.
+- `reports/week-06/meeting-report.md` exists with at least one dashboard or test shown, and at least one other `met` criterion fails.
+- Typical shortfalls: a missing or extra section; no permission part in the agenda; the agenda showing neither the dashboards nor the tests' results; a dashboard or the observability `QRT`'s result missing; a runtime test's result missing or its `SLI` unnamed; a story shown with no `AC-nn` verdict; a verdict decision that does not name its `US-nn`; a change with no `DEC-nnn`; a missing `## Decisions`, `## Previous action points`, or `## Previous open questions`; a missing threshold proposal or no `DEC-nnn` decision on it; fewer than two action points due in Week 7 or an action point with no owner; a missing transcript where the meeting was recorded and publication was permitted; a published transcript without permission; a recording link or timecode in a meeting artifact; personal data in a meeting artifact; a report that restates the transcript line by line; the VM fallback claim without the deviation.
 
 **missing:**
 
@@ -849,10 +892,15 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - The meeting is the Sprint Review, so a separate ceremony report is not required and the two are judged together.
 - The dashboards are on the university network; the meeting's evidence is the report's links and the Moodle PDF's addresses, and the single access check is not repeated for each dashboard.
 - The four screenshots the report links are the ones S5 and S7 judge for sanitization; this segment judges that the meeting showed them and that their links resolve.
-- The transcript's language, its length, and its exact format are the team's; the criteria are its existence when recorded, its appendix, and its privacy.
+- The transcript's language, its length, and its exact format are the team's; the criteria are its existence when recorded and publication was permitted, its appendix, and its privacy.
 - The Week 6 report's coverage rows and its `## Threshold review` content are S17's and S11's; this segment judges the meeting's own artifacts and the decisions they record.
 - A customer who refused recording makes the one-line reason correct, and the transcript's absence is never a shortfall then.
+- A customer who refused publication of the transcript makes no repository transcript correct, and the report's `## Metadata` says it is Moodle-only; the PDF's appendix is S17's item.
+- A meeting held on or after Friday 30 October 2026 and by `ISSUE_CUTOFF` was held in Week 6; a meeting on 6, 7, or 8 November is in the window and is a caveat in `**Evidence:**` rather than a shortfall.
+- The two internal-user stories are shown only when the meeting presents them; when it does not, the story verdicts are not a shortfall, and the absence of the stories themselves is S2's.
+- A story the customer accepted in a shared verdict is still judged by its own `AC-nn` comments, and a shared verdict is one decision.
 - The meeting's decisions' `DEC-nnn` entries are judged here for their agreement and their citation, and S11 judges the threshold change they make.
+- The PDF's own shape, page count, item list, recording link, and transcript appendix are S17's; this segment reads the report and the script, and reads the PDF only when the report's own statement about publication is unclear.
 
 ### S14 — Redeploy and retest after same-week rework
 
@@ -915,7 +963,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 - The tag is named `v<major>.<minor>.<patch>`, it points at a commit on `main`, and that commit is the final production commit the week's record names.
 - The release title is the tag, so the title and the tag match.
-- The tag is protected: a ruleset covers tag pushes and prevents deletion or a force update.
+- The tag is protected against being moved or deleted, by a repository ruleset that covers tag pushes or an equivalent tag-protection rule that blocks moving and deleting the tag.
 - `CHANGELOG.md` follows Keep a Changelog: `[Unreleased]` was kept through the week, the released entries moved into a dated section such as `[0.6.0]` with `### Added` entries for the analytics and the observability, that section links the release, and a new empty `[Unreleased]` follows.
 - The release body is the upgrade note: it states whether the upgrade requires anything beyond deploying this version, or that it does not, and names the new environment variables and configuration when it does.
 - The body ends with the line `[Full changelog](<absolute url>)` linking the changelog's released section, and nothing comes after it; the body carries no address, credential, token, or other private-only value.
@@ -1004,51 +1052,65 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 
 **Check:**
 
-- `reports/week-06/README.md` in the snapshot, read whole.
+- `reports/week-06/README.md` in the snapshot, read whole, and every repository file it links.
 - `reports/week-06/images/` for the four dashboard screenshots, with `scripts/image_info.py` when a file's size or transparency matters.
 - The Moodle PDF under `itpd-assignments-feedback/A6/submissions/<team_dir>/`, read once, for its items, its page count, and its addresses.
 - `pdf-info.json` for the repository, the permalink, the SHA, the page count, the recording link, and the permalink-week check.
-- `runs_main.json` for the latest link-check, Markdown-check, `actionlint`, and product-code runs on `main`.
+- `runs_main.json` and `runs_sha.json` for the latest link-check, Markdown-check, `actionlint`, and product-code runs on `main`, and the merged pull requests in the Week 6 window.
 - `prs.json` for one merged pull request that closed its task issue.
 - `scripts/check_snapshot_links.py` for the report's links and anchors.
 - The submission procedure's merge and snapshot.
 
 **met:**
 
-- `reports/week-06/README.md` exists at the snapshot, is merged into `main`, and the snapshot is taken from that commit; the Moodle PDF's permalink names the same full 40-character SHA.
+- `reports/week-06/README.md` exists at the snapshot, is merged into `main`, and the snapshot is taken from that commit.
+- The report identifies the week, the project, the team, and the covered scope.
 - The report's summary says whether the focus metric has a value yet and what it would need, links `docs/analytics.md` and `docs/observability.md`, and copies no chart or row from either page.
 - The summary shows at least one analytics metric that its query computes, does not present test traffic as a value, names `REL-06` and its tag, and says what moved out of the sprint.
+- The summary says what the team found, built, or decided, and what it left open.
 - The report points at `docs/project-plan.md#quality-requirement-testing-plan` for the rows that are not `Passes` and copies none of them.
 - The report carries the `## Threshold review` section S11 judges.
 - The report embeds the four sanitized dashboard screenshots from `reports/week-06/images/`, links each with the metric or `SLI` its chart shows, and records the observability test's result with the request identifier, route, and failure labels it captured.
-- The coverage table carries every row in the assignment's table, and each row links its artifact.
-- The report carries the repository evidence: one merged pull request that closed its task issue, and the latest green link-check, Markdown-check, `actionlint`, and product-code CI runs on `main`.
+- The coverage table has the 20 rows of `assignment-6.md`, in its order, and each artifact cell links its artifact: a repository file by its path from the repository root and the heading anchor when the row names a section, and anything else with descriptive link text.
+- A coverage row whose artifact is not public, or whose absence the report explains, says so instead of linking it; when the customer refused publication of the transcript, the Meeting transcript row says so and points at the Moodle submission.
+- No second list of the same links follows the coverage table, and the report carries no sprint planning, refinement, or retrospective section.
+- The report carries the repository evidence: one merged pull request that closed its task issue, and the latest green link-check, Markdown-check, `actionlint`, and product-code CI runs on `main`, each by its run URL, and each run's `conclusion` is `success`, its branch is `main`, and its `head_sha` is an ancestor of the snapshot.
+- Every link in the report resolves, and every link the link check excludes is justified in prose.
 - The report carries `## Deviations`, naming anything done differently, including a VM that was unavailable, a backend on a second machine, a dashboard the customer could not reach, a staging smoke event that reached production, a row moved to `SPRINT-07`, and a test whose window was still open at the deadline.
+- The report carries a contribution table mapping each member's GitHub username to the work done, using links to their commits, pull requests, or reviews where possible, and the report does not assess an individual.
+- The report states in one line that no private-only material was committed to the repository.
 - The Moodle PDF carries items 1–8: the project name and team number, the member table with GitHub username, real name, and university email, the permalink to `reports/week-06/README.md` at the full commit hash, the four dashboards' addresses and credentials, the two backends' addresses and all credentials including client IDs and tokens, the query's address and credential, the product's staging and production addresses with the university-network note, the recording link or the line saying why there is none, the transcript appendix when the customer refused publication, and the one-line privacy confirmation.
+- The PDF's permalink points at `reports/week-06/README.md` at the same full 40-character SHA the snapshot uses; a bare SHA with no repository permalink does not satisfy it.
 - The PDF is two pages or fewer, excluding a transcript appendix, and carries no deck.
+- The report and every repository file it links are merged into `main` at the snapshot; nothing the assignment requires is left on an unmerged pull-request branch.
 - The four screenshots, the report's own text, and the snapshot carry no real address, credential, token, personal name, or email address.
 
 **What does not count:**
 
-- A report that is not on `main`, or a permalink that names a branch, a tag, or a short SHA.
+- A report that is not on `main`, or a permalink that names a branch, a tag, a short SHA, or a bare SHA with no URL.
 - A report at the snapshot that differs from the merged `main` report the permalink names.
-- A summary that copies a metric's value or a testing-plan row instead of linking it.
+- A summary that copies a metric's value or a testing-plan row instead of linking it, or one that omits what the team found, built, decided, and left open.
 - A report without the `## Threshold review` section, without the four screenshots, or without `## Deviations`.
-- A coverage table that omits a row, or a row whose link does not resolve.
+- A coverage table that omits a row, reorders the rows, or has a row whose link does not resolve; a row that neither links its artifact nor says why it is not public or absent.
+- A report without a contribution table, or one that rates or explains a member's contribution.
+- A workflow's run list page, a branch's run history, or a job URL as the run link: the report needs the individual green run's URL.
+- A green run on a branch other than `main`, a pull-request run, or a run on a commit that is not an ancestor of the snapshot.
+- A red, cancelled, or in-progress run cited as green; read `conclusion`, not the run's existence.
 - A repository-evidence claim with no merged pull request or with no green `main` run.
 - A Moodle PDF with a missing dashboard address, a missing credential, or no product staging and production addresses.
 - A PDF longer than two pages, a deck included, or a member table carrying no university email.
 - A private-only value committed in the repository, including an address in the report's prose or a screenshot.
 - A submission that names the wrong week's report, or a permalink that points at `reports/week-05/README.md`.
+- A Markdown wrapper instead of the PDF.
 
 **partial:**
 
 - `reports/week-06/README.md` and the Moodle PDF exist, and at least one other `met` criterion fails.
-- Typical shortfalls: a report not merged or a permalink with a short SHA; a summary without the focus metric's state, the analytics metric, the release, or the moved-out sentence; a missing pointer at the testing plan or a copied row; a missing `## Threshold review`; fewer than four screenshots, one not sanitized, or one not linked with its metric; a missing coverage row or a non-resolving link; missing repository evidence or a red `main` run; a missing or thin `## Deviations`; a PDF missing an item, over two pages, or carrying a deck; a private-only value in the repository; a wrong-week permalink.
+- Typical shortfalls: a report not merged or a permalink with a short or bare SHA; a missing week, project, team, or scope line; a summary without the focus metric's state, the analytics metric, the release, the moved-out sentence, or what the team found and left open; a missing pointer at the testing plan or a copied row; a missing `## Threshold review`; fewer than four screenshots, one not sanitized, or one not linked with its metric; a missing coverage row, a reordered row, or a non-resolving link; a missing contribution table or an individual assessment; missing repository evidence or a red `main` run; a missing or thin `## Deviations`; a missing privacy line; a PDF missing an item, over two pages, or carrying a deck; a private-only value in the repository; a wrong-week permalink.
 
 **missing:**
 
-- `reports/week-06/README.md` is absent at the snapshot, or the Moodle PDF is absent or carries no repository permalink.
+- `reports/week-06/README.md` is absent at the snapshot, or the Moodle PDF is absent.
 
 **Guardrails:**
 
@@ -1059,6 +1121,9 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - A `Passes` claim in the report is not re-judged here; the testing plan's rows are S10's, and the report's pointer is judged for its existence and its no-copy rule.
 - The snapshot's commit time against the deadline is a caveat in `**Evidence:**`, never a status change; a submission after the deadline is the instructor's late-penalty question, not this rubric's.
 - A Markdown wrapper instead of a PDF is a shortfall here, and the fetcher's Markdown path records it.
+- The coverage row that names why there is no transcript is correct when the customer refused publication; the PDF's appendix is the transcript itself, and the row points at the Moodle submission.
+- A coverage row for an artifact the owning segment finds missing says so and is not a second shortfall here; the missing artifact is judged in its own segment.
+- The contribution table is evidence of who did what, not a grading of a member; a table with links to merged work is correct even when one member has fewer rows.
 
 ### S18 — AI usage and honesty
 
@@ -1113,7 +1178,15 @@ Recommended items and the What Good Looks Like points are quality notes for the 
    uv run python scripts/fetch_team_snapshot.py A6 "<team_dir>"
    ```
 
-   It records the extracted metadata in `itpd-assignments-feedback/A6/work/<team_dir>/pdf-info.json`: the team number, repository, permalink, full SHA, recording link, page count, GitHub usernames, the member name/email tokens for the step 16 privacy scan, and the permalink week it derives from the path.
+   It records the extracted metadata in `itpd-assignments-feedback/A6/work/<team_dir>/pdf-info.json`: the repository, permalink, full SHA, recording link, page count, GitHub usernames, the member name/email tokens for the step 16 privacy scan, and the permalink week it derives from the path.
+   Two Week 6 submissions get an operator-supplied permalink, so the reviewed link is the one recorded and `pdf-info.json` records `permalink_source=operator`:
+
+   - `Team 2 - OK_10938_assignsubmission_file`: the PDF is a three-page repository report rather than the two-page Moodle wrapper, and its first page carries the GitHub permalink. Use:
+     `uv run python scripts/fetch_team_snapshot.py A6 "Team 2 - OK_10938_assignsubmission_file" --permalink "https://github.com/team-ok-ITPD/team-OK-itpd/blob/edde3d13cd6dd54a18c5fb2eba1a82c3cdf0c11e/reports/week-06/README.md"`
+   - `Team 1 - Absolute Cinema_10937_assignsubmission_file`: the PDF carries only the bare SHA `9e67efcd660f15367dcdbc666b6db57b2c15c326`; the Assignment 5 submission names its repository, so pair that SHA with the repository and the Week 6 report path:
+     `uv run python scripts/fetch_team_snapshot.py A6 "Team 1 - Absolute Cinema_10937_assignsubmission_file" --permalink "https://github.com/itpd-absolute-cinema/llm-module-gateway/blob/9e67efcd660f15367dcdbc666b6db57b2c15c326/reports/week-06/README.md"`
+
+   The override fixes the snapshot for grading; it does not repair a PDF that carries no repository permalink, which remains an S17 shortfall.
    The fallback is to read the PDF directly and extract:
 
    - the project name and the team number;
@@ -1287,7 +1360,7 @@ Recommended items and the What Good Looks Like points are quality notes for the 
     - Read `releases.json` for the tag names and dates; read the release title and body from the rendered release page or the raw `gh api "repos/$REPO/releases?per_page=100"` response, because the collector's dump omits them; read `gh api "repos/$REPO/git/refs/tags/<tag>"` for the commit the tag names.
     - Confirm that the tag's commit is an ancestor of `main`, with `gh api "repos/$REPO/compare/<tag>...main" --jq '.status'`, which is `ahead` or `identical` when it is.
     - Read the changelog's dated section, the plan's `REL-06` block, and `reports/week-06/README.md` at the snapshot, and find, for each, the pull request that first added it, with the commits API over the file's path.
-    - Compare the merge time of those three pull requests with the tag's commit date; each must be later than, or at, the tag, and the changelog's dated section, the plan's block, and the report must be merged in that order.
+    - Compare the merge time of those three pull requests with the tag; each must be later than, or at, the tag, and the changelog's dated section, the plan's block, and the report must be merged in that order. Use the tag's push time when it can be read; otherwise use the tag's commit date and say so in `**Evidence:**`.
     - Read `gh api "repos/$REPO/rulesets"` and each tag ruleset for the protection that covers tag pushes.
     - Build `**Checked QRs:**` from the testing plan's `Checked` cells: a requirement belongs when at least one of its tests has `SPRINT-06` there, whatever the row's `Status`.
 15. Check the sprint close from the issue dumps and the plan:

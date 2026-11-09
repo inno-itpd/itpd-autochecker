@@ -160,7 +160,11 @@ def test_empty_work_directory_without_a_report_is_skipped(tmp_path: Path) -> Non
     result = check_batch_ready(ASSIGNMENT, root)
 
     assert result.teams == ()
-    assert result.summary_lines == ("result: ready - 0 team(s) checked, no refusals",)
+    assert result.summary_lines == (
+        "note: no team has a report or a non-empty work directory; this gate checks writer "
+        "completion only, not whether a submission exists",
+        "result: ready - 0 team(s) checked, no refusals",
+    )
 
 
 def test_report_without_a_payload_is_ready(tmp_path: Path) -> None:

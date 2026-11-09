@@ -19,6 +19,7 @@ from tools.autochecker.validate import validate_report
 
 # Moodle exports one directory per team, e.g. `Team 3_12345_assignsubmission_file`.
 TEAM_NAME_PATTERN = re.compile(r"(Team\s+\d+)")
+SUBMISSION_SUFFIXES = {".pdf", ".md", ".markdown"}
 
 
 @dataclass(frozen=True)
@@ -70,12 +71,32 @@ def parse_feedback_file(assignment: str, path: Path) -> ExtractedEntry:
     )
 
 
+def _has_a_submission(assignment_root: Path, team_dir_name: str) -> bool | None:
+    """Return whether a team has a PDF or Markdown wrapper, or None when unknown.
+
+    A feedback directory without a submission is a non-submission and stays out
+    of both exports.  The submissions directory is absent in a feedback-only
+    fixture and in a partial export, so the caller keeps the old behavior then.
+    """
+    submission_dir = assignment_root / "submissions" / team_dir_name
+    if not submission_dir.is_dir():
+        return None
+    return any(
+        path.is_file() and path.suffix.casefold() in SUBMISSION_SUFFIXES
+        for path in submission_dir.iterdir()
+    )
+
+
 def scan_feedback_dir(assignment: str, input_dir: Path) -> tuple[list[ExtractedEntry], list[str]]:
     entries: list[ExtractedEntry] = []
     warnings: list[str] = []
+    assignment_root = input_dir.parent
 
     for team_dir in sorted(input_dir.iterdir()):
         if not team_dir.is_dir():
+            continue
+        if _has_a_submission(assignment_root, team_dir.name) is False:
+            warnings.append(f"{team_dir.name}: non-submission, omitted from the export")
             continue
         feedback_path = team_dir / "agent-compliance-feedback.md"
         if not feedback_path.exists():

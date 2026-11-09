@@ -240,7 +240,7 @@ The collector writes `issues/<n>.timeline.json` and rebuilds `evidence.sqlite`, 
    ```
 
    The fetcher takes the exact submission directory name, not an absolute path: it joins `{TEAM_DIR}` under `submissions/` and `work/` itself, so pass the quoted name and use `{TEAM_WORK}` only for files.
-   It prefers the PDF that carries the full-SHA permalink, records the team number, repository, permalink, full SHA, recording link, page count, and the member name/email tokens in `{TEAM_WORK}/pdf-info.json`, checks that the commit exists and is on `main`, and refetches the snapshot into `{TEAM_WORK}/snapshot/`.
+   It prefers the PDF that carries the full-SHA permalink, records the repository, permalink, full SHA, recording link, page count, and the member name/email tokens in `{TEAM_WORK}/pdf-info.json`, checks that the commit exists and is on `main`, and refetches the snapshot into `{TEAM_WORK}/snapshot/`.
    It prints counts and paths only, so real names and emails never leave the work directory.
    Do not copy real names or emails into any output.
 
@@ -376,14 +376,15 @@ The collector writes `issues/<n>.timeline.json` and rebuilds `evidence.sqlite`, 
   Unresolved bullets for untouched gap segments are carried over automatically.
 - In `segment inspect` mode, do not write any files.
 
-## Handoff to the semantic agent
+## Handoff to the semantic agent (assignments with semantic dimensions)
 
-The semantic pass is a separate agent, `agents/semantic-agent.md`.
+The semantic pass is a separate agent, `agents/semantic-agent.md`, and it runs only for an assignment that defines `semantic_dimensions`.
+For an assignment without one, this section's semantic steps do not apply: finish after the report validation and the privacy scans.
 Do not write `agent-semantic-feedback.md` from this prompt, and do not edit a saved semantic file during a regrade: the semantic agent owns it.
 
-- Finish this review with a validated report and a work directory that stays intact for the semantic pass; it is disposable only after that pass.
-  Leave `agent-compliance-feedback.md`, `payload.json`, `summary.md`, `inventory.md`, `evidence.sqlite`, `pdf-info.json`, and `snapshot/` in `{TEAM_WORK}` for the semantic agent.
-- Write the snapshot inventory before the handoff when it is missing, so the semantic agent reads one short tree digest instead of walking the snapshot:
+- Finish this review with a validated report and a work directory that stays intact for the final privacy scan, and for the semantic pass when the assignment has one; it is disposable only after both.
+  Leave `agent-compliance-feedback.md`, `payload.json`, `summary.md`, `inventory.md`, `evidence.sqlite`, `pdf-info.json`, and `snapshot/` in `{TEAM_WORK}`; the semantic agent reads them when the assignment has a semantic pass, and the final privacy scan reads `pdf-info.json` and `snapshot/` for every assignment.
+- When the assignment has a semantic pass, write the snapshot inventory before the handoff when it is missing, so the semantic agent reads one short tree digest instead of walking the snapshot:
 
   ```console
   uv run python scripts/snapshot_inventory.py {ASSIGNMENT_DIR} "{TEAM_DIR}"

@@ -85,7 +85,7 @@ If a command must run from elsewhere, pass `--config-file <repo>/uv.toml` or set
 1. Unpack the Moodle export into `itpd-assignments-feedback/A<N>/submissions/`, one directory per team.
 2. Run `uv run python scripts/preflight.py` before a review batch; it prints the `grading.json` batch size and resume cap, then checks `gh` auth, `pdftotext`, and `markdownlint-cli2`.
 3. Review teams with the compliance agent (see below).
-   **Keep every team's `work/<team_dir>/` until the batch has been extracted in step 7**, because the semantic pass and the final `scripts/scan_privacy.py` run both read `pdf-info.json` and the fetched snapshot from it.
+   **Keep every team's `work/<team_dir>/` until the batch has been extracted in step 7**, because the final `scripts/scan_privacy.py` run reads `pdf-info.json` and the fetched snapshot, and the semantic pass reads them too when the assignment has one.
 4. Validate changed reports with `uv run python scripts/check_compliance_feedback.py A<N> <agent-compliance-feedback.md>`, then run `markdownlint-cli2 --fix "itpd-assignments-feedback/A<N>/feedback/**/*.md"`.
 5. For an assignment that defines `semantic_dimensions`, run one semantic agent per team after its report is final (see below).
    Launch `semantic review` when the team has no companion and `semantic regrade` when it has one.
@@ -95,6 +95,7 @@ If a command must run from elsewhere, pass `--config-file <repo>/uv.toml` or set
    Refuse extraction while the gate exits non-zero.
 7. Run `uv run python A<N>/extract_feedback.py` to regenerate `dev.md` and `feedback_release.csv`.
    A team whose resume budget was spent and never finished is left out of both exports and named in the extractor warnings.
+   A team with no submission file under `submissions/<team_dir>/` (no PDF and no Markdown wrapper) is a non-submission: the extractor omits it from both exports and names it in the warnings.
 8. Review the extractor warnings and fix malformed reports.
 
 ## Re-grading a batch
@@ -126,6 +127,7 @@ When the user asks to review or re-review teams:
    Default to `8` and `4` if the file or a value is missing or invalid.
    The cap is the compliance budget: a semantic resume is not recorded against it.
 3. Pick the teams: the ones the user names, or every directory in `itpd-assignments-feedback/A<N>/submissions/` that has no `feedback/<team_dir>/agent-compliance-feedback.md` yet.
+   A directory under `submissions/` that holds no PDF and no Markdown wrapper is a non-submission: skip it, report it to the operator, and create no feedback directory for it.
    A segment count always comes from `ASSIGNMENT_CONFIG[A<N>]["segment_defs"]` in `tools/autochecker/assignment_config.py`, never from another assignment's number.
 4. For each batch, launch one subagent per team in parallel:
    - Claude Code: the `compliance-agent` agent (`.claude/agents/compliance-agent.md`).
@@ -297,7 +299,7 @@ Decision rules:
    The grading prompt states the same per-team rule, so keep the two in step.
    `scripts/fetch_team_snapshot.py`, `collect_github_evidence.py`, `scan_privacy.py`, `check_compliance_feedback.py`, and `render_feedback_report.py` all read this config.
 4. Copy `A1/extract_feedback.py` to `A<N>/` and change `ASSIGNMENT`.
-5. Create `itpd-assignments-feedback/A<N>/feedback/` (with a `.gitkeep`).
+5. Create `itpd-assignments-feedback/A<N>/feedback/` when the first report needs it; the report renderer creates the directory, so no placeholder file is needed.
 6. Smoke-check the helpers against one submission: `uv run python scripts/preflight.py`, then `uv run python scripts/fetch_team_snapshot.py A<N> "<team_dir>"` and `uv run python scripts/collect_github_evidence.py A<N> "<team_dir>"`.
 
 ## Task tracking
@@ -365,7 +367,7 @@ These are the failure modes the A3 and A4 batches produced, with the remedy for 
   Do not grade the wrong-week target: the mismatch is a submission shortfall in the week-report-and-submission segment (S17 in A6, S13 in A5, S15 in A4, S12 in A3), and the operator supplies the right permalink with `scripts/fetch_team_snapshot.py A<N> "<team_dir>" --permalink <url>`, recorded as `permalink_source=operator`; the fetched snapshot then still governs every file check.
   `scripts/collect_github_evidence.py --summary` repeats the warning from `pdf-info.json`, so a later digest does not drop it.
 - **Cleaned work directory:** `scripts/scan_privacy.py` needs `pdf-info.json` and the fetched snapshot by default, so deleting `work/<team_dir>/` early breaks the final privacy gate.
-  Keep `work/<team_dir>/` until the batch is extracted and the semantic pass is done; when it was already cleaned, scan the report with tokens derived from the submission PDF: `scripts/scan_privacy.py A<N> "<team_dir>" --feedback <report> --no-snapshot`.
+  Keep `work/<team_dir>/` until the batch is extracted and, when the assignment has one, the semantic pass is done; when it was already cleaned, scan the report with tokens derived from the submission PDF: `scripts/scan_privacy.py A<N> "<team_dir>" --feedback <report> --no-snapshot`.
   `--no-snapshot` without `--feedback` is an error, because the report scan still needs the PDF for its tokens.
 - **`uv` Cause 1 — read-only cache:** `uv run` fails with `Could not acquire lock` / `Read-only file system (os error 30)` at `~/.cache/uv`, and uv never reached the interpreter.
   Run uv from inside the checkout, where `uv.toml` puts the cache in `.local/uv-cache`; outside it, pass `--config-file <repo>/uv.toml`, or set `UV_CACHE_DIR` to a writable directory.

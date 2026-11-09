@@ -51,6 +51,27 @@ def test_extraction_writes_dev_md_and_csv(tmp_path: Path) -> None:
     assert records[3]["feedback"].startswith("- First shortfall.\\n")
 
 
+def test_non_submission_is_omitted_from_both_exports(tmp_path: Path, capsys) -> None:
+    feedback_dir = tmp_path / "A1" / "feedback"
+    write_team(feedback_dir, "Team 2_2_assignsubmission_file", build_report("A1", team=2))
+    write_team(feedback_dir, "Team 5_3_assignsubmission_file", None)
+    submissions = tmp_path / "A1" / "submissions"
+    (submissions / "Team 2_2_assignsubmission_file").mkdir(parents=True)
+    (submissions / "Team 2_2_assignsubmission_file" / "week-01-report.pdf").write_bytes(b"%PDF-1.4\n")
+    (submissions / "Team 5_3_assignsubmission_file").mkdir()
+    dev = tmp_path / "A1" / "dev.md"
+    release = tmp_path / "A1" / "feedback_release.csv"
+
+    assert run_extraction("A1", feedback_dir, dev, release) == 0
+
+    rows = [line for line in dev.read_text(encoding="utf-8").splitlines() if line.startswith("| [Team")]
+    assert [row.split("|")[1].strip().split("]")[0].lstrip("[") for row in rows] == ["Team 2"]
+    with open(release, encoding="utf-8", newline="") as handle:
+        records = list(csv.DictReader(handle, delimiter="|"))
+    assert [record["group"] for record in records] == ["Team 2"]
+    assert "Team 5_3_assignsubmission_file: non-submission, omitted from the export" in capsys.readouterr().err
+
+
 def test_missing_input_dir(tmp_path: Path) -> None:
     assert run_extraction("A1", tmp_path / "nope", tmp_path / "dev.md", tmp_path / "out.csv") == 1
 

@@ -43,6 +43,14 @@ WEEK_SEGMENT_PATTERN = re.compile(r"(?:^|/)week-(?P<week>\d{1,2})(?:/|$)")
 REPO_AT_SHA_PATTERN = re.compile(r"(?P<org>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)\s+at\s+(?P<sha>[0-9a-f]{40})")
 EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 RECORDING_HINT_PATTERN = re.compile(r"record|kickoff|meeting|validation|drive|zoom|youtu", re.IGNORECASE)
+RECORDING_HOST_PATTERN = re.compile(
+    r"https?://(?:[^/\s]+\.)*(?:zoom\.us|drive\.google\.com|docs\.google\.com|youtube\.com|youtu\.be|"
+    r"vimeo\.com|meet\.google\.com|teams\.microsoft\.com|webex\.com|dropbox\.com|disk\.yandex\.[a-z]+|"
+    r"vk\.com|rutube\.ru)(?::\d+)?(?:/|$)",
+    re.IGNORECASE,
+)
+RECORDING_DOWNLOAD_PATTERN = re.compile(r"/(?:sdownload|download)(?:/|$|\?)", re.IGNORECASE)
+RECORDING_SHARE_PATTERN = re.compile(r"/(?:rec/share|rec/play|watch|view)(?:/|$|\?)", re.IGNORECASE)
 BARE_SHA_SOURCE = "bare-sha"
 GH_SEARCH_SOURCE = "gh-search-commits"
 OPERATOR_SOURCE = "operator"
@@ -521,6 +529,27 @@ def resolve_bare_sha_repo(sha: str, runner: Callable[[list[str]], CommandResult]
     return BareShaResolution(repo=None, candidates=candidates, command=search_commits_display(sha))
 
 
+def _recording_score(url: str, text: str) -> int:
+    """Score a URL as a recording link.
+
+    A known recording host is strong evidence; a recording word near the URL is
+    the fallback for a self-hosted recording.  A download or transcript endpoint
+    scores lower than a share or play link, so the recording itself wins.
+    """
+    position = text.find(url)
+    context = text[max(0, position - 160) : position] if position >= 0 else ""
+    score = 0
+    if RECORDING_HOST_PATTERN.match(url):
+        score += 2
+    if RECORDING_HINT_PATTERN.search(context):
+        score += 2
+    if RECORDING_DOWNLOAD_PATTERN.search(url):
+        score -= 1
+    if RECORDING_SHARE_PATTERN.search(url):
+        score += 1
+    return score
+
+
 def find_recording_link(urls: list[str], text: str, permalink: PdfPermalink | None) -> str | None:
     candidates: list[str] = []
     for url in urls:
@@ -531,14 +560,9 @@ def find_recording_link(urls: list[str], text: str, permalink: PdfPermalink | No
         candidates.append(url)
     if not candidates:
         return None
-    if len(candidates) == 1:
-        return candidates[0]
-    for url in candidates:
-        position = text.find(url)
-        context = text[max(0, position - 160) : position] if position >= 0 else ""
-        if RECORDING_HINT_PATTERN.search(context):
-            return url
-    return candidates[0]
+    scored = [(_recording_score(url, text), -index, url) for index, url in enumerate(candidates)]
+    best_score, _, best_url = max(scored)
+    return best_url if best_score > 0 else None
 
 
 def parse_member_table(text: str) -> tuple[list[PdfMember], list[str]]:

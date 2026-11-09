@@ -121,6 +121,22 @@ def test_find_recording_link_prefers_record_context() -> None:
     assert find_recording_link([first, second], text, None) == second
 
 
+def test_find_recording_link_ignores_an_unrelated_single_url() -> None:
+    url = "https://running-coach-app.github.io/running-coach-app/"
+    assert find_recording_link([url], f"Product documentation: {url}", None) is None
+
+
+def test_find_recording_link_prefers_a_share_link_over_a_download() -> None:
+    download = "https://us06web.zoom.us/rec/sdownload/example"
+    share = "https://us06web.zoom.us/rec/share/example"
+    assert find_recording_link([download, share], "", None) == share
+
+
+def test_find_recording_link_accepts_a_context_labelled_unknown_host() -> None:
+    url = "https://example.com/recording/example"
+    assert find_recording_link([url], f"Validation recording: {url}", None) == url
+
+
 def test_parse_member_table_username_first_and_name_first() -> None:
     username_first = (
         "GitHub username Real name University email\n"
