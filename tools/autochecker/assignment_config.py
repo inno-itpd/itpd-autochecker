@@ -119,6 +119,33 @@ ASSIGNMENT_CONFIG: dict[str, dict] = {
         },
         "semantic_dimensions": ["Setup", "Tests", "Plan", "Customer loop", "Publication"],
     },
+    "A6": {
+        "week": 6,
+        "course_commit": "312fb2f62fd3f8260efe47b8bec82bc8ba24248d",
+        "primary_index": "reports/week-06/README.md",
+        "week_window_start": "2026-10-30T00:00:00+03:00",
+        "issue_cutoff": "2026-11-08T23:59:59+03:00",
+        "segment_defs": {
+            1: {"name": "Sprint plan and milestones"},
+            2: {"name": "New stories and backlog refinement"},
+            3: {"name": "Analytics plan and metric tree"},
+            4: {"name": "Events and instrumentation"},
+            5: {"name": "Analytics backend and dashboards"},
+            6: {"name": "Observability plan and SLIs"},
+            7: {"name": "Observability backend and dashboards"},
+            8: {"name": "ADRs and container view"},
+            9: {"name": "Feature documentation"},
+            10: {"name": "Observability requirement and test"},
+            11: {"name": "Threshold review"},
+            12: {"name": "Week 5 action points and open questions"},
+            13: {"name": "Customer validation of the telemetry"},
+            14: {"name": "Redeploy and retest after same-week rework"},
+            15: {"name": "REL-06 release"},
+            16: {"name": "Sprint close and retrospective"},
+            17: {"name": "Week report and submission"},
+            18: {"name": "AI usage and honesty"},
+        },
+    },
 }
 
 FEEDBACK_ROOT = "itpd-assignments-feedback"
