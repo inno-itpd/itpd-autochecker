@@ -151,7 +151,7 @@ When the user asks to review or re-review teams:
 `agents/semantic-agent.md` is the executable prompt for one semantic pass.
 It uses the same `{ASSIGNMENT_DIR}`, `{TEAM_DIR}`, and `{TEAM_WORK}` placeholders.
 
-1. Run it only for an assignment that defines `semantic_dimensions` in `tools/autochecker/assignment_config.py`, currently A5.
+1. Run it only for an assignment that defines `semantic_dimensions` in `tools/autochecker/assignment_config.py`, currently A5 and A6.
    The team's `agent-compliance-feedback.md` must be final and must pass `scripts/check_compliance_feedback.py`.
 2. Read `agents/semantic-agent.md`.
 3. Launch one semantic agent per team, passing the assignment directory, the exact team directory name, and the absolute work-directory path.

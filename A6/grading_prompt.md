@@ -1168,6 +1168,80 @@ Recommended items and the What Good Looks Like points are quality notes for the 
 - A claim that cannot be checked either way is a caveat in `**Evidence:**`, not a shortfall; the shortfall is a claim the repository contradicts.
 - The older weeks' AI usage files are not re-graded; this segment judges the Week 6 file and its consistency with this week's submission.
 
+## Semantic feedback
+
+`agent-semantic-feedback.md` is the optional companion file defined in `docs/semantic-feedback-format.md`.
+The semantic agent writes it after the compliance report is final, when the operator runs the semantic pass.
+The compliance agent does not write the companion file.
+The semantic agent starts from the report as a map, verifies each claim its verdict rests on against the snapshot at the saved SHA or the saved evidence, and never edits `agent-compliance-feedback.md`.
+It never changes a status, an `Evidence gaps` flag, `Manual review required`, the overall assessment, or the grade; a segment may be `met` while its dimension is `thin`.
+
+The five dimensions, in this order:
+
+| Dimension | Segments | The question |
+|-----------|----------|--------------|
+| Measurement | S3, S4, S5 | Could someone who was not in the room answer how the product is being used, and would they know what the number does not measure? |
+| Observability | S6, S7, S10 | Would an operator who did not build it detect the failure the requirement names, and diagnose it from the signal the dashboard shows? |
+| Plan | S1, S2, S11, S16 | Is the sprint a forecast the team could steer by, and does the threshold review move the bar only on evidence and a decision? |
+| Customer loop | S12, S13, S14 | Did the review change what the team will build, and did the change reach the tested deploy and the release? |
+| Publication | S8, S9, S15, S17, S18 | Can a reader who trusts the public record reproduce what production runs, and trace a capability to the decision that made it? |
+
+### Measurement
+
+Ask whether a reader who was not in the room could answer how the product is being used, and whether the page says what the number leaves out.
+Read the focus metric and the `VP-nn` it expresses, the tree's levels and the counter-metric's nesting, the seven North Star answers and the one rejected vanity metric, the event table as the registry, the `source` set and its `smoke` value, the two environment scopes, the two sanitized screenshots, the queries and their windows, the retention and the enable-and-disable switch, and the analytics `FR-nnn`.
+
+`thin` when the tree is complete but the counter-metric restates the focus metric, when the events fire but no field lets a reader follow the core task from start to outcome, when the chart runs a query whose window exceeds the retention or drops the `source` filter, when the smoke event is invisible in the dashboard's event list, or when the page documents the tool rather than what the number answers.
+`not yet adequate` when no chart in either environment shows a metric from the tree, when the code and the event table disagree about what fires, when the focus metric restates the value proposition or reads test traffic as a value, or when the two environment scopes share one credential.
+
+### Observability
+
+Ask whether an operator who did not build it could detect the failure the requirement names, and diagnose it from the signal the dashboard shows.
+Read the three signal types and which ones the product emits, each `SLI`'s status, definition, unit, window, source, and query, the per-request log line's four fields, the staging failure series with its P95, the two scopes and their credentials, the observability `FR-nnn` and `QR-nn`, the `QRT-01` procedure and its `Pass when:` line, the script it names, its testing-plan row, and the evidence the row links.
+
+`thin` when the chart runs the right query but the failure series is never joined to the request that failed, when the log line carries the fields while the query's window exceeds the retention, when the `SLI` is `Active` on a signal the diagnosis does not read, when the test passes only against traffic the team seeded, or when the production chart is not the query the staging chart proved.
+`not yet adequate` when the product emits no signal the requirement reads, when the requirement's test does not exist or was never run against staging, or when the backend, the dashboards, or the query cannot be reached and no screenshot or runbook backs them.
+
+### Plan
+
+Ask whether the sprint was a forecast the team could steer by, and whether the threshold review moves the bar only on evidence and a decision.
+Read the sprint goal and the telemetry increment it names, the planned velocity and the pull requests that date it, the milestone's stories at planning time, the two refined stories and their `FR-nnn` and `ADR-nnn` pairs, the actual velocity and the retrospective's causes and carried actions, the threshold table's rows, its status sentences, and the `DEC-nnn` behind every changed measure.
+
+`thin` when the plan was written after the sprint started, when the planned and actual figures are the same while the stories are still open, when the goal is a task list or a milestone title, when the review's rows copy each measure instead of testing it against new data, or when the retrospective records no cause.
+`not yet adequate` when the plan carries no goal or no computed figure, when the sprint close contradicts the plan's own numbers, or when the measure moved without a customer decision.
+
+### Customer loop
+
+Ask whether the review changed what the team will build next, and whether the change reached the tested deploy and the release.
+Read the Week 5 action points and open questions with their outcomes, the script's first commit against the meeting date, the four dashboards and the QRT results the meeting showed, each story's verdict and its `DEC-nnn`, the action points' due week, the rework and redeploy records, and the release commit against the commit the staging test ran.
+
+`thin` when the decisions are shared rather than per story, when no decision changes an acceptance criterion or the next sprint's scope, when the script was written after the meeting, when the rework is recorded but not redeployed, or when an action point's due date falls inside the week under review.
+`not yet adequate` when the meeting did not show the deployed product or its telemetry, when the recorded decisions cannot be traced to any change, or when the release names a commit the staging test never tested.
+
+### Publication
+
+Ask whether a reader who trusts the public record could reproduce what production runs, and where a capability's facts live.
+Read the two `ADR-nnn` records and their addresses and containers, the container view with both backends outside the boundary, the features page's two entries and their links, `CHANGELOG.md`'s `[Unreleased]` and released section, the tag and its protection, the release body and its `**Checked QRs:**` line, the report's coverage table, embedded screenshots, CI run links, and contribution table, `ai-usage.md` and its coverage row, and the PDF's permalink.
+
+`thin` when the record is complete but the evidence links stop at index pages, when the report's claims run ahead of the artifacts, when the features page lists artifacts rather than capabilities, when the release body is the changelog copied, when the AI usage file names a tool the repository never shows, or when a coverage row links a file that does not carry the row's claim.
+`not yet adequate` when the release does not name the production commit, when the tag is unprotected or off `main`, when the public record contradicts the repository, or when the report the snapshot merges is not the one the PDF permalinks.
+
+### Guardrails
+
+- Ground every claim in an artifact you verified at the saved SHA or a live URL; the compliance report is a map, not evidence.
+- Verify the claims your judgement depends on, not every report claim, and do not re-audit the segments.
+- Prefer `evidence.sqlite` and the saved dumps; issue, tag, and milestone facts are live, so at most three live `gh` lookups for this file, and record each one.
+- Judge the telemetry from the sanitized screenshots, the runbook, and the weekly report; the dashboards sit on the university network, so a failed single access check is not a semantic finding.
+- Write `work/<team_dir>/semantic-claims.json` and mark each claim `supported`, `contradicted`, or `unverifiable`; only supported claims feed the semantic file.
+- Do not copy an address, a credential, a recording link, a real name, or an email address from the PDF into the semantic file.
+- Do not use status vocabulary (`met`, `partial`, `missing`, `unverified`), a grade, a score, a rank, or a cross-team comparison.
+- Do not repeat the `## Main issues to fix` list; say what the artifact can and cannot do yet, and what breaks first.
+- A `partial` or `missing` segment does not make its dimension `not yet adequate` by itself; judge the artifact, not the count.
+- If a judgement contradicts a status, record the conflict in the ledger and return it; the status wins until the operator regrades the report.
+  Never edit the report to fit the judgement, and never soften the judgement to fit the status.
+- Omit a dimension only when all of its segments are `unverified`; keep at least three.
+  If fewer than three dimensions remain, do not write the file.
+
 ## Assignment-specific procedure deltas
 
 1. Take the team set from the directory names under `itpd-assignments-feedback/A6/submissions/`.

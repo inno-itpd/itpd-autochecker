@@ -38,7 +38,7 @@ The semantic agent must not re-fetch the snapshot or collect new dumps. It reads
 
 1. Run the compliance agent for each team. Its report must pass `scripts/check_compliance_feedback.py` and the privacy scan before semantic work starts.
 2. Run the semantic agent for that team. It writes `agent-semantic-feedback.md` next to `agent-compliance-feedback.md` and validates it with `scripts/check_semantic_feedback.py`.
-3. Run semantic passes only for assignments that define `semantic_dimensions`, currently A5.
+3. Run semantic passes only for assignments that define `semantic_dimensions`, currently A5 and A6.
    - `semantic review` creates the file and refuses an existing companion; use `semantic regrade` for that case.
    - `semantic regrade` re-verifies an existing file after a report or artifact change.
    - `semantic inspect` reports without writing.

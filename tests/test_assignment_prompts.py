@@ -10,6 +10,8 @@ from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG, issue_cutoff_
 
 SEGMENT_LINE = re.compile(r"^- S(\d+): (.+)$", re.MULTILINE)
 STATUS_HEADING = re.compile(r"^### S(\d+) — (.+)$", re.MULTILINE)
+SEMANTIC_SECTION = "## Semantic feedback\n"
+DIMENSION_HEADING = re.compile(r"^### (.+)$", re.MULTILINE)
 
 A3_SPRINT_HARD_DEADLINES = {
     "SPRINT-03": "2026-10-17",
@@ -91,6 +93,20 @@ def test_prompt_segments_match_config(assignment: str) -> None:
     assert headings == expected
     assert len(headings) == len(expected)
     assert len(SEGMENT_LINE.findall(params)) == len(expected)
+
+
+@pytest.mark.parametrize("assignment", sorted(ASSIGNMENT_CONFIG))
+def test_semantic_dimensions_match_the_prompt_section(assignment: str) -> None:
+    text = (ROOT / assignment / "grading_prompt.md").read_text(encoding="utf-8")
+    configured = list(ASSIGNMENT_CONFIG[assignment].get("semantic_dimensions", []))
+    if SEMANTIC_SECTION not in text:
+        assert configured == [], f"{assignment} configures semantic_dimensions but its prompt has no semantic section"
+        return
+    assert configured, f"{assignment} has a semantic section but no semantic_dimensions"
+    section = text.split(SEMANTIC_SECTION, 1)[1].split("\n## ", 1)[0]
+    headings = [name.strip() for name in DIMENSION_HEADING.findall(section)]
+    assert headings[-1] == "Guardrails", headings
+    assert headings[:-1] == configured
 
 
 @pytest.mark.parametrize("assignment", sorted(ASSIGNMENT_CONFIG))

@@ -40,6 +40,7 @@ Every file has these parts, in this order:
 5. `## Where to start`
 
 The A5 dimensions are `Setup`, `Tests`, `Plan`, `Customer loop`, and `Publication`, defined in `A5/grading_prompt.md`.
+The A6 dimensions are `Measurement`, `Observability`, `Plan`, `Customer loop`, and `Publication`, defined in `A6/grading_prompt.md`: the last three keep A5's question, with `Plan` extended by the Week 6 threshold review, and `Measurement` and `Observability` ask the Week 6 telemetry question.
 Other assignments define their own dimensions in their own prompt; the schema is shared, the dimension list is not.
 
 ### Metadata
