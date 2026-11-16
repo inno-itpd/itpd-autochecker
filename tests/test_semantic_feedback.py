@@ -35,11 +35,30 @@ def _dimension(name: str, verdict: str, help_heading: str) -> str:
 """
 
 
+def _anchor(name: str) -> str:
+    return "#" + name.lower().replace(" ", "-")
+
+
+def _verdict_table(dimensions: tuple[str, ...], verdicts: dict[str, str]) -> str:
+    rows = "\n".join(
+        f"| [{name}]({_anchor(name)}) | {verdicts.get(name, 'thin')} |"
+        for name in dimensions
+    )
+    return f"""## Verdicts
+
+| Dimension | Verdict |
+|-----------|----------|
+{rows}"""
+
+
 def build_semantic(
     *,
     dimensions: tuple[str, ...] = DIMENSIONS,
     verdicts: dict[str, str] | None = None,
+    table_dimensions: tuple[str, ...] | None = None,
+    table_verdicts: dict[str, str] | None = None,
     help_headings: dict[str, str] | None = None,
+    with_verdicts: bool = True,
     where_to_start: tuple[str, ...] = ("Add the check.", "Record the verdict.", "Plan the sprint."),
     team: int = 5,
     repository: str = REPOSITORY,
@@ -49,6 +68,8 @@ def build_semantic(
 ) -> str:
     verdicts = verdicts or {}
     help_headings = help_headings or {}
+    table_dimensions = dimensions if table_dimensions is None else table_dimensions
+    table_verdicts = verdicts if table_verdicts is None else table_verdicts
     body = "\n".join(
         _dimension(
             name,
@@ -58,6 +79,7 @@ def build_semantic(
         for name in dimensions
     )
     bullets = "\n".join(f"- {bullet}" for bullet in where_to_start)
+    verdicts_section = f"{_verdict_table(table_dimensions, table_verdicts)}\n\n" if with_verdicts else ""
     return f"""# Assignment {title_assignment} Semantic Feedback
 
 - Team: {team}
@@ -69,7 +91,7 @@ def build_semantic(
 
 {how_to_read}
 
-{body}
+{verdicts_section}{body}
 ## Where to start
 
 {bullets}
@@ -101,6 +123,56 @@ def errors_for(text: str, report_text: str | None = None) -> list[str]:
 
 def test_valid_file_passes() -> None:
     assert errors_for(build_semantic()) == []
+
+
+def test_missing_verdicts_section_fails() -> None:
+    errors = errors_for(build_semantic(with_verdicts=False))
+    assert errors == ["the section after `## How to read this` must be `## Verdicts`"]
+
+
+def test_verdict_table_order_must_match_sections() -> None:
+    text = build_semantic(table_dimensions=("Tests", "Setup", "Plan", "Customer loop", "Publication"))
+    assert any("must follow the dimension sections' order" in error for error in errors_for(text))
+
+
+def test_verdict_table_verdict_must_match_section() -> None:
+    text = build_semantic(table_verdicts={"Tests": "adequate"})
+    assert any(
+        "`## Tests` has verdict `thin` but `## Verdicts` has `adequate`" in error
+        for error in errors_for(text)
+    )
+
+
+def test_verdict_table_missing_row_fails() -> None:
+    text = build_semantic(table_dimensions=("Setup", "Tests", "Plan", "Customer loop"))
+    assert any("is missing a row for `Publication`" in error for error in errors_for(text))
+
+
+def test_verdict_table_duplicate_row_fails() -> None:
+    text = build_semantic(table_dimensions=("Setup", "Setup", "Tests", "Plan", "Customer loop"))
+    assert any("lists `Setup` twice" in error for error in errors_for(text))
+
+
+def test_verdict_table_unknown_dimension_fails() -> None:
+    text = build_semantic(table_dimensions=(*DIMENSIONS, "Hiring"))
+    assert any(
+        "has a row for `Hiring`, which has no dimension section" in error for error in errors_for(text)
+    )
+
+
+def test_verdict_table_anchor_must_match_the_heading() -> None:
+    text = build_semantic().replace("| [Setup](#setup) |", "| [Setup](#setup-guide) |")
+    assert any("links `Setup` as `#setup-guide`, expected `#setup`" in error for error in errors_for(text))
+
+
+def test_verdict_table_invalid_verdict_fails() -> None:
+    text = build_semantic(table_verdicts={"Tests": "ok"})
+    assert any("`## Verdicts` has verdict `ok` for `Tests`" in error for error in errors_for(text))
+
+
+def test_verdict_table_malformed_row_fails() -> None:
+    text = build_semantic().replace("| [Setup](#setup) | thin |", "| Setup | thin |")
+    assert any("has a malformed row" in error for error in errors_for(text))
 
 
 def test_adequate_dimension_uses_the_stronger_block() -> None:

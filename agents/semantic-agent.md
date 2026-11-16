@@ -167,8 +167,12 @@ Follow `docs/semantic-feedback-format.md` exactly:
 - `# Assignment <N> Semantic Feedback`
 - `- Team:`, `- Repository:`, `- Snapshot:`, `- Compliance report:` bullets
 - `## How to read this`
+- `## Verdicts`: a `| Dimension | Verdict |` table, one linked row per dimension section, in the same order, repeating each section's `**Verdict:**`
 - one `##` section per dimension, in the assignment prompt's order
 - `## Where to start`
+
+The `## Verdicts` table is not a second judgement place: it summarizes the sections, and the checker rejects a row whose verdict differs from its section or a table whose rows are missing, extra, or out of order.
+Every `##` dimension heading's anchor in the table is its GitHub heading anchor, for example `[Customer loop](#customer-loop)`.
 
 Every `**Evidence:**` bullet links to a `supported` claim's `link`, and the prose rests on those claims.
 Omit a dimension only when all of its segments are `unverified`; keep at least three.

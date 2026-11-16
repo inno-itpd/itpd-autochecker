@@ -3,9 +3,9 @@
 The format lives in `docs/semantic-feedback-format.md`.
 This module parses one `agent-semantic-feedback.md` and checks its schema; it
 does not judge the prose.  The checks are limited to what a script can settle:
-the metadata, the dimension order, the verdict vocabulary, the required blocks,
-the evidence links and their snapshot SHA, and the forbidden status and mentor
-vocabulary.
+the metadata, the verdict table and its agreement with the dimension sections,
+the dimension order, the verdict vocabulary, the required blocks, the evidence
+links and their snapshot SHA, and the forbidden status and mentor vocabulary.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from pathlib import Path
 import re
 
 from tools.autochecker.assignment_config import ASSIGNMENT_CONFIG
+from tools.autochecker.snapshot_links import github_slug
 
 VERDICTS = ("adequate", "thin", "not yet adequate")
 HELP_HEADINGS = {
@@ -30,6 +31,11 @@ REPOSITORY_PATTERN = re.compile(r"^- Repository: `(https://github\.com/[^/`\s]+/
 SNAPSHOT_PATTERN = re.compile(r"^- Snapshot: `([0-9a-f]{40})`$")
 COMPLIANCE_REPORT_PATTERN = re.compile(r"^- Compliance report: \[`agent-compliance-feedback\.md`\]\(\./agent-compliance-feedback\.md\)$")
 VERDICT_PATTERN = re.compile(r"^\*\*Verdict:\*\*\s*(.*)$")
+VERDICTS_HEADER_PATTERN = re.compile(r"^\|\s*Dimension\s*\|\s*Verdict\s*\|$")
+VERDICTS_SEPARATOR_PATTERN = re.compile(r"^\|(?:\s*:?-{3,}:?\s*\|){2}$")
+VERDICT_ROW_PATTERN = re.compile(
+    r"^\|\s*\[(?P<name>[^\]]+)\]\((?P<anchor>#[^)\s]+)\)\s*\|\s*(?P<verdict>[^|]+?)\s*\|$"
+)
 BLOCK_PATTERNS = {
     "What works": re.compile(r"^\*\*What works\.\*\*\s*(.*)$"),
     "What breaks first": re.compile(r"^\*\*What breaks first\.\*\*\s*(.*)$"),
@@ -55,6 +61,7 @@ REPORT_SNAPSHOT_PATTERN = re.compile(r"^- Snapshot reviewed: `([0-9a-f]{40})`$",
 REPORT_TEAM_PATTERN = re.compile(r"^- Team: (\d+)$", re.MULTILINE)
 
 HEADING_HOW_TO_READ = "How to read this"
+HEADING_VERDICTS = "Verdicts"
 HEADING_WHERE_TO_START = "Where to start"
 
 MIN_DIMENSIONS = 3
@@ -81,6 +88,13 @@ class Dimension:
         return " ".join(self.blocks.get(heading, [])).strip()
 
 
+@dataclass(frozen=True)
+class VerdictRow:
+    name: str
+    anchor: str
+    verdict: str
+
+
 @dataclass
 class SemanticFeedback:
     assignment: str
@@ -88,6 +102,7 @@ class SemanticFeedback:
     repository: str
     snapshot: str
     how_to_read: str
+    verdicts: list[VerdictRow]
     dimensions: list[Dimension]
     where_to_start: list[str]
 
@@ -174,6 +189,38 @@ def _dimension(name: str, body: list[str]) -> Dimension:
     return dimension
 
 
+def _verdict_rows(body: list[str]) -> list[VerdictRow]:
+    """Read the `## Verdicts` table; its agreement with the sections is checked later."""
+    lines = [line.strip() for line in body if line.strip()]
+    if len(lines) < 2:
+        raise SemanticFeedbackError(
+            f"`## {HEADING_VERDICTS}` must contain a `| Dimension | Verdict |` table "
+            "with one row per dimension section"
+        )
+    if not VERDICTS_HEADER_PATTERN.fullmatch(lines[0]):
+        raise SemanticFeedbackError(f"`## {HEADING_VERDICTS}` must start with the header `| Dimension | Verdict |`")
+    if not VERDICTS_SEPARATOR_PATTERN.fullmatch(lines[1]):
+        raise SemanticFeedbackError(
+            f"`## {HEADING_VERDICTS}` needs a two-column separator row such as `| --- | --- |`"
+        )
+    rows: list[VerdictRow] = []
+    for line in lines[2:]:
+        match = VERDICT_ROW_PATTERN.fullmatch(line)
+        if match is None:
+            raise SemanticFeedbackError(
+                f"`## {HEADING_VERDICTS}` has a malformed row `{line}`; "
+                "expected `| [Dimension](#anchor) | verdict |`"
+            )
+        rows.append(
+            VerdictRow(
+                name=match.group("name").strip(),
+                anchor=match.group("anchor"),
+                verdict=match.group("verdict").strip(),
+            )
+        )
+    return rows
+
+
 def parse_semantic_feedback(text: str, assignment: str) -> SemanticFeedback:
     """Parse one semantic feedback file, raising on a structural error."""
     title, preamble, sections = _split_sections(text)
@@ -186,11 +233,16 @@ def parse_semantic_feedback(text: str, assignment: str) -> SemanticFeedback:
 
     if not sections or sections[0][0] != HEADING_HOW_TO_READ:
         raise SemanticFeedbackError(f"the first section must be `## {HEADING_HOW_TO_READ}`")
+    if len(sections) < 3 or sections[1][0] != HEADING_VERDICTS:
+        raise SemanticFeedbackError(
+            f"the section after `## {HEADING_HOW_TO_READ}` must be `## {HEADING_VERDICTS}`"
+        )
     if sections[-1][0] != HEADING_WHERE_TO_START:
         raise SemanticFeedbackError(f"the last section must be `## {HEADING_WHERE_TO_START}`")
 
     how_to_read = " ".join(line.strip() for line in sections[0][1] if line.strip())
-    dimensions = [_dimension(name, body) for name, body in sections[1:-1]]
+    verdicts = _verdict_rows(sections[1][1])
+    dimensions = [_dimension(name, body) for name, body in sections[2:-1]]
     where_body = sections[-1][1]
     nested = [line for line in where_body if NESTED_BULLET_PATTERN.match(line)]
     if nested:
@@ -203,6 +255,7 @@ def parse_semantic_feedback(text: str, assignment: str) -> SemanticFeedback:
         repository=repository,
         snapshot=snapshot,
         how_to_read=how_to_read,
+        verdicts=verdicts,
         dimensions=dimensions,
         where_to_start=where_to_start,
     )
@@ -265,6 +318,53 @@ def _validate_dimension(dimension: Dimension, expected_names: list[str]) -> list
     return errors
 
 
+def _validate_verdicts(feedback: SemanticFeedback) -> list[str]:
+    """Check the summary table against the dimension sections it links to."""
+    errors: list[str] = []
+    dimensions = feedback.dimensions
+    names = [dimension.name for dimension in dimensions]
+    rows = feedback.verdicts
+    row_names = [row.name for row in rows]
+
+    for row in rows:
+        expected_anchor = "#" + github_slug(row.name)
+        if row.anchor != expected_anchor:
+            errors.append(
+                f"`## {HEADING_VERDICTS}` links `{row.name}` as `{row.anchor}`, expected `{expected_anchor}`"
+            )
+
+    duplicated = sorted({name for name in row_names if row_names.count(name) > 1})
+    for name in duplicated:
+        errors.append(f"`## {HEADING_VERDICTS}` lists `{name}` twice")
+
+    missing = [name for name in names if name not in row_names]
+    for name in missing:
+        errors.append(f"`## {HEADING_VERDICTS}` is missing a row for `{name}`")
+
+    unknown = sorted({name for name in row_names if name not in names})
+    for name in unknown:
+        errors.append(f"`## {HEADING_VERDICTS}` has a row for `{name}`, which has no dimension section")
+
+    if not (duplicated or missing or unknown) and row_names != names:
+        errors.append(f"`## {HEADING_VERDICTS}` rows must follow the dimension sections' order")
+
+    dimensions_by_name = {dimension.name: dimension for dimension in dimensions}
+    for row in rows:
+        dimension = dimensions_by_name.get(row.name)
+        if dimension is None:
+            continue
+        if row.verdict not in VERDICTS:
+            errors.append(
+                f"`## {HEADING_VERDICTS}` has verdict `{row.verdict}` for `{row.name}`; "
+                f"expected one of: {', '.join(VERDICTS)}"
+            )
+        elif dimension.verdict in VERDICTS and row.verdict != dimension.verdict:
+            errors.append(
+                f"`## {row.name}` has verdict `{dimension.verdict}` but `## {HEADING_VERDICTS}` has `{row.verdict}`"
+            )
+    return errors
+
+
 def validate_semantic_feedback(
     text: str,
     assignment: str,
@@ -292,6 +392,8 @@ def validate_semantic_feedback(
     order = [expected_names.index(name) for name in names if name in expected_names]
     if order != sorted(order):
         errors.append("dimension sections must follow the assignment prompt's order")
+
+    errors.extend(_validate_verdicts(feedback))
 
     if not MIN_WHERE_TO_START <= len(feedback.where_to_start) <= MAX_WHERE_TO_START:
         errors.append(

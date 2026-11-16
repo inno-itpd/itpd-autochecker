@@ -36,8 +36,9 @@ Every file has these parts, in this order:
 1. `# Assignment <N> Semantic Feedback`
 2. Four metadata bullets: `- Team:`, `- Repository:`, `- Snapshot:`, `- Compliance report:`
 3. `## How to read this`
-4. One `##` section per dimension, in the assignment's order
-5. `## Where to start`
+4. `## Verdicts`
+5. One `##` section per dimension, in the assignment's order
+6. `## Where to start`
 
 The A5 dimensions are `Setup`, `Tests`, `Plan`, `Customer loop`, and `Publication`, defined in `A5/grading_prompt.md`.
 The A6 dimensions are `Measurement`, `Observability`, `Plan`, `Customer loop`, and `Publication`, defined in `A6/grading_prompt.md`: the last three keep A5's question, with `Plan` extended by the Week 6 threshold review, and `Measurement` and `Observability` ask the Week 6 telemetry question.
@@ -61,6 +62,31 @@ The compliance report link is relative, because the two files share a directory.
 One short paragraph: what this file judges, that the compliance report holds the statuses and the evidence, and that nothing here changes them.
 Do not repeat the counts or the shortfall list.
 If a dimension is omitted, say why here.
+
+### Verdicts
+
+The table is the at-a-glance view of the file: one row per dimension section, in the same order, each row linking to the section below and repeating its verdict.
+
+```markdown
+## Verdicts
+
+| Dimension | Verdict |
+|-----------|---------|
+| [Setup](#setup) | thin |
+| [Tests](#tests) | thin |
+| [Plan](#plan) | not yet adequate |
+| [Customer loop](#customer-loop) | thin |
+| [Publication](#publication) | adequate |
+```
+
+Rules:
+
+- Include only the dimensions the file carries: an omitted dimension has no row.
+- The row label is `[<dimension name>](#<heading anchor>)`, the anchor the dimension heading renders.
+- The `Verdict` cell repeats that section's `**Verdict:**` exactly.
+  A table that disagrees with a section, names a dimension twice, or adds a row for a missing section fails validation.
+- The table has no prose and no extra columns.
+  Its job is the shape of the file, not a second place for the judgement.
 
 ### Dimension section
 
@@ -145,7 +171,7 @@ The operator then reruns the semantic agent in `semantic regrade` mode.
 uv run python scripts/check_semantic_feedback.py A5 "itpd-assignments-feedback/A5/feedback/<team_dir>/agent-semantic-feedback.md" --ledger "itpd-assignments-feedback/A5/work/<team_dir>/semantic-claims.json"
 ```
 
-The checker enforces the metadata, the dimension order, the verdict and block schema, the evidence links, the snapshot SHA in blob links, and the forbidden vocabulary, and it runs `markdownlint-cli2`.
+The checker enforces the metadata, the verdict table and its agreement with the dimension sections, the dimension order, the verdict and block schema, the evidence links, the snapshot SHA in blob links, and the forbidden vocabulary, and it runs `markdownlint-cli2`.
 It does not judge the prose.
 With `--ledger`, it compares the ledger's recorded report hash with the sibling report; without the flag, or after the work directory is cleaned, the ledger is only the semantic agent's audit trail.
 
