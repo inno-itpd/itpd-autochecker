@@ -38,7 +38,7 @@ These `**Since: W4**` rules do not apply: product-code CI, the Definition of Don
 
 ## Assignment parameters
 
-- Report title: `# Assignment 3 Feedback Report`
+- Report title: `# Assignment 3 Compliance Feedback`
 - Week: `W3`
 - Course materials: `A3/itpd` at `23b22a6d637c0ac9c6a3350b377ae333cb42a082`
 - Primary index artifact: `reports/week-03/README.md` at the snapshot, as named in Assignment Report In The Repository and in Moodle item 3 of `assignment-3.md`.

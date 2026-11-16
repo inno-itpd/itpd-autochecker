@@ -284,7 +284,7 @@ def test_semantic_prompt_commands_accept_a_team_directory_with_spaces_and_parent
     (work / "inventory.md").write_text("# Inventory\n", encoding="utf-8")
     (work / "semantic-claims.json").write_text("{}\n", encoding="utf-8")
     (work / "pdf-info.json").write_text("{}\n", encoding="utf-8")
-    (feedback / "agent-compliance-feedback.md").write_text("# Assignment 3 Feedback Report\n", encoding="utf-8")
+    (feedback / "agent-compliance-feedback.md").write_text("# Assignment 3 Compliance Feedback\n", encoding="utf-8")
     (feedback / "agent-semantic-feedback.md").write_text(
         "# Assignment 3 Semantic Feedback\n", encoding="utf-8"
     )

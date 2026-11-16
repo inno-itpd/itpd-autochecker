@@ -24,7 +24,7 @@ Files under `A1/itpd/` override the current course repository, even where the cu
 
 ## Assignment parameters
 
-- Report title: `# Assignment 1 Feedback Report`
+- Report title: `# Assignment 1 Compliance Feedback`
 - Week: `W1`
 - Apply only requirements marked `**Since: W1**` in the requirements files, plus the assignment text.
 - Primary index: `reports/week-01/README.md` at the authoritative snapshot.

@@ -58,7 +58,7 @@ NEXT_H2 = re.compile(r"^##\s", re.MULTILINE)
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 REPOSITORY_URL_PATTERN = re.compile(r"^https://github\.com/[^/`\s]+/[^/`\s]+$")
 REPOSITORY_SLUG_PATTERN = re.compile(r"^[^/`\s]+/[^/`\s]+$")
-PREAMBLE_TITLE_LINE = re.compile(r"^# Assignment \d+ Feedback Report$")
+PREAMBLE_TITLE_LINE = re.compile(r"^# Assignment \d+ Compliance Feedback$")
 PREAMBLE_TEAM_LINE = re.compile(r"^- Team: (\d+)$")
 PREAMBLE_REPOSITORY_LINE = re.compile(
     r"^- Repository reviewed: (`(https://github\.com/[^/`\s]+/[^/`\s]+)`|none)$"
@@ -345,7 +345,7 @@ def parse_preamble(preamble: str) -> ReportMetadata:
     if len(lines) < 5:
         raise ValueError("Report preamble must include the title and four repository metadata bullets")
     if not PREAMBLE_TITLE_LINE.fullmatch(lines[0]):
-        raise ValueError("Report preamble must start with `# Assignment <N> Feedback Report`")
+        raise ValueError("Report preamble must start with `# Assignment <N> Compliance Feedback`")
 
     team_match = PREAMBLE_TEAM_LINE.fullmatch(lines[1])
     if not team_match:

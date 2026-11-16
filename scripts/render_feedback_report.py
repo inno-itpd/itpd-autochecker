@@ -184,7 +184,7 @@ def _render_preamble(assignment: str, payload: dict[str, object]) -> str:
     return render_preamble(
         assignment,
         ReportMetadata(
-            title=f"# Assignment {assignment[1:]} Feedback Report",
+            title=f"# Assignment {assignment[1:]} Compliance Feedback",
             team=team,
             repository=repository,
             snapshot=snapshot,

@@ -39,7 +39,7 @@ Rules:
 
 Every feedback report must contain these sections in this order:
 
-1. `# Assignment <N> Feedback Report`
+1. `# Assignment <N> Compliance Feedback`
 2. repository metadata bullets
 3. `## Overall assessment`
 4. `## Segments`

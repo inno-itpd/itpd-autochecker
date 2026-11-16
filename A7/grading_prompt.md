@@ -41,7 +41,7 @@ No rule in the pinned materials carries a `**Since: W8**` marker that applies to
 
 ## Assignment parameters
 
-- Report title: `# Assignment 7 Feedback Report`
+- Report title: `# Assignment 7 Compliance Feedback`
 - Week: `W7`
 - Course materials: `A7/itpd` at `d7bcb1b24c142df8377da11ac5a1b4854e317fba`
 - Primary index artifact: `reports/week-07/README.md` at the snapshot, as named in Assignment Report In The Repository and in Moodle item 3 of `assignment-7.md`.

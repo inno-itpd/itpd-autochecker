@@ -49,7 +49,7 @@ No rule in the pinned materials carries a `**Since: W6**` or later marker, so no
 
 ## Assignment parameters
 
-- Report title: `# Assignment 5 Feedback Report`
+- Report title: `# Assignment 5 Compliance Feedback`
 - Week: `W5`
 - Course materials: `A5/itpd` at `0173b82dfb82e515457a1074970c116760490c79`
 - Primary index artifact: `reports/week-05/README.md` at the snapshot, as named in Assignment Report In The Repository and in Moodle item 3 of `assignment-5.md`.

@@ -74,7 +74,7 @@ def _validate_preamble(assignment: str, preamble: str, primary_index: str) -> li
     if len(lines) < 5:
         return ["Preamble must include the title and four repository metadata bullets"]
 
-    expected_title = f"# Assignment {assignment[1:]} Feedback Report"
+    expected_title = f"# Assignment {assignment[1:]} Compliance Feedback"
     if lines[0] != expected_title:
         errors.append(f"Title must be `{expected_title}`")
 

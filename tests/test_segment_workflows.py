@@ -98,7 +98,7 @@ def test_patch_resolves_metadata_and_removes_notes(repository: str) -> None:
         },
     )
     assert "- Team: 3" in rendered
-    assert rendered.startswith("# Assignment 1 Feedback Report\n")
+    assert rendered.startswith("# Assignment 1 Compliance Feedback\n")
     assert f"- Repository reviewed: `{REPO}`" in rendered
     assert f"- Snapshot reviewed: `{SHA}`" in rendered
     assert f"- Primary index reviewed: [`{A1_INDEX}`]({REPO}/blob/{SHA}/{A1_INDEX})" in rendered

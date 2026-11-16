@@ -82,7 +82,7 @@ def build_report(
     repository: str = REPOSITORY,
     snapshot: str = SNAPSHOT,
 ) -> str:
-    return f"""# Assignment 5 Feedback Report
+    return f"""# Assignment 5 Compliance Feedback
 
 - Team: {team}
 - Repository reviewed: `{repository}`
@@ -161,7 +161,7 @@ def test_metadata_mismatch_with_the_report_fails() -> None:
 
 
 def test_missing_report_preamble_fails() -> None:
-    errors = validate_semantic_feedback(build_semantic(), "A5", report_text="# Assignment 5 Feedback Report\n")
+    errors = validate_semantic_feedback(build_semantic(), "A5", report_text="# Assignment 5 Compliance Feedback\n")
     assert any("does not carry a readable" in error for error in errors)
 
 

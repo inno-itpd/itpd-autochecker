@@ -36,7 +36,7 @@ These `**Since: W3**` rules do not apply: root `README.md` setup instructions, S
 
 ## Assignment parameters
 
-- Report title: `# Assignment 2 Feedback Report`
+- Report title: `# Assignment 2 Compliance Feedback`
 - Week: `W2`
 - Course materials: `A2/itpd` at `a949e8d7ff7f677ed3b97fa1b9bd9291b4a05bc1`
 - Primary index artifact: `reports/week-02/README.md` at the snapshot, as named in Assignment Report In The Repository and in Moodle item 3 of `assignment-2.md`.

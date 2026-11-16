@@ -16,7 +16,7 @@ def test_valid_reports_pass() -> None:
 
 
 def test_wrong_title() -> None:
-    text = build_report("A1").replace("Feedback Report", "Grading Report", 1)
+    text = build_report("A1").replace("Compliance Feedback", "Grading Report", 1)
     assert any("Title must be" in error for error in errors_for(text))
 
 

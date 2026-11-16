@@ -45,7 +45,7 @@ These `**Since: W5**` rules do not apply: product-code continuous integration, t
 
 ## Assignment parameters
 
-- Report title: `# Assignment 4 Feedback Report`
+- Report title: `# Assignment 4 Compliance Feedback`
 - Week: `W4`
 - Course materials: `A4/itpd` at `35c9294415d31c81a8598042b8b7419ea4481a46`
 - Primary index artifact: `reports/week-04/README.md` at the snapshot, as named in Assignment Report In The Repository and in Moodle item 3 of `assignment-4.md`.

@@ -18,7 +18,7 @@ def preamble(assignment: str, team: int = 3) -> str:
     index = ASSIGNMENT_CONFIG[assignment]["primary_index"]
     return "\n".join(
         [
-            f"# Assignment {assignment[1:]} Feedback Report",
+            f"# Assignment {assignment[1:]} Compliance Feedback",
             "",
             f"- Team: {team}",
             f"- Repository reviewed: `{REPO}`",
@@ -32,7 +32,7 @@ def unresolved_preamble(assignment: str, team: int = 3, notes: str = "The PDF pe
     """Build the preamble of a report whose snapshot could not be resolved."""
     return "\n".join(
         [
-            f"# Assignment {assignment[1:]} Feedback Report",
+            f"# Assignment {assignment[1:]} Compliance Feedback",
             "",
             f"- Team: {team}",
             "- Repository reviewed: none",
