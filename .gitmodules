@@ -22,3 +22,6 @@
 [submodule "A7/itpd"]
 	path = A7/itpd
 	url = https://github.com/inno-itpd/itpd
+[submodule "A8/itpd"]
+	path = A8/itpd
+	url = https://github.com/inno-itpd/itpd

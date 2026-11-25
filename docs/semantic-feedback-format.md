@@ -43,6 +43,7 @@ Every file has these parts, in this order:
 The A5 dimensions are `Setup`, `Tests`, `Plan`, `Customer loop`, and `Publication`, defined in `A5/grading_prompt.md`.
 The A6 dimensions are `Measurement`, `Observability`, `Plan`, `Customer loop`, and `Publication`, defined in `A6/grading_prompt.md`: the last three keep A5's question, with `Plan` extended by the Week 6 threshold review, and `Measurement` and `Observability` ask the Week 6 telemetry question.
 The A7 dimensions are `Design`, `Evidence`, `Plan`, `Customer loop`, and `Publication`, defined in `A7/grading_prompt.md`: `Design` asks whether a stranger could run the test and get comparable sessions, `Evidence` asks whether the team and the instructors could answer what the sessions showed and keep the raw data lawful and private, and the last three keep A5's question, with `Plan` extended by the Week 7 design sprint and its handoff.
+The A8 dimensions are `Results`, `Configuration`, `Plan`, `Customer loop`, and `Publication`, defined in `A8/grading_prompt.md`: `Results` asks whether the sessions support the conclusion the team draws and the verdict is earned, `Configuration` asks whether the plan is a real inventory and the evaluation judges the configuration by the goals it serves, and the last three keep A5's question, with `Plan` extended by the Week 8 run sprint and its release.
 Other assignments define their own dimensions in their own prompt; the schema is shared, the dimension list is not.
 
 ### Metadata
